@@ -1,0 +1,33 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<project version="4">
+  <component name="Encoding">
+    <file url="file://$PROJECT_DIR$/bootstrap/bootstrap-lobby/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/bootstrap/bootstrap-lobby/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/bootstrap/bootstrap-proxy/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/bootstrap/bootstrap-proxy/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/bootstrap/bootstrap-server/bootstrap-lobby/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/bootstrap/bootstrap-server/bootstrap-lobby/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/bootstrap/bootstrap-server/bootstrap-server-lobby/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/bootstrap/bootstrap-server/bootstrap-server-lobby/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/bootstrap/bootstrap-server/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/bootstrap/bootstrap-server/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/bootstrap/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/bootstrap/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/friends/friends-api/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/friends/friends-api/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/friends/friends-internal/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/friends/friends-internal/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/friends/friends-proxy/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/friends/friends-proxy/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/friends/friends-server/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/friends/friends-server/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/friends/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/friends/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/friends/test/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/friends/test/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/shared/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/shared/src/main/resources" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/main/java" charset="UTF-8" />
+    <file url="file://$PROJECT_DIR$/src/main/resources" charset="UTF-8" />
+  </component>
+</project>
