@@ -2,23 +2,23 @@ package com.zornus.friends.proxy.registrar;
 
 import com.velocitypowered.api.scheduler.Scheduler;
 import com.zornus.friends.proxy.FriendProxyConstants;
-import com.zornus.friends.proxy.operation.FriendExpirationOperation;
 import com.zornus.friends.proxy.storage.FriendStorage;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.time.Duration;
+import java.time.Instant;
 import java.util.concurrent.TimeUnit;
 
 /**
  * Registrar for friend scheduled operations.
  */
-public class FriendOperationRegistrar {
+public final class FriendOperationRegistrar {
     private static final Logger LOGGER = LoggerFactory.getLogger(FriendOperationRegistrar.class);
 
     private final @NonNull Object plugin;
-    private final @NonNull FriendExpirationOperation expirationOperation;
+    private final @NonNull FriendStorage storage;
 
     /**
      * Creates a new operation registrar.
@@ -28,7 +28,7 @@ public class FriendOperationRegistrar {
      */
     public FriendOperationRegistrar(@NonNull Object plugin, @NonNull FriendStorage storage) {
         this.plugin = plugin;
-        this.expirationOperation = new FriendExpirationOperation(storage);
+        this.storage = storage;
     }
 
     /**
@@ -54,17 +54,26 @@ public class FriendOperationRegistrar {
     private void registerExpiryOperation(@NonNull Scheduler scheduler) {
         Duration cleanupInterval = FriendProxyConstants.CLEANUP_TASK_INTERVAL;
 
-        scheduler.buildTask(plugin, expirationOperation)
+        scheduler.buildTask(plugin, this::runCleanup)
                 .repeat(cleanupInterval.toMillis(), TimeUnit.MILLISECONDS)
                 .schedule();
     }
 
     /**
-     * Gets the expiry operation.
-     *
-     * @return Expiry operation
+     * Runs the cleanup of expired friend requests, cooldowns, and last message senders.
      */
-    public @NonNull FriendExpirationOperation getExpirationOperation() {
-        return expirationOperation;
+    private void runCleanup() {
+        try {
+            LOGGER.debug("Starting cleanup of expired friend requests, cooldowns, and last message senders...");
+
+            Instant now = Instant.now();
+            storage.cleanupExpiredFriendRequests(now, FriendProxyConstants.REQUEST_EXPIRY_DURATION);
+            storage.cleanupExpiredFriendRequestCooldowns(now, FriendProxyConstants.COOLDOWN_EXPIRY_DURATION);
+            storage.cleanupExpiredLastMessageSenders(now, FriendProxyConstants.LAST_MESSAGE_SENDER_RETENTION);
+
+            LOGGER.debug("Completed cleanup of expired friend requests, cooldowns, and last message senders");
+        } catch (Exception exception) {
+            LOGGER.error("Error during friend cleanup operation: {}", exception.getMessage(), exception);
+        }
     }
 }

@@ -18,7 +18,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
-public class FriendNotificationService {
+public final class FriendNotificationService {
 
     private final @NonNull FriendStorage storage;
     private final @NonNull ProxyServer proxyServer;

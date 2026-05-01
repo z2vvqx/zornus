@@ -7,7 +7,9 @@ import com.zornus.friends.proxy.model.*;
 import com.zornus.friends.proxy.model.result.FriendListResult;
 import com.zornus.friends.proxy.model.result.FriendRequestListResult;
 import com.zornus.friends.proxy.model.result.FriendResult;
+import com.zornus.friends.proxy.storage.AcceptRequestOutcome;
 import com.zornus.friends.proxy.storage.FriendStorage;
+import com.zornus.friends.proxy.storage.SendRequestOutcome;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.PaginationResult;
 import org.jspecify.annotations.NonNull;
@@ -49,208 +51,51 @@ public final class FriendService implements AutoCloseable {
             return CompletableFuture.completedFuture(FriendResult.CANNOT_ADD_SELF);
         }
 
-        return validateSendRequestPreconditions(senderUuid, targetUuid)
-                .thenCompose(preconditionResult -> {
-                    if (preconditionResult.isAlreadyFriendsOrHasOutgoing()) {
-                        return CompletableFuture.completedFuture(preconditionResult.result());
+        return storage.trySendFriendRequest(senderUuid, targetUuid)
+                .thenApply(outcome -> switch (outcome) {
+                    case SendRequestOutcome.Sent sent -> {
+                        notificationService.notifyFriendRequestReceived(targetUuid, senderUuid);
+                        yield FriendResult.REQUEST_SENT;
                     }
-                    return storage.hasIncomingFriendRequest(senderUuid, targetUuid)
-                            .thenCompose(hasIncoming -> handleMutualRequestFlow(senderUuid, targetUuid, hasIncoming));
-                });
-    }
-
-    private @NonNull CompletableFuture<PreconditionResult> validateSendRequestPreconditions(@NonNull UUID senderUuid, @NonNull UUID targetUuid) {
-        return storage.hasFriendRelation(senderUuid, targetUuid)
-                .thenCompose(areFriends -> {
-                    if (areFriends) {
-                        return CompletableFuture.completedFuture(new PreconditionResult(FriendResult.ALREADY_FRIENDS, true));
+                    case SendRequestOutcome.RequestAcceptedAutomatically auto -> {
+                        notificationService.notifyFriendRequestAccepted(targetUuid, senderUuid);
+                        notificationService.notifyFriendRequestAccepted(senderUuid, targetUuid);
+                        yield FriendResult.REQUEST_ACCEPTED_AUTOMATICALLY;
                     }
-                    return storage.hasOutgoingFriendRequest(senderUuid, targetUuid)
-                            .thenApply(hasOutgoing -> new PreconditionResult(
-                                    hasOutgoing ? FriendResult.REQUEST_ALREADY_SENT : FriendResult.SUCCESS,
-                                    hasOutgoing
-                            ));
-                });
-    }
-
-    private @NonNull CompletableFuture<FriendResult> handleMutualRequestFlow(@NonNull UUID senderUuid,
-                                                                             @NonNull UUID targetUuid,
-                                                                             boolean hasIncomingRequest) {
-        if (hasIncomingRequest) {
-            return handleMutualAutoAccept(senderUuid, targetUuid);
-        }
-        return continueRequestValidation(senderUuid, targetUuid)
-                .thenCompose(validationResult -> {
-                    if (validationResult != FriendResult.SUCCESS) {
-                        return CompletableFuture.completedFuture(validationResult);
-                    }
-                    return createAndSendRequest(senderUuid, targetUuid);
-                });
-    }
-
-    private @NonNull CompletableFuture<FriendResult> handleMutualAutoAccept(@NonNull UUID senderUuid,
-                                                                            @NonNull UUID targetUuid) {
-        return checkFriendLimitsForBoth(senderUuid, targetUuid)
-                .thenCompose(limitsResult -> {
-                    if (limitsResult != FriendResult.SUCCESS) {
-                        return CompletableFuture.completedFuture(limitsResult);
-                    }
-                    return storage.addFriendRelation(senderUuid, targetUuid)
-                            .thenCompose(added -> {
-                                if (!added) {
-                                    return CompletableFuture.completedFuture(FriendResult.ALREADY_FRIENDS);
-                                }
-                                return removeFriendRequestPair(targetUuid, senderUuid)
-                                        .thenApply(ignored -> {
-                                            notificationService.notifyFriendRequestAccepted(targetUuid, senderUuid);
-                                            notificationService.notifyFriendRequestAccepted(senderUuid, targetUuid);
-                                            return FriendResult.REQUEST_ACCEPTED_AUTOMATICALLY;
-                                        });
-                            });
-                });
-    }
-
-    private @NonNull CompletableFuture<FriendResult> continueRequestValidation(@NonNull UUID senderUuid, @NonNull UUID targetUuid) {
-        return checkRequestCooldown(senderUuid, targetUuid)
-                .thenCompose(cooldownResult -> {
-                    if (cooldownResult != FriendResult.SUCCESS) {
-                        return CompletableFuture.completedFuture(cooldownResult);
-                    }
-                    return checkRequestLimits(senderUuid, targetUuid);
-                })
-                .thenCompose(limitsResult -> {
-                    if (limitsResult != FriendResult.SUCCESS) {
-                        return CompletableFuture.completedFuture(limitsResult);
-                    }
-                    return checkTargetAcceptsRequests(targetUuid);
-                });
-    }
-
-    private @NonNull CompletableFuture<FriendResult> createAndSendRequest(@NonNull UUID senderUuid,
-                                                                          @NonNull UUID targetUuid) {
-        FriendRequest request = new FriendRequest(senderUuid, targetUuid);
-        return storage.addFriendRequest(request)
-                .thenCompose(added -> {
-                    if (!added) {
-                        return CompletableFuture.completedFuture(FriendResult.REQUEST_ALREADY_SENT);
-                    }
-                    return storage.saveFriendRequestTimestamp(senderUuid, targetUuid)
-                            .thenApply(ignored -> {
-                                notificationService.notifyFriendRequestReceived(targetUuid, senderUuid);
-                                return FriendResult.REQUEST_SENT;
-                            });
-                });
-    }
-
-    private @NonNull CompletableFuture<FriendResult> checkRequestCooldown(@NonNull UUID senderUuid, @NonNull UUID targetUuid) {
-        return storage.fetchFriendRequestTimestamp(senderUuid, targetUuid)
-                .thenApply(lastTimestamp -> {
-                    if (lastTimestamp.isEmpty()) {
-                        return FriendResult.SUCCESS;
-                    }
-                    Instant nextAllowed = lastTimestamp.get().plus(FriendProxyConstants.FRIEND_REQUEST_COOLDOWN);
-                    if (Instant.now().isBefore(nextAllowed)) {
-                        return FriendResult.REQUEST_COOLDOWN_ACTIVE;
-                    }
-                    return FriendResult.SUCCESS;
-                });
-    }
-
-    private @NonNull CompletableFuture<FriendResult> checkRequestLimits(@NonNull UUID senderUuid, @NonNull UUID targetUuid) {
-        CompletableFuture<Integer> senderOutgoingCount = storage.countOutgoingFriendRequests(senderUuid);
-        CompletableFuture<Integer> receiverIncomingCount = storage.countIncomingFriendRequests(targetUuid);
-
-        return senderOutgoingCount.thenCombine(receiverIncomingCount, (senderOutgoing, receiverIncoming) -> {
-            if (senderOutgoing >= FriendProxyConstants.MAX_FRIEND_REQUESTS) {
-                return FriendResult.SENDER_REQUEST_LIMIT_REACHED;
-            }
-            if (receiverIncoming >= FriendProxyConstants.MAX_FRIEND_REQUESTS) {
-                return FriendResult.RECEIVER_REQUEST_LIMIT_REACHED;
-            }
-            return FriendResult.SUCCESS;
-        });
-    }
-
-    private @NonNull CompletableFuture<FriendResult> checkFriendLimitsForBoth(@NonNull UUID player1Uuid, @NonNull UUID player2Uuid) {
-        return storage.fetchFriendRelationCount(player1Uuid)
-                .thenCombine(storage.fetchFriendRelationCount(player2Uuid), (count1, count2) -> {
-                    if (count1 >= FriendProxyConstants.MAX_FRIENDS) {
-                        return FriendResult.SENDER_FRIENDS_LIMIT_REACHED;
-                    }
-                    if (count2 >= FriendProxyConstants.MAX_FRIENDS) {
-                        return FriendResult.RECEIVER_FRIENDS_LIMIT_REACHED;
-                    }
-                    return FriendResult.SUCCESS;
-                });
-    }
-
-    private @NonNull CompletableFuture<FriendResult> checkTargetAcceptsRequests(@NonNull UUID targetUuid) {
-        return storage.fetchSettings(targetUuid)
-                .thenApply(settingsOpt -> {
-                    FriendSettings settings = settingsOpt.orElse(new FriendSettings(targetUuid));
-                    if (!settings.allowRequests()) {
-                        return FriendResult.PLAYER_NOT_ACCEPTING_REQUESTS;
-                    }
-                    return FriendResult.SUCCESS;
+                    case SendRequestOutcome.AlreadyFriends already -> FriendResult.ALREADY_FRIENDS;
+                    case SendRequestOutcome.RequestAlreadySent alreadySent -> FriendResult.REQUEST_ALREADY_SENT;
+                    case SendRequestOutcome.SenderRequestLimitReached senderLimit -> FriendResult.SENDER_REQUEST_LIMIT_REACHED;
+                    case SendRequestOutcome.ReceiverRequestLimitReached receiverLimit -> FriendResult.RECEIVER_REQUEST_LIMIT_REACHED;
+                    case SendRequestOutcome.SenderFriendsLimitReached senderFriends -> FriendResult.SENDER_FRIENDS_LIMIT_REACHED;
+                    case SendRequestOutcome.ReceiverFriendsLimitReached receiverFriends -> FriendResult.RECEIVER_FRIENDS_LIMIT_REACHED;
+                    case SendRequestOutcome.RequestCooldownActive cooldown -> FriendResult.REQUEST_COOLDOWN_ACTIVE;
+                    case SendRequestOutcome.PlayerNotAcceptingRequests notAccepting -> FriendResult.PLAYER_NOT_ACCEPTING_REQUESTS;
                 });
     }
 
     public @NonNull CompletableFuture<FriendResult> acceptFriendRequest(@NonNull UUID accepterUuid,
                                                                         @NonNull UUID requesterUuid) {
-        return storage.hasIncomingFriendRequest(accepterUuid, requesterUuid)
-                .thenCompose(hasRequest -> {
-                    if (!hasRequest) {
-                        return CompletableFuture.completedFuture(FriendResult.NO_REQUEST_FOUND);
+        return storage.acceptFriendRequest(accepterUuid, requesterUuid)
+                .thenApply(outcome -> switch (outcome) {
+                    case AcceptRequestOutcome.Accepted accepted -> {
+                        notificationService.notifyFriendRequestAccepted(requesterUuid, accepterUuid);
+                        yield FriendResult.REQUEST_ACCEPTED;
                     }
-                    return storage.fetchFriendRelationCount(accepterUuid)
-                            .thenCombine(storage.fetchFriendRelationCount(requesterUuid), (accepterCount, requesterCount) -> {
-                                if (accepterCount >= FriendProxyConstants.MAX_FRIENDS) {
-                                    return FriendResult.SENDER_FRIENDS_LIMIT_REACHED;
-                                }
-                                if (requesterCount >= FriendProxyConstants.MAX_FRIENDS) {
-                                    return FriendResult.RECEIVER_FRIENDS_LIMIT_REACHED;
-                                }
-                                return FriendResult.SUCCESS;
-                            });
-                })
-                .thenCompose(limitsResult -> {
-                    if (limitsResult != FriendResult.SUCCESS) {
-                        return CompletableFuture.completedFuture(limitsResult);
-                    }
-                    return storage.addFriendRelation(accepterUuid, requesterUuid)
-                            .thenCompose(added -> {
-                                if (!added) {
-                                    return CompletableFuture.completedFuture(FriendResult.ALREADY_FRIENDS);
-                                }
-                                return storage.removeFriendRequest(requesterUuid, accepterUuid)
-                                        .thenApply(ignored -> {
-                                            notificationService.notifyFriendRequestAccepted(requesterUuid, accepterUuid);
-                                            return FriendResult.REQUEST_ACCEPTED;
-                                        });
-                            });
+                    case AcceptRequestOutcome.NoRequestFound notFound -> FriendResult.NO_REQUEST_FOUND;
+                    case AcceptRequestOutcome.AlreadyFriends already -> FriendResult.ALREADY_FRIENDS;
+                    case AcceptRequestOutcome.AccepterFriendsLimitReached accepterLimit -> FriendResult.SENDER_FRIENDS_LIMIT_REACHED;
+                    case AcceptRequestOutcome.RequesterFriendsLimitReached requesterLimit -> FriendResult.RECEIVER_FRIENDS_LIMIT_REACHED;
                 });
     }
 
     public @NonNull CompletableFuture<FriendResult> rejectFriendRequest(@NonNull UUID rejecterUuid, @NonNull UUID requesterUuid) {
-        return storage.hasIncomingFriendRequest(rejecterUuid, requesterUuid)
-                .thenCompose(hasRequest -> {
-                    if (!hasRequest) {
-                        return CompletableFuture.completedFuture(FriendResult.NO_REQUEST_FOUND);
-                    }
-                    return storage.removeFriendRequest(requesterUuid, rejecterUuid)
-                            .thenApply(ignored -> FriendResult.REQUEST_REJECTED);
-                });
+        return storage.removeFriendRequest(requesterUuid, rejecterUuid)
+                .thenApply(removed -> removed ? FriendResult.REQUEST_REJECTED : FriendResult.NO_REQUEST_FOUND);
     }
 
     public @NonNull CompletableFuture<FriendResult> revokeFriendRequest(@NonNull UUID revokerUuid, @NonNull UUID targetUuid) {
-        return storage.hasOutgoingFriendRequest(revokerUuid, targetUuid)
-                .thenCompose(hasRequest -> {
-                    if (!hasRequest) {
-                        return CompletableFuture.completedFuture(FriendResult.NO_REQUEST_FOUND);
-                    }
-                    return storage.removeFriendRequest(revokerUuid, targetUuid)
-                            .thenApply(ignored -> FriendResult.REQUEST_REVOKED);
-                });
+        return storage.removeFriendRequest(revokerUuid, targetUuid)
+                .thenApply(removed -> removed ? FriendResult.REQUEST_REVOKED : FriendResult.NO_REQUEST_FOUND);
     }
 
     public @NonNull CompletableFuture<FriendRequestListResult> getIncomingRequestsList(@NonNull UUID playerUuid, int page) {
@@ -282,14 +127,8 @@ public final class FriendService implements AutoCloseable {
     }
 
     public @NonNull CompletableFuture<FriendResult> removeFriend(@NonNull UUID removerUuid, @NonNull UUID friendUuid) {
-        return storage.hasFriendRelation(removerUuid, friendUuid)
-                .thenCompose(areFriends -> {
-                    if (!areFriends) {
-                        return CompletableFuture.completedFuture(FriendResult.NOT_FRIENDS);
-                    }
-                    return storage.removeFriendRelation(removerUuid, friendUuid)
-                            .thenApply(ignored -> FriendResult.FRIEND_REMOVED);
-                });
+        return storage.removeFriendRelation(removerUuid, friendUuid)
+                .thenApply(removed -> removed ? FriendResult.FRIEND_REMOVED : FriendResult.NOT_FRIENDS);
     }
 
     // ========================================
@@ -516,24 +355,11 @@ public final class FriendService implements AutoCloseable {
     }
 
     // ========================================
-    // CLEANUP
+    // HELPERS
     // ========================================
-
-    private @NonNull CompletableFuture<Void> removeFriendRequestPair(@NonNull UUID senderUuid, @NonNull UUID receiverUuid) {
-        return storage.removeFriendRequest(senderUuid, receiverUuid)
-                .thenCompose(ignoredBool -> storage.removeFriendRequest(receiverUuid, senderUuid))
-                .thenApply(ignoredBool -> null);
-    }
-
-    private record PreconditionResult(FriendResult result, boolean isAlreadyFriendsOrHasOutgoing) {
-    }
 
     private record MessageValidationResult(FriendResult result, Player targetPlayer) {
     }
-
-    // ========================================
-    // HELPERS
-    // ========================================
 
     private record JumpValidationResult(FriendResult result, Player jumper, Player target) {
     }

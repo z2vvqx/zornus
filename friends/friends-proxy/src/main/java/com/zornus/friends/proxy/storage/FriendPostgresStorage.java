@@ -19,7 +19,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class FriendPostgresStorage implements FriendStorage, AutoCloseable {
+public final class FriendPostgresStorage implements FriendStorage, AutoCloseable {
 
     private final HikariDataSource dataSource;
     private final ExecutorService databaseExecutor;
@@ -168,19 +168,6 @@ public class FriendPostgresStorage implements FriendStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<Boolean> addFriendRequest(FriendRequest request) {
-        return CompletableFuture.supplyAsync(() -> {
-            String sql = "INSERT INTO requests (sender, receiver, created_at) VALUES (?, ?, ?) ON CONFLICT DO NOTHING";
-            int rows = executeUpdate(sql, statement -> {
-                statement.setObject(1, request.senderUuid());
-                statement.setObject(2, request.receiverUuid());
-                statement.setTimestamp(3, Timestamp.from(request.timestamp()));
-            }, "add friend request");
-            return rows > 0;
-        }, databaseExecutor);
-    }
-
-    @Override
     public CompletableFuture<Boolean> removeFriendRequest(UUID sender, UUID receiver) {
         return CompletableFuture.supplyAsync(() -> {
             String sql = "DELETE FROM requests WHERE sender = ? AND receiver = ?";
@@ -189,29 +176,6 @@ public class FriendPostgresStorage implements FriendStorage, AutoCloseable {
                 statement.setObject(2, receiver);
             }, "remove friend request");
             return rows > 0;
-        }, databaseExecutor);
-    }
-
-    @Override
-    public CompletableFuture<Optional<FriendRequest>> fetchFriendRequest(UUID sender, UUID receiver) {
-        return CompletableFuture.supplyAsync(() -> {
-            String sql = """
-                    SELECT r.sender, r.receiver, r.created_at,
-                           p1.username AS sender_username, p2.username AS receiver_username
-                    FROM requests r
-                    JOIN players p1 ON r.sender = p1.player_id
-                    JOIN players p2 ON r.receiver = p2.player_id
-                    WHERE r.sender = ? AND r.receiver = ?
-                    """;
-            return executeQuery(sql, statement -> {
-                statement.setObject(1, sender);
-                statement.setObject(2, receiver);
-            }, resultSet -> {
-                if (resultSet.next()) {
-                    return Optional.of(mapResultSetToFriendRequest(resultSet));
-                }
-                return Optional.empty();
-            }, "get friend request");
         }, databaseExecutor);
     }
 
@@ -254,63 +218,6 @@ public class FriendPostgresStorage implements FriendStorage, AutoCloseable {
                 }
                 return requests;
             }, "get outgoing requests");
-        }, databaseExecutor);
-    }
-
-    @Override
-    public CompletableFuture<Integer> countIncomingFriendRequests(UUID receiver) {
-        return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT COUNT(*) FROM requests WHERE receiver = ?";
-            return executeQuery(sql, statement -> statement.setObject(1, receiver), resultSet -> {
-                resultSet.next();
-                return resultSet.getInt(1);
-            }, "count incoming requests");
-        }, databaseExecutor);
-    }
-
-    @Override
-    public CompletableFuture<Integer> countOutgoingFriendRequests(UUID sender) {
-        return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT COUNT(*) FROM requests WHERE sender = ?";
-            return executeQuery(sql, statement -> statement.setObject(1, sender), resultSet -> {
-                resultSet.next();
-                return resultSet.getInt(1);
-            }, "count outgoing requests");
-        }, databaseExecutor);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasIncomingFriendRequest(UUID receiver, UUID sender) {
-        return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT 1 FROM requests WHERE receiver = ? AND sender = ?";
-            return executeQuery(sql, statement -> {
-                statement.setObject(1, receiver);
-                statement.setObject(2, sender);
-            }, ResultSet::next, "check incoming request");
-        }, databaseExecutor);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasOutgoingFriendRequest(UUID sender, UUID receiver) {
-        return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT 1 FROM requests WHERE sender = ? AND receiver = ?";
-            return executeQuery(sql, statement -> {
-                statement.setObject(1, sender);
-                statement.setObject(2, receiver);
-            }, ResultSet::next, "check outgoing request");
-        }, databaseExecutor);
-    }
-
-    @Override
-    public CompletableFuture<Boolean> addFriendRelation(UUID player1, UUID player2) {
-        return CompletableFuture.supplyAsync(() -> {
-            CanonicalUuidPair pair = canonicalizePair(player1, player2);
-            String sql = "INSERT INTO relations (player1, player2, created_at) VALUES (?, ?, NOW()) ON CONFLICT DO NOTHING";
-            int rows = executeUpdate(sql, statement -> {
-                statement.setObject(1, pair.firstPlayer());
-                statement.setObject(2, pair.secondPlayer());
-            }, "add relation");
-            return rows > 0;
         }, databaseExecutor);
     }
 
@@ -364,20 +271,6 @@ public class FriendPostgresStorage implements FriendStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<Integer> fetchFriendRelationCount(UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT COUNT(*) FROM relations WHERE player1 = ? OR player2 = ?";
-            return executeQuery(sql, statement -> {
-                statement.setObject(1, playerId);
-                statement.setObject(2, playerId);
-            }, resultSet -> {
-                resultSet.next();
-                return resultSet.getInt(1);
-            }, "get relation count");
-        }, databaseExecutor);
-    }
-
-    @Override
     public CompletableFuture<Optional<FriendSettings>> fetchSettings(UUID playerId) {
         return CompletableFuture.supplyAsync(() -> {
             String sql = "SELECT player_id, presence_state, allow_messages, allow_jump, show_last_seen, show_location, accept_requests FROM settings WHERE player_id = ?";
@@ -387,32 +280,6 @@ public class FriendPostgresStorage implements FriendStorage, AutoCloseable {
                 }
                 return Optional.empty();
             }, "get settings");
-        }, databaseExecutor);
-    }
-
-    @Override
-    public CompletableFuture<Void> saveSettings(UUID playerId, FriendSettings newSettings) {
-        return CompletableFuture.runAsync(() -> {
-            String sql = """
-                    INSERT INTO settings (player_id, presence_state, allow_messages, allow_jump, show_last_seen, show_location, accept_requests)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
-                    ON CONFLICT (player_id) DO UPDATE SET
-                        presence_state = EXCLUDED.presence_state,
-                        allow_messages = EXCLUDED.allow_messages,
-                        allow_jump = EXCLUDED.allow_jump,
-                        show_last_seen = EXCLUDED.show_last_seen,
-                        show_location = EXCLUDED.show_location,
-                        accept_requests = EXCLUDED.accept_requests
-                    """;
-            executeUpdate(sql, statement -> {
-                statement.setObject(1, playerId);
-                statement.setString(2, newSettings.presenceState().name().toLowerCase());
-                statement.setBoolean(3, newSettings.allowMessages());
-                statement.setBoolean(4, newSettings.allowJump());
-                statement.setBoolean(5, newSettings.showLastSeen());
-                statement.setBoolean(6, newSettings.showLocation());
-                statement.setBoolean(7, newSettings.allowRequests());
-            }, "update settings");
         }, databaseExecutor);
     }
 
@@ -596,30 +463,320 @@ public class FriendPostgresStorage implements FriendStorage, AutoCloseable {
         }, databaseExecutor);
     }
 
+    // ==================== COMPOUND OPERATIONS ====================
+
     @Override
-    public CompletableFuture<Optional<Instant>> fetchFriendRequestTimestamp(UUID senderId, UUID receiverId) {
+    public CompletableFuture<SendRequestOutcome> trySendFriendRequest(UUID senderId, UUID receiverId) {
         return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT timestamp FROM request_cooldowns WHERE sender_id = ? AND receiver_id = ?";
-            return executeQuery(sql, statement -> {
-                statement.setObject(1, senderId);
-                statement.setObject(2, receiverId);
-            }, resultSet -> {
-                if (resultSet.next()) {
-                    return Optional.of(resultSet.getTimestamp("timestamp").toInstant());
+            try (Connection connection = dataSource.getConnection()) {
+                connection.setAutoCommit(false);
+                connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+                try {
+                    // 1. Check if already friends
+                    CanonicalUuidPair pair = canonicalizePair(senderId, receiverId);
+                    String checkFriendsSql = "SELECT 1 FROM relations WHERE player1 = ? AND player2 = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(checkFriendsSql)) {
+                        statement.setObject(1, pair.firstPlayer());
+                        statement.setObject(2, pair.secondPlayer());
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (resultSet.next()) {
+                                connection.rollback();
+                                return new SendRequestOutcome.AlreadyFriends();
+                            }
+                        }
+                    }
+
+                    // 2. Check if there's an incoming request from receiver (mutual request auto-accept)
+                    String checkIncomingSql = "SELECT 1 FROM requests WHERE sender = ? AND receiver = ?";
+                    boolean hasIncomingRequest;
+                    try (PreparedStatement statement = connection.prepareStatement(checkIncomingSql)) {
+                        statement.setObject(1, receiverId);
+                        statement.setObject(2, senderId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            hasIncomingRequest = resultSet.next();
+                        }
+                    }
+
+                    if (hasIncomingRequest) {
+                        // Handle mutual auto-accept
+                        return handleMutualAutoAccept(connection, senderId, receiverId);
+                    }
+
+                    // 3. Check if request already exists (outgoing)
+                    String checkOutgoingSql = "SELECT 1 FROM requests WHERE sender = ? AND receiver = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(checkOutgoingSql)) {
+                        statement.setObject(1, senderId);
+                        statement.setObject(2, receiverId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (resultSet.next()) {
+                                connection.rollback();
+                                return new SendRequestOutcome.RequestAlreadySent();
+                            }
+                        }
+                    }
+
+                    // 4. Check request cooldown
+                    String checkCooldownSql = "SELECT timestamp FROM request_cooldowns WHERE sender_id = ? AND receiver_id = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(checkCooldownSql)) {
+                        statement.setObject(1, senderId);
+                        statement.setObject(2, receiverId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (resultSet.next()) {
+                                Timestamp lastTimestamp = resultSet.getTimestamp("timestamp");
+                                Instant nextAllowed = lastTimestamp.toInstant().plus(FriendProxyConstants.FRIEND_REQUEST_COOLDOWN);
+                                if (Instant.now().isBefore(nextAllowed)) {
+                                    connection.rollback();
+                                    return new SendRequestOutcome.RequestCooldownActive();
+                                }
+                            }
+                        }
+                    }
+
+                    // 5. Check request limits
+                    String countSenderOutgoingSql = "SELECT COUNT(*) FROM requests WHERE sender = ?";
+                    int senderOutgoingCount;
+                    try (PreparedStatement statement = connection.prepareStatement(countSenderOutgoingSql)) {
+                        statement.setObject(1, senderId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            resultSet.next();
+                            senderOutgoingCount = resultSet.getInt(1);
+                        }
+                    }
+                    if (senderOutgoingCount >= FriendProxyConstants.MAX_FRIEND_REQUESTS) {
+                        connection.rollback();
+                        return new SendRequestOutcome.SenderRequestLimitReached();
+                    }
+
+                    String countReceiverIncomingSql = "SELECT COUNT(*) FROM requests WHERE receiver = ?";
+                    int receiverIncomingCount;
+                    try (PreparedStatement statement = connection.prepareStatement(countReceiverIncomingSql)) {
+                        statement.setObject(1, receiverId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            resultSet.next();
+                            receiverIncomingCount = resultSet.getInt(1);
+                        }
+                    }
+                    if (receiverIncomingCount >= FriendProxyConstants.MAX_FRIEND_REQUESTS) {
+                        connection.rollback();
+                        return new SendRequestOutcome.ReceiverRequestLimitReached();
+                    }
+
+                    // 6. Check friend limits
+                    int senderFriendCount = countFriendsInTransaction(connection, senderId);
+                    if (senderFriendCount >= FriendProxyConstants.MAX_FRIENDS) {
+                        connection.rollback();
+                        return new SendRequestOutcome.SenderFriendsLimitReached();
+                    }
+
+                    int receiverFriendCount = countFriendsInTransaction(connection, receiverId);
+                    if (receiverFriendCount >= FriendProxyConstants.MAX_FRIENDS) {
+                        connection.rollback();
+                        return new SendRequestOutcome.ReceiverFriendsLimitReached();
+                    }
+
+                    // 7. Check if receiver accepts requests
+                    String checkSettingsSql = "SELECT accept_requests FROM settings WHERE player_id = ?";
+                    boolean acceptsRequests = true; // default
+                    try (PreparedStatement statement = connection.prepareStatement(checkSettingsSql)) {
+                        statement.setObject(1, receiverId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (resultSet.next()) {
+                                acceptsRequests = resultSet.getBoolean("accept_requests");
+                            }
+                        }
+                    }
+                    if (!acceptsRequests) {
+                        connection.rollback();
+                        return new SendRequestOutcome.PlayerNotAcceptingRequests();
+                    }
+
+                    // 8. Insert the friend request
+                    String insertRequestSql = "INSERT INTO requests (sender, receiver, created_at) VALUES (?, ?, NOW())";
+                    try (PreparedStatement statement = connection.prepareStatement(insertRequestSql)) {
+                        statement.setObject(1, senderId);
+                        statement.setObject(2, receiverId);
+                        statement.executeUpdate();
+                    }
+
+                    // 9. Record/refresh cooldown
+                    String upsertCooldownSql = """
+                        INSERT INTO request_cooldowns (sender_id, receiver_id, timestamp) VALUES (?, ?, NOW())
+                        ON CONFLICT (sender_id, receiver_id) DO UPDATE SET timestamp = EXCLUDED.timestamp
+                        """;
+                    try (PreparedStatement statement = connection.prepareStatement(upsertCooldownSql)) {
+                        statement.setObject(1, senderId);
+                        statement.setObject(2, receiverId);
+                        statement.executeUpdate();
+                    }
+
+                    connection.commit();
+                    return new SendRequestOutcome.Sent();
+                } catch (SQLException e) {
+                    connection.rollback();
+                    // Check for unique violation (already friends or request already exists)
+                    if ("23505".equals(e.getSQLState())) {
+                        // Could be either already friends or request already sent
+                        // Check which one by querying
+                        try {
+                            CanonicalUuidPair pair = canonicalizePair(senderId, receiverId);
+                            String checkSql = "SELECT 1 FROM relations WHERE player1 = ? AND player2 = ?";
+                            try (PreparedStatement stmt = connection.prepareStatement(checkSql)) {
+                                stmt.setObject(1, pair.firstPlayer());
+                                stmt.setObject(2, pair.secondPlayer());
+                                try (ResultSet rs = stmt.executeQuery()) {
+                                    if (rs.next()) {
+                                        return new SendRequestOutcome.AlreadyFriends();
+                                    }
+                                }
+                            }
+                            return new SendRequestOutcome.RequestAlreadySent();
+                        } catch (SQLException ex) {
+                            throw new RuntimeException("Failed to determine conflict type", ex);
+                        }
+                    }
+                    // Check for serialization failure
+                    if ("40001".equals(e.getSQLState())) {
+                        return new SendRequestOutcome.RequestAlreadySent();
+                    }
+                    throw new RuntimeException("Failed to send friend request", e);
                 }
-                return Optional.empty();
-            }, "get last request timestamp");
+            } catch (SQLException e) {
+                throw new RuntimeException("Failed to send friend request", e);
+            }
         }, databaseExecutor);
     }
 
+    private SendRequestOutcome handleMutualAutoAccept(Connection connection, UUID senderId, UUID receiverId) throws SQLException {
+        // Check friend limits for both players
+        int senderFriendCount = countFriendsInTransaction(connection, senderId);
+        if (senderFriendCount >= FriendProxyConstants.MAX_FRIENDS) {
+            connection.rollback();
+            return new SendRequestOutcome.SenderFriendsLimitReached();
+        }
+
+        int receiverFriendCount = countFriendsInTransaction(connection, receiverId);
+        if (receiverFriendCount >= FriendProxyConstants.MAX_FRIENDS) {
+            connection.rollback();
+            return new SendRequestOutcome.ReceiverFriendsLimitReached();
+        }
+
+        // Add friend relation
+        CanonicalUuidPair pair = canonicalizePair(senderId, receiverId);
+        String insertRelationSql = "INSERT INTO relations (player1, player2, created_at) VALUES (?, ?, NOW())";
+        try (PreparedStatement statement = connection.prepareStatement(insertRelationSql)) {
+            statement.setObject(1, pair.firstPlayer());
+            statement.setObject(2, pair.secondPlayer());
+            statement.executeUpdate();
+        }
+
+        // Remove both directions of friend requests
+        String deleteRequestSql = "DELETE FROM requests WHERE (sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?)";
+        try (PreparedStatement statement = connection.prepareStatement(deleteRequestSql)) {
+            statement.setObject(1, senderId);
+            statement.setObject(2, receiverId);
+            statement.setObject(3, receiverId);
+            statement.setObject(4, senderId);
+            statement.executeUpdate();
+        }
+
+        connection.commit();
+        return new SendRequestOutcome.RequestAcceptedAutomatically();
+    }
+
+    private int countFriendsInTransaction(Connection connection, UUID playerId) throws SQLException {
+        String sql = "SELECT COUNT(*) FROM relations WHERE player1 = ? OR player2 = ?";
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setObject(1, playerId);
+            statement.setObject(2, playerId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getInt(1);
+            }
+        }
+    }
+
     @Override
-    public CompletableFuture<Void> saveFriendRequestTimestamp(UUID senderId, UUID receiverId) {
-        return CompletableFuture.runAsync(() -> {
-            String sql = "INSERT INTO request_cooldowns (sender_id, receiver_id, timestamp) VALUES (?, ?, NOW()) ON CONFLICT (sender_id, receiver_id) DO UPDATE SET timestamp = EXCLUDED.timestamp";
-            executeUpdate(sql, statement -> {
-                statement.setObject(1, senderId);
-                statement.setObject(2, receiverId);
-            }, "record request timestamp");
+    public CompletableFuture<AcceptRequestOutcome> acceptFriendRequest(UUID accepterId, UUID requesterId) {
+        return CompletableFuture.supplyAsync(() -> {
+            try (Connection connection = dataSource.getConnection()) {
+                connection.setAutoCommit(false);
+                connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+                try {
+                    // 1. Verify the incoming request exists
+                    String checkRequestSql = "SELECT 1 FROM requests WHERE sender = ? AND receiver = ?";
+                    boolean hasRequest;
+                    try (PreparedStatement statement = connection.prepareStatement(checkRequestSql)) {
+                        statement.setObject(1, requesterId);
+                        statement.setObject(2, accepterId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            hasRequest = resultSet.next();
+                        }
+                    }
+                    if (!hasRequest) {
+                        connection.rollback();
+                        return new AcceptRequestOutcome.NoRequestFound();
+                    }
+
+                    // 2. Check if already friends
+                    CanonicalUuidPair pair = canonicalizePair(accepterId, requesterId);
+                    String checkFriendsSql = "SELECT 1 FROM relations WHERE player1 = ? AND player2 = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(checkFriendsSql)) {
+                        statement.setObject(1, pair.firstPlayer());
+                        statement.setObject(2, pair.secondPlayer());
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (resultSet.next()) {
+                                connection.rollback();
+                                return new AcceptRequestOutcome.AlreadyFriends();
+                            }
+                        }
+                    }
+
+                    // 3. Check friend limits
+                    int accepterFriendCount = countFriendsInTransaction(connection, accepterId);
+                    if (accepterFriendCount >= FriendProxyConstants.MAX_FRIENDS) {
+                        connection.rollback();
+                        return new AcceptRequestOutcome.AccepterFriendsLimitReached();
+                    }
+
+                    int requesterFriendCount = countFriendsInTransaction(connection, requesterId);
+                    if (requesterFriendCount >= FriendProxyConstants.MAX_FRIENDS) {
+                        connection.rollback();
+                        return new AcceptRequestOutcome.RequesterFriendsLimitReached();
+                    }
+
+                    // 4. Insert friend relation
+                    String insertRelationSql = "INSERT INTO relations (player1, player2, created_at) VALUES (?, ?, NOW())";
+                    try (PreparedStatement statement = connection.prepareStatement(insertRelationSql)) {
+                        statement.setObject(1, pair.firstPlayer());
+                        statement.setObject(2, pair.secondPlayer());
+                        statement.executeUpdate();
+                    }
+
+                    // 5. Delete the friend request
+                    String deleteRequestSql = "DELETE FROM requests WHERE sender = ? AND receiver = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(deleteRequestSql)) {
+                        statement.setObject(1, requesterId);
+                        statement.setObject(2, accepterId);
+                        statement.executeUpdate();
+                    }
+
+                    connection.commit();
+                    return new AcceptRequestOutcome.Accepted();
+                } catch (SQLException e) {
+                    connection.rollback();
+                    // Check for unique violation (already friends)
+                    if ("23505".equals(e.getSQLState())) {
+                        return new AcceptRequestOutcome.AlreadyFriends();
+                    }
+                    // Check for serialization failure
+                    if ("40001".equals(e.getSQLState())) {
+                        return new AcceptRequestOutcome.NoRequestFound();
+                    }
+                    throw new RuntimeException("Failed to accept friend request", e);
+                }
+            } catch (SQLException e) {
+                throw new RuntimeException("Failed to accept friend request", e);
+            }
         }, databaseExecutor);
     }
 

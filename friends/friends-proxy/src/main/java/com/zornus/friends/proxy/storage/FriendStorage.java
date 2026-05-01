@@ -15,24 +15,23 @@ import java.util.concurrent.CompletableFuture;
 
 public interface FriendStorage {
 
-    CompletableFuture<Boolean> addFriendRequest(FriendRequest request);
+    // ==================== COMPOUND OPERATIONS ====================
+
+    CompletableFuture<SendRequestOutcome> trySendFriendRequest(UUID senderId, UUID receiverId);
+
+    CompletableFuture<AcceptRequestOutcome> acceptFriendRequest(UUID accepterId, UUID requesterId);
+
+    // ==================== SINGLE-QUERY OPERATIONS ====================
+
     CompletableFuture<Boolean> removeFriendRequest(UUID sender, UUID receiver);
-    CompletableFuture<Optional<FriendRequest>> fetchFriendRequest(UUID sender, UUID receiver);
     CompletableFuture<List<FriendRequest>> fetchIncomingFriendRequests(UUID receiver);
     CompletableFuture<List<FriendRequest>> fetchOutgoingFriendRequests(UUID sender);
-    CompletableFuture<Integer> countIncomingFriendRequests(UUID receiver);
-    CompletableFuture<Integer> countOutgoingFriendRequests(UUID sender);
-    CompletableFuture<Boolean> hasIncomingFriendRequest(UUID receiver, UUID sender);
-    CompletableFuture<Boolean> hasOutgoingFriendRequest(UUID sender, UUID receiver);
 
-    CompletableFuture<Boolean> addFriendRelation(UUID player1, UUID player2);
     CompletableFuture<Boolean> removeFriendRelation(UUID player1, UUID player2);
     CompletableFuture<Boolean> hasFriendRelation(UUID player1, UUID player2);
     CompletableFuture<List<FriendRelation>> fetchFriendRelations(UUID playerId);
-    CompletableFuture<Integer> fetchFriendRelationCount(UUID playerId);
 
     CompletableFuture<Optional<FriendSettings>> fetchSettings(UUID playerId);
-    CompletableFuture<Void> saveSettings(UUID playerId, FriendSettings settings);
 
     CompletableFuture<Void> updateAllowMessages(UUID playerId, boolean value);
     CompletableFuture<Void> updateAllowJump(UUID playerId, boolean value);
@@ -52,9 +51,6 @@ public interface FriendStorage {
 
     CompletableFuture<Void> saveLastMessageSender(UUID playerId, UUID senderId);
     CompletableFuture<Optional<UUID>> fetchLastMessageSender(UUID playerId);
-
-    CompletableFuture<Optional<Instant>> fetchFriendRequestTimestamp(UUID senderId, UUID receiverId);
-    CompletableFuture<Void> saveFriendRequestTimestamp(UUID senderId, UUID receiverId);
 
     CompletableFuture<Void> cleanupExpiredFriendRequests(Instant now, Duration expiry);
     CompletableFuture<Void> cleanupExpiredFriendRequestCooldowns(Instant now, Duration expiry);
