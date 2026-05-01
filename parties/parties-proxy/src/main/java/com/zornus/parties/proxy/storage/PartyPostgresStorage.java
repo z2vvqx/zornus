@@ -282,16 +282,21 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
-                    // 1. Lock party_members and get leader + member count atomically
-                    UUID currentLeaderId;
+                    // 1. Lock party_members and get count (same serialization as old code)
                     int memberCount;
-                    String lockAndCheckSql = """
-                            SELECT p.leader_id, (SELECT COUNT(*) FROM party_members pm WHERE pm.party_id = p.party_id)
-                            FROM parties p
-                            WHERE p.party_id = ?
-                            FOR UPDATE OF p
-                            """;
-                    try (PreparedStatement statement = connection.prepareStatement(lockAndCheckSql)) {
+                    String countSql = "SELECT COUNT(*) FROM party_members WHERE party_id = ? FOR UPDATE";
+                    try (PreparedStatement statement = connection.prepareStatement(countSql)) {
+                        statement.setObject(1, partyId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            resultSet.next();
+                            memberCount = resultSet.getInt(1);
+                        }
+                    }
+
+                    // 2. Read leader_id AFTER the lock (fixes TOCTOU race)
+                    UUID currentLeaderId;
+                    String leaderSql = "SELECT leader_id FROM parties WHERE party_id = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(leaderSql)) {
                         statement.setObject(1, partyId);
                         try (ResultSet resultSet = statement.executeQuery()) {
                             if (!resultSet.next()) {
@@ -299,13 +304,12 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                                 return new RemoveMemberOutcome.PartyNotFound();
                             }
                             currentLeaderId = (UUID) resultSet.getObject("leader_id");
-                            memberCount = resultSet.getInt(2);
                         }
                     }
 
                     boolean wasLeader = memberId.equals(currentLeaderId);
 
-                    // 2. Delete the member
+                    // 3. Delete the member
                     String deleteMemberSql = "DELETE FROM party_members WHERE party_id = ? AND player_id = ?";
                     int rowsDeleted;
                     try (PreparedStatement statement = connection.prepareStatement(deleteMemberSql)) {
@@ -319,7 +323,7 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         return new RemoveMemberOutcome.MemberNotFound();
                     }
 
-                    // 3. If count was 1: delete party → return PartyDisbanded
+                    // 4. If count was 1: delete party → return PartyDisbanded
                     if (memberCount == 1) {
                         String deletePartySql = "DELETE FROM parties WHERE party_id = ?";
                         try (PreparedStatement statement = connection.prepareStatement(deletePartySql)) {
@@ -330,7 +334,7 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         return new RemoveMemberOutcome.PartyDisbanded();
                     }
 
-                    // 4. If leader left: select new leader (alphabetically first UUID among remaining)
+                    // 5. If leader left: select new leader (alphabetically first UUID among remaining)
                     if (wasLeader) {
                         String selectNewLeaderSql = """
                                 SELECT player_id FROM party_members
