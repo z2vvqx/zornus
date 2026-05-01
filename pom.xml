@@ -12,6 +12,7 @@
         <module>friends</module>
         <module>bootstrap</module>
         <module>shared</module>
+        <module>parties</module>
     </modules>
 
     <properties>
