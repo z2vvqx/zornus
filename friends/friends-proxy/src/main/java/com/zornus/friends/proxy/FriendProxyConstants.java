@@ -7,7 +7,6 @@ import java.util.List;
 public final class FriendProxyConstants {
 
     private FriendProxyConstants() {
-        throw new UnsupportedOperationException("Constants class cannot be instantiated");
     }
 
     public static final String POSTGRESQL_URL = "jdbc:postgresql://localhost:5432/friends";

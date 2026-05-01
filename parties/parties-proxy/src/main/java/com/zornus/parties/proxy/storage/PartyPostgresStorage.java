@@ -17,7 +17,7 @@ import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
-public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
+public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
     private final HikariDataSource dataSource;
     private final ExecutorService databaseExecutor;
@@ -228,26 +228,7 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
-                    // 1. Verify the requester is the leader
-                    String checkLeaderSql = "SELECT leader_id FROM parties WHERE party_id = ?";
-                    UUID actualLeaderId;
-                    try (PreparedStatement statement = connection.prepareStatement(checkLeaderSql)) {
-                        statement.setObject(1, partyId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            if (!resultSet.next()) {
-                                connection.rollback();
-                                return new DisbandPartyOutcome.PartyNotFound();
-                            }
-                            actualLeaderId = (UUID) resultSet.getObject("leader_id");
-                        }
-                    }
-
-                    if (!actualLeaderId.equals(leaderId)) {
-                        connection.rollback();
-                        return new DisbandPartyOutcome.NotLeader();
-                    }
-
-                    // 2. Delete all member confirmations (cascade through FK)
+                    // 1. Delete all member confirmations first (rollback-safe, no conditions)
                     String deleteConfirmationsSql = """
                             DELETE FROM party_confirmations
                             WHERE player_id IN (SELECT player_id FROM party_members WHERE party_id = ?)
@@ -257,11 +238,28 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         statement.executeUpdate();
                     }
 
-                    // 3. Delete party (party_members and party_invitations cascade via FK)
-                    String deletePartySql = "DELETE FROM parties WHERE party_id = ?";
+                    // 2. Delete party with conditional leader check (atomic)
+                    String deletePartySql = "DELETE FROM parties WHERE party_id = ? AND leader_id = ?";
+                    int rowsDeleted;
                     try (PreparedStatement statement = connection.prepareStatement(deletePartySql)) {
                         statement.setObject(1, partyId);
-                        statement.executeUpdate();
+                        statement.setObject(2, leaderId);
+                        rowsDeleted = statement.executeUpdate();
+                    }
+
+                    if (rowsDeleted == 0) {
+                        connection.rollback();
+                        // Distinguish: party not found vs not leader
+                        String checkExistsSql = "SELECT 1 FROM parties WHERE party_id = ?";
+                        try (PreparedStatement statement = connection.prepareStatement(checkExistsSql)) {
+                            statement.setObject(1, partyId);
+                            try (ResultSet resultSet = statement.executeQuery()) {
+                                if (!resultSet.next()) {
+                                    return new DisbandPartyOutcome.PartyNotFound();
+                                }
+                            }
+                        }
+                        return new DisbandPartyOutcome.NotLeader();
                     }
 
                     connection.commit();
@@ -830,6 +828,12 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                     return new SendInvitationOutcome.Sent();
                 } catch (SQLException e) {
                     connection.rollback();
+                    if ("23505".equals(e.getSQLState())) {
+                        return new SendInvitationOutcome.AlreadyInvited();
+                    }
+                    if ("40001".equals(e.getSQLState())) {
+                        return new SendInvitationOutcome.AlreadyInvited();
+                    }
                     throw new RuntimeException("Failed to send invitation", e);
                 }
             } catch (SQLException e) {
