@@ -700,4 +700,20 @@ public final class PartyService implements AutoCloseable {
                     return now.isAfter(cooldownEnd) ? Duration.ZERO : Duration.between(now, cooldownEnd);
                 });
     }
+
+    public CompletableFuture<Void> cleanupExpiredInvitations() {
+        return storage.cleanupExpiredInvitations(Instant.now(), PartyProxyConstants.INVITATION_EXPIRY);
+    }
+
+    public CompletableFuture<Void> cleanupExpiredConfirmations() {
+        return storage.cleanupExpiredConfirmations(Instant.now(), PartyProxyConstants.CONFIRMATION_EXPIRY);
+    }
+
+    public CompletableFuture<Void> cleanupExpiredCooldowns() {
+        return storage.cleanupExpiredCooldowns(Instant.now(), PartyProxyConstants.INVITATION_COOLDOWN.multipliedBy(2));
+    }
+
+    public CompletableFuture<Void> cleanupOrphanedSettings() {
+        return storage.cleanupOrphanedSettings();
+    }
 }

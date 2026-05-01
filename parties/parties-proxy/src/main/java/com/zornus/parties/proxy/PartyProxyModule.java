@@ -37,7 +37,7 @@ public final class PartyProxyModule {
         this.partyService = new PartyService(storage, proxyServer, friendService);
         this.partyCommandRegistrar = new PartyCommandRegistrar(partyService, proxyServer);
         this.partyListenerRegistrar = new PartyListenerRegistrar(plugin, partyService);
-        this.partyOperationRegistrar = new PartyOperationRegistrar(plugin, storage);
+        this.partyOperationRegistrar = new PartyOperationRegistrar(plugin, partyService);
     }
 
     public void initialize(@NonNull CommandManager commandManager, @NonNull EventManager eventManager, @NonNull Scheduler scheduler) {

@@ -41,7 +41,7 @@ public final class FriendProxyModule {
         this.friendService = new FriendService(storage, proxyServer);
         this.friendCommandRegistrar = new FriendCommandRegistrar(friendService, proxyServer);
         this.friendListenerRegistrar = new FriendListenerRegistrar(plugin, friendService);
-        this.friendOperationRegistrar = new FriendOperationRegistrar(plugin, storage);
+        this.friendOperationRegistrar = new FriendOperationRegistrar(plugin, friendService);
     }
 
     /**
