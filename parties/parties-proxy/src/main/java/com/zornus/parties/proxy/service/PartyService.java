@@ -262,7 +262,7 @@ public final class PartyService implements AutoCloseable {
                     }
                     PartyInvitation invitation = invitationOptional.get();
                     return storage.removePendingInvitation(invitation.partyId(), invitation.senderId(), senderId)
-                            .thenApply(ignored -> PartyResult.INVITATION_REJECTED);
+                            .thenApply(removed -> removed ? PartyResult.INVITATION_REJECTED : PartyResult.NO_INVITATION_FOUND);
                 });
     }
 
@@ -295,7 +295,7 @@ public final class PartyService implements AutoCloseable {
                     }
                     PartyInvitation invitation = invitationOptional.get();
                     return storage.removePendingInvitation(invitation.partyId(), invitation.senderId(), targetId)
-                            .thenApply(ignored -> PartyResult.INVITATION_REVOKED);
+                            .thenApply(removed -> removed ? PartyResult.INVITATION_REVOKED : PartyResult.NO_INVITATION_FOUND);
                 });
     }
 

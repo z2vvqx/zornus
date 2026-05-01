@@ -452,7 +452,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                             statement.setObject(3, playerId);
                             statement.executeUpdate();
                         }
-                        connection.rollback();
+                        connection.commit();
                         return new JoinOutcome.InvitationNoLongerValid();
                     }
 
