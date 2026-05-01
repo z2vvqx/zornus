@@ -36,7 +36,6 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             initializeSchema();
         } catch (RuntimeException exception) {
             // Clean up resources if schema initialization fails
-            dataSource.close();
             databaseExecutor.shutdown();
             try {
                 databaseExecutor.awaitTermination(5, TimeUnit.SECONDS);
@@ -44,13 +43,13 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 Thread.currentThread().interrupt();
             }
             databaseExecutor.shutdownNow();
+            dataSource.close();
             throw exception;
         }
     }
 
     @Override
     public void close() {
-        dataSource.close();
         databaseExecutor.shutdown();
         try {
             if (!databaseExecutor.awaitTermination(PartyProxyConstants.DATABASE_SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
@@ -60,6 +59,7 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             databaseExecutor.shutdownNow();
             Thread.currentThread().interrupt();
         }
+        dataSource.close();
     }
 
     private void initializeSchema() {
