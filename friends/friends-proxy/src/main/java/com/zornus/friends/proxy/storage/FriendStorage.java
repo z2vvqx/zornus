@@ -4,6 +4,7 @@ import com.zornus.friends.proxy.model.FriendRelation;
 import com.zornus.friends.proxy.model.FriendRequest;
 import com.zornus.friends.proxy.model.FriendSettings;
 import com.zornus.friends.proxy.model.PlayerRecord;
+import com.zornus.friends.proxy.model.PresenceState;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -33,6 +34,13 @@ public interface FriendStorage {
     CompletableFuture<Optional<FriendSettings>> fetchSettings(UUID playerId);
     CompletableFuture<Void> saveSettings(UUID playerId, FriendSettings settings);
 
+    CompletableFuture<Void> updateAllowMessages(UUID playerId, boolean value);
+    CompletableFuture<Void> updateAllowJump(UUID playerId, boolean value);
+    CompletableFuture<Void> updateShowLastSeen(UUID playerId, boolean value);
+    CompletableFuture<Void> updateShowLocation(UUID playerId, boolean value);
+    CompletableFuture<Void> updateAllowRequests(UUID playerId, boolean value);
+    CompletableFuture<Void> updatePresenceState(UUID playerId, PresenceState value);
+
     CompletableFuture<Void> upsertPlayer(UUID playerId, String username);
 
     CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUsername(String username);
@@ -48,9 +56,9 @@ public interface FriendStorage {
     CompletableFuture<Optional<Instant>> fetchFriendRequestTimestamp(UUID senderId, UUID receiverId);
     CompletableFuture<Void> saveFriendRequestTimestamp(UUID senderId, UUID receiverId);
 
-    CompletableFuture<Void> cleanupExpiredFriendRequests(Duration expiry);
-    CompletableFuture<Void> cleanupExpiredFriendRequestCooldowns(Duration expiry);
-    CompletableFuture<Void> cleanupExpiredLastMessageSenders(Duration expiry);
+    CompletableFuture<Void> cleanupExpiredFriendRequests(Instant now, Duration expiry);
+    CompletableFuture<Void> cleanupExpiredFriendRequestCooldowns(Instant now, Duration expiry);
+    CompletableFuture<Void> cleanupExpiredLastMessageSenders(Instant now, Duration expiry);
 
     void close();
 }

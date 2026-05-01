@@ -2,9 +2,9 @@ package com.zornus.parties.proxy;
 
 public final class PartyProxyConstants {
 
-    public static final String POSTGRESQL_URL = System.getenv("PARTY_POSTGRESQL_URL");
-    public static final String POSTGRESQL_USER = System.getenv("PARTY_POSTGRESQL_USER");
-    public static final String POSTGRESQL_PASSWORD = System.getenv("PARTY_POSTGRESQL_PASSWORD");
+    public static final String POSTGRESQL_URL = "jdbc:postgresql://localhost:5432/parties";
+    public static final String POSTGRESQL_USER = "postgres";
+    public static final String POSTGRESQL_PASSWORD = "postword";
 
     public static final int DATABASE_CONNECTION_POOL_SIZE = 10;
     public static final int DATABASE_EXECUTOR_POOL_SIZE = 10;
@@ -27,7 +27,7 @@ public final class PartyProxyConstants {
     public static final String NOTIFICATION_MEMBER_DISCONNECTED = "<yellow><player> disconnected from the party.";
     public static final String NOTIFICATION_LEADER_DISCONNECTED = "<yellow><old_leader> disconnected. <new_leader> is now the party leader.";
     public static final String NOTIFICATION_LEADERSHIP_TRANSFERRED = "<yellow><sender> transferred leadership to <member>.";
-    public static final String NOTIFICATION_INVITE_RECEIVED = "<green><player> invited you to join their party '<party>'.";
+    public static final String NOTIFICATION_INVITE_RECEIVED = "<green><player> invited you to join their party.";
     public static final String NOTIFICATION_INVITE_SENT_ANNOUNCEMENT = "<green><sender> invited <target> to the party.";
     public static final String NOTIFICATION_MEMBER_WARPED = "<green>You were warped to <sender>'s location.";
     public static final String NOTIFICATION_PARTY_DISBANDED = "<red>The party has been disbanded by <leader>.";

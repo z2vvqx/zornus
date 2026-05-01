@@ -31,7 +31,7 @@ public final class PartyService implements AutoCloseable {
         this.storage = storage;
         this.proxyServer = proxyServer;
         this.friendService = friendService;
-        this.notificationService = new PartyNotificationService(storage, proxyServer);
+        this.notificationService = new PartyNotificationService(proxyServer);
     }
 
     @Override
@@ -686,9 +686,7 @@ public final class PartyService implements AutoCloseable {
     }
 
     public @NonNull Optional<Player> findPlayerByUsername(@NonNull String username) {
-        return proxyServer.getAllPlayers().stream()
-                .filter(player -> player.getUsername().equalsIgnoreCase(username))
-                .findFirst();
+        return proxyServer.getPlayer(username);
     }
 
     public @NonNull CompletableFuture<Duration> getRemainingInvitationCooldown(@NonNull UUID senderId, @NonNull UUID receiverId) {
@@ -701,21 +699,5 @@ public final class PartyService implements AutoCloseable {
                     Instant now = Instant.now();
                     return now.isAfter(cooldownEnd) ? Duration.ZERO : Duration.between(now, cooldownEnd);
                 });
-    }
-
-    public @NonNull CompletableFuture<Void> performExpiredInvitationsCleanup() {
-        return storage.cleanupExpiredInvitations(Instant.now(), PartyProxyConstants.INVITATION_EXPIRY);
-    }
-
-    public @NonNull CompletableFuture<Void> performExpiredConfirmationsCleanup() {
-        return storage.cleanupExpiredConfirmations(Instant.now(), PartyProxyConstants.CONFIRMATION_EXPIRY);
-    }
-
-    public @NonNull CompletableFuture<Void> performPeriodicCleanup() {
-        Instant now = Instant.now();
-        return storage.cleanupExpiredInvitations(now, PartyProxyConstants.INVITATION_EXPIRY)
-                .thenCompose(ignored -> storage.cleanupExpiredConfirmations(now, PartyProxyConstants.CONFIRMATION_EXPIRY))
-                .thenCompose(ignored -> storage.cleanupExpiredCooldowns(now, PartyProxyConstants.INVITATION_COOLDOWN.multipliedBy(2)))
-                .thenCompose(ignored -> storage.cleanupOrphanedSettings());
     }
 }

@@ -51,7 +51,6 @@ public interface PartyStorage {
     CompletableFuture<Optional<PendingConfirmation>> fetchPendingConfirmation(@NonNull UUID playerId);
 
     CompletableFuture<Optional<PartySettings>> fetchSettings(@NonNull UUID playerId);
-    CompletableFuture<Void> saveSettings(@NonNull UUID playerId, @NonNull PartySettings settings);
 
     // Atomic column-specific updates to avoid read-modify-write races
     CompletableFuture<Void> updateAllowChat(@NonNull UUID playerId, boolean allowChat);

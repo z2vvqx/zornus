@@ -1,6 +1,6 @@
 package com.zornus.friends.proxy.model;
 
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
 import java.time.Duration;
 import java.time.Instant;
@@ -8,25 +8,25 @@ import java.util.Objects;
 import java.util.UUID;
 
 public record FriendRequest(
-        @NotNull UUID senderUuid,
-        @NotNull String senderUsername,
-        @NotNull UUID receiverUuid,
-        @NotNull String receiverUsername,
-        @NotNull Instant timestamp
+        @NonNull UUID senderUuid,
+        @NonNull String senderUsername,
+        @NonNull UUID receiverUuid,
+        @NonNull String receiverUsername,
+        @NonNull Instant timestamp
 ) {
     public FriendRequest {
     }
 
-    public FriendRequest(@NotNull UUID senderUuid, @NotNull String senderUsername,
-                         @NotNull UUID receiverUuid, @NotNull String receiverUsername) {
+    public FriendRequest(@NonNull UUID senderUuid, @NonNull String senderUsername,
+                         @NonNull UUID receiverUuid, @NonNull String receiverUsername) {
         this(senderUuid, senderUsername, receiverUuid, receiverUsername, Instant.now());
     }
 
-    public FriendRequest(@NotNull UUID senderUuid, @NotNull UUID receiverUuid) {
+    public FriendRequest(@NonNull UUID senderUuid, @NonNull UUID receiverUuid) {
         this(senderUuid, "", receiverUuid, "", Instant.now());
     }
 
-    public boolean isExpired(@NotNull Duration expiry) {
+    public boolean isExpired(@NonNull Duration expiry) {
         return timestamp.plus(expiry).isBefore(Instant.now());
     }
 

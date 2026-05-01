@@ -5,7 +5,6 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.parties.proxy.PartyProxyConstants;
 import com.zornus.parties.proxy.model.Party;
 import com.zornus.parties.proxy.model.PartySettings;
-import com.zornus.parties.proxy.storage.PartyStorage;
 import com.zornus.shared.utilities.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -14,15 +13,12 @@ import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.util.*;
-import java.util.concurrent.CompletableFuture;
 
 public final class PartyNotificationService {
 
-    private final @NonNull PartyStorage storage;
     private final @NonNull ProxyServer proxyServer;
 
-    public PartyNotificationService(@NonNull PartyStorage storage, @NonNull ProxyServer proxyServer) {
-        this.storage = storage;
+    public PartyNotificationService(@NonNull ProxyServer proxyServer) {
         this.proxyServer = proxyServer;
     }
 
@@ -122,17 +118,6 @@ public final class PartyNotificationService {
         Component message = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_PARTY_DISBANDED,
                 TagResolver.resolver(Placeholder.unparsed("leader", leaderName)));
         broadcastToParty(party, message, leaderId);
-    }
-
-    public void sendPartyChat(@NonNull Party party, @NonNull Player sender, @NonNull String message) {
-        Component componentMessage = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_CHAT_FORMAT,
-                TagResolver.resolver(
-                        Placeholder.unparsed("sender", sender.getUsername()),
-                        Placeholder.unparsed("message", message)));
-
-        storage.fetchSettingsForMembers(party.getMemberIds()).thenAccept(settingsMap -> {
-            sendPartyChatFiltered(party, sender, message, settingsMap);
-        });
     }
 
     public void sendPartyChatFiltered(@NonNull Party party, @NonNull Player sender, @NonNull String message,

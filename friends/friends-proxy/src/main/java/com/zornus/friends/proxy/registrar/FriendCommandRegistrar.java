@@ -4,7 +4,7 @@ import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.friends.proxy.command.FriendCommand;
 import com.zornus.friends.proxy.service.FriendService;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -14,8 +14,8 @@ import org.slf4j.LoggerFactory;
 public class FriendCommandRegistrar {
     private static final Logger LOGGER = LoggerFactory.getLogger(FriendCommandRegistrar.class);
 
-    private final @NotNull FriendService friendService;
-    private final @NotNull ProxyServer proxyServer;
+    private final @NonNull FriendService friendService;
+    private final @NonNull ProxyServer proxyServer;
 
     /**
      * Creates a new command registrar.
@@ -23,7 +23,7 @@ public class FriendCommandRegistrar {
      * @param friendService Service for friend operations
      * @param proxyServer   Proxy server for player lookups
      */
-    public FriendCommandRegistrar(@NotNull FriendService friendService, @NotNull ProxyServer proxyServer) {
+    public FriendCommandRegistrar(@NonNull FriendService friendService, @NonNull ProxyServer proxyServer) {
         this.friendService = friendService;
         this.proxyServer = proxyServer;
     }
@@ -34,7 +34,7 @@ public class FriendCommandRegistrar {
      *
      * @param commandManager The command manager for command registration
      */
-    public void registerCommands(@NotNull CommandManager commandManager) {
+    public void registerCommands(@NonNull CommandManager commandManager) {
         try {
             registerFriendCommand(commandManager);
         } catch (Exception exception) {
@@ -48,7 +48,7 @@ public class FriendCommandRegistrar {
      *
      * @param commandManager The command manager for command registration
      */
-    private void registerFriendCommand(@NotNull CommandManager commandManager) {
+    private void registerFriendCommand(@NonNull CommandManager commandManager) {
         commandManager.register(commandManager.metaBuilder("friend").build(), FriendCommand.create(friendService, proxyServer));
     }
 }

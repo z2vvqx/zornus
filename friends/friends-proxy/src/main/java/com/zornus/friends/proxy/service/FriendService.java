@@ -10,7 +10,7 @@ import com.zornus.friends.proxy.model.result.FriendResult;
 import com.zornus.friends.proxy.storage.FriendStorage;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.PaginationResult;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
@@ -18,24 +18,25 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-public class FriendService {
+public final class FriendService implements AutoCloseable {
 
-    private final @NotNull FriendStorage storage;
-    private final @NotNull ProxyServer proxyServer;
-    private final @NotNull FriendNotificationService notificationService;
+    private final @NonNull FriendStorage storage;
+    private final @NonNull ProxyServer proxyServer;
+    private final @NonNull FriendNotificationService notificationService;
 
-    public FriendService(@NotNull FriendStorage storage, @NotNull ProxyServer proxyServer) {
+    public FriendService(@NonNull FriendStorage storage, @NonNull ProxyServer proxyServer) {
         this.storage = storage;
         this.proxyServer = proxyServer;
         this.notificationService = new FriendNotificationService(storage, proxyServer);
     }
 
-    public void closeStorage() {
+    @Override
+    public void close() {
         storage.close();
     }
 
 
-    public @NotNull FriendNotificationService getNotificationService() {
+    public @NonNull FriendNotificationService getNotificationService() {
         return notificationService;
     }
 
@@ -43,7 +44,7 @@ public class FriendService {
     // FRIEND REQUESTS
     // ========================================
 
-    public @NotNull CompletableFuture<FriendResult> sendFriendRequest(@NotNull UUID senderUuid, @NotNull UUID targetUuid) {
+    public @NonNull CompletableFuture<FriendResult> sendFriendRequest(@NonNull UUID senderUuid, @NonNull UUID targetUuid) {
         if (senderUuid.equals(targetUuid)) {
             return CompletableFuture.completedFuture(FriendResult.CANNOT_ADD_SELF);
         }
@@ -58,7 +59,7 @@ public class FriendService {
                 });
     }
 
-    private @NotNull CompletableFuture<PreconditionResult> validateSendRequestPreconditions(@NotNull UUID senderUuid, @NotNull UUID targetUuid) {
+    private @NonNull CompletableFuture<PreconditionResult> validateSendRequestPreconditions(@NonNull UUID senderUuid, @NonNull UUID targetUuid) {
         return storage.hasFriendRelation(senderUuid, targetUuid)
                 .thenCompose(areFriends -> {
                     if (areFriends) {
@@ -72,8 +73,8 @@ public class FriendService {
                 });
     }
 
-    private @NotNull CompletableFuture<FriendResult> handleMutualRequestFlow(@NotNull UUID senderUuid,
-                                                                             @NotNull UUID targetUuid,
+    private @NonNull CompletableFuture<FriendResult> handleMutualRequestFlow(@NonNull UUID senderUuid,
+                                                                             @NonNull UUID targetUuid,
                                                                              boolean hasIncomingRequest) {
         if (hasIncomingRequest) {
             return handleMutualAutoAccept(senderUuid, targetUuid);
@@ -87,8 +88,8 @@ public class FriendService {
                 });
     }
 
-    private @NotNull CompletableFuture<FriendResult> handleMutualAutoAccept(@NotNull UUID senderUuid,
-                                                                            @NotNull UUID targetUuid) {
+    private @NonNull CompletableFuture<FriendResult> handleMutualAutoAccept(@NonNull UUID senderUuid,
+                                                                            @NonNull UUID targetUuid) {
         return checkFriendLimitsForBoth(senderUuid, targetUuid)
                 .thenCompose(limitsResult -> {
                     if (limitsResult != FriendResult.SUCCESS) {
@@ -109,7 +110,7 @@ public class FriendService {
                 });
     }
 
-    private @NotNull CompletableFuture<FriendResult> continueRequestValidation(@NotNull UUID senderUuid, @NotNull UUID targetUuid) {
+    private @NonNull CompletableFuture<FriendResult> continueRequestValidation(@NonNull UUID senderUuid, @NonNull UUID targetUuid) {
         return checkRequestCooldown(senderUuid, targetUuid)
                 .thenCompose(cooldownResult -> {
                     if (cooldownResult != FriendResult.SUCCESS) {
@@ -125,8 +126,8 @@ public class FriendService {
                 });
     }
 
-    private @NotNull CompletableFuture<FriendResult> createAndSendRequest(@NotNull UUID senderUuid,
-                                                                          @NotNull UUID targetUuid) {
+    private @NonNull CompletableFuture<FriendResult> createAndSendRequest(@NonNull UUID senderUuid,
+                                                                          @NonNull UUID targetUuid) {
         FriendRequest request = new FriendRequest(senderUuid, targetUuid);
         return storage.addFriendRequest(request)
                 .thenCompose(added -> {
@@ -141,7 +142,7 @@ public class FriendService {
                 });
     }
 
-    private @NotNull CompletableFuture<FriendResult> checkRequestCooldown(@NotNull UUID senderUuid, @NotNull UUID targetUuid) {
+    private @NonNull CompletableFuture<FriendResult> checkRequestCooldown(@NonNull UUID senderUuid, @NonNull UUID targetUuid) {
         return storage.fetchFriendRequestTimestamp(senderUuid, targetUuid)
                 .thenApply(lastTimestamp -> {
                     if (lastTimestamp.isEmpty()) {
@@ -155,7 +156,7 @@ public class FriendService {
                 });
     }
 
-    private @NotNull CompletableFuture<FriendResult> checkRequestLimits(@NotNull UUID senderUuid, @NotNull UUID targetUuid) {
+    private @NonNull CompletableFuture<FriendResult> checkRequestLimits(@NonNull UUID senderUuid, @NonNull UUID targetUuid) {
         CompletableFuture<Integer> senderOutgoingCount = storage.countOutgoingFriendRequests(senderUuid);
         CompletableFuture<Integer> receiverIncomingCount = storage.countIncomingFriendRequests(targetUuid);
 
@@ -170,7 +171,7 @@ public class FriendService {
         });
     }
 
-    private @NotNull CompletableFuture<FriendResult> checkFriendLimitsForBoth(@NotNull UUID player1Uuid, @NotNull UUID player2Uuid) {
+    private @NonNull CompletableFuture<FriendResult> checkFriendLimitsForBoth(@NonNull UUID player1Uuid, @NonNull UUID player2Uuid) {
         return storage.fetchFriendRelationCount(player1Uuid)
                 .thenCombine(storage.fetchFriendRelationCount(player2Uuid), (count1, count2) -> {
                     if (count1 >= FriendProxyConstants.MAX_FRIENDS) {
@@ -183,7 +184,7 @@ public class FriendService {
                 });
     }
 
-    private @NotNull CompletableFuture<FriendResult> checkTargetAcceptsRequests(@NotNull UUID targetUuid) {
+    private @NonNull CompletableFuture<FriendResult> checkTargetAcceptsRequests(@NonNull UUID targetUuid) {
         return storage.fetchSettings(targetUuid)
                 .thenApply(settingsOpt -> {
                     FriendSettings settings = settingsOpt.orElse(new FriendSettings(targetUuid));
@@ -194,8 +195,8 @@ public class FriendService {
                 });
     }
 
-    public @NotNull CompletableFuture<FriendResult> acceptFriendRequest(@NotNull UUID accepterUuid,
-                                                                        @NotNull UUID requesterUuid) {
+    public @NonNull CompletableFuture<FriendResult> acceptFriendRequest(@NonNull UUID accepterUuid,
+                                                                        @NonNull UUID requesterUuid) {
         return storage.hasIncomingFriendRequest(accepterUuid, requesterUuid)
                 .thenCompose(hasRequest -> {
                     if (!hasRequest) {
@@ -230,7 +231,7 @@ public class FriendService {
                 });
     }
 
-    public @NotNull CompletableFuture<FriendResult> rejectFriendRequest(@NotNull UUID rejecterUuid, @NotNull UUID requesterUuid) {
+    public @NonNull CompletableFuture<FriendResult> rejectFriendRequest(@NonNull UUID rejecterUuid, @NonNull UUID requesterUuid) {
         return storage.hasIncomingFriendRequest(rejecterUuid, requesterUuid)
                 .thenCompose(hasRequest -> {
                     if (!hasRequest) {
@@ -241,7 +242,7 @@ public class FriendService {
                 });
     }
 
-    public @NotNull CompletableFuture<FriendResult> revokeFriendRequest(@NotNull UUID revokerUuid, @NotNull UUID targetUuid) {
+    public @NonNull CompletableFuture<FriendResult> revokeFriendRequest(@NonNull UUID revokerUuid, @NonNull UUID targetUuid) {
         return storage.hasOutgoingFriendRequest(revokerUuid, targetUuid)
                 .thenCompose(hasRequest -> {
                     if (!hasRequest) {
@@ -252,7 +253,7 @@ public class FriendService {
                 });
     }
 
-    public @NotNull CompletableFuture<FriendRequestListResult> getIncomingRequestsList(@NotNull UUID playerUuid, int page) {
+    public @NonNull CompletableFuture<FriendRequestListResult> getIncomingRequestsList(@NonNull UUID playerUuid, int page) {
         return storage.fetchIncomingFriendRequests(playerUuid)
                 .thenApply(requests -> {
                     if (requests.isEmpty()) {
@@ -266,7 +267,7 @@ public class FriendService {
                 });
     }
 
-    public @NotNull CompletableFuture<FriendRequestListResult> getOutgoingRequestsList(@NotNull UUID playerUuid, int page) {
+    public @NonNull CompletableFuture<FriendRequestListResult> getOutgoingRequestsList(@NonNull UUID playerUuid, int page) {
         return storage.fetchOutgoingFriendRequests(playerUuid)
                 .thenApply(requests -> {
                     if (requests.isEmpty()) {
@@ -280,7 +281,7 @@ public class FriendService {
                 });
     }
 
-    public @NotNull CompletableFuture<FriendResult> removeFriend(@NotNull UUID removerUuid, @NotNull UUID friendUuid) {
+    public @NonNull CompletableFuture<FriendResult> removeFriend(@NonNull UUID removerUuid, @NonNull UUID friendUuid) {
         return storage.hasFriendRelation(removerUuid, friendUuid)
                 .thenCompose(areFriends -> {
                     if (!areFriends) {
@@ -295,11 +296,11 @@ public class FriendService {
     // FRIEND RELATIONS
     // ========================================
 
-    public @NotNull CompletableFuture<Boolean> areFriends(@NotNull UUID player1Uuid, @NotNull UUID player2Uuid) {
+    public @NonNull CompletableFuture<Boolean> areFriends(@NonNull UUID player1Uuid, @NonNull UUID player2Uuid) {
         return storage.hasFriendRelation(player1Uuid, player2Uuid);
     }
 
-    public @NotNull CompletableFuture<FriendListResult> getFriendsList(@NotNull UUID playerUuid, int page) {
+    public @NonNull CompletableFuture<FriendListResult> getFriendsList(@NonNull UUID playerUuid, int page) {
         return storage.fetchFriendRelations(playerUuid)
                 .thenApply(relations -> {
                     if (relations.isEmpty()) {
@@ -313,8 +314,8 @@ public class FriendService {
                 });
     }
 
-    public @NotNull CompletableFuture<FriendResult> sendFriendMessage(@NotNull UUID senderUuid, @NotNull UUID targetUuid,
-                                                                      @NotNull String message) {
+    public @NonNull CompletableFuture<FriendResult> sendFriendMessage(@NonNull UUID senderUuid, @NonNull UUID targetUuid,
+                                                                      @NonNull String message) {
         if (message.length() > FriendProxyConstants.MAX_MESSAGE_LENGTH) {
             return CompletableFuture.completedFuture(FriendResult.MESSAGE_TOO_LONG);
         }
@@ -333,7 +334,7 @@ public class FriendService {
     // MESSAGING
     // ========================================
 
-    private @NotNull CompletableFuture<MessageValidationResult> validateMessagePreconditions(boolean areFriends, @NotNull UUID targetUuid) {
+    private @NonNull CompletableFuture<MessageValidationResult> validateMessagePreconditions(boolean areFriends, @NonNull UUID targetUuid) {
         if (!areFriends) {
             return CompletableFuture.completedFuture(new MessageValidationResult(FriendResult.NOT_FRIENDS, null));
         }
@@ -351,9 +352,9 @@ public class FriendService {
                 });
     }
 
-    private @NotNull CompletableFuture<FriendResult> deliverMessage(@NotNull UUID senderUuid, @NotNull UUID targetUuid,
-                                                                    @NotNull String message,
-                                                                    @NotNull Player targetPlayer) {
+    private @NonNull CompletableFuture<FriendResult> deliverMessage(@NonNull UUID senderUuid, @NonNull UUID targetUuid,
+                                                                    @NonNull String message,
+                                                                    @NonNull Player targetPlayer) {
         return storage.saveLastMessageSender(targetUuid, senderUuid)
                 .thenApply(ignored -> {
                     notificationService.notifyFriendMessageReceived(targetPlayer, senderUuid, message);
@@ -361,7 +362,7 @@ public class FriendService {
                 });
     }
 
-    public @NotNull CompletableFuture<FriendResult> sendFriendReply(@NotNull UUID senderUuid, @NotNull String message) {
+    public @NonNull CompletableFuture<FriendResult> sendFriendReply(@NonNull UUID senderUuid, @NonNull String message) {
         if (message.length() > FriendProxyConstants.MAX_MESSAGE_LENGTH) {
             return CompletableFuture.completedFuture(FriendResult.MESSAGE_TOO_LONG);
         }
@@ -381,7 +382,7 @@ public class FriendService {
                 });
     }
 
-    public @NotNull CompletableFuture<FriendResult> jumpToFriend(@NotNull UUID jumperUuid, @NotNull UUID targetUuid) {
+    public @NonNull CompletableFuture<FriendResult> jumpToFriend(@NonNull UUID jumperUuid, @NonNull UUID targetUuid) {
         return storage.hasFriendRelation(jumperUuid, targetUuid)
                 .thenCompose(areFriends -> validateJumpPreconditions(areFriends, jumperUuid, targetUuid))
                 .thenCompose(validationResult -> {
@@ -392,7 +393,7 @@ public class FriendService {
                 });
     }
 
-    private @NotNull CompletableFuture<JumpValidationResult> validateJumpPreconditions(boolean areFriends, @NotNull UUID jumperUuid, @NotNull UUID targetUuid) {
+    private @NonNull CompletableFuture<JumpValidationResult> validateJumpPreconditions(boolean areFriends, @NonNull UUID jumperUuid, @NonNull UUID targetUuid) {
         if (!areFriends) {
             return CompletableFuture.completedFuture(new JumpValidationResult(FriendResult.NOT_FRIENDS, null, null));
         }
@@ -433,22 +434,23 @@ public class FriendService {
     // JUMPING
     // ========================================
 
-    private @NotNull CompletableFuture<FriendResult> executeJump(@NotNull Player jumper, @NotNull Player target) {
+    private @NonNull CompletableFuture<FriendResult> executeJump(@NonNull Player jumper, @NonNull Player target) {
         return jumper.createConnectionRequest(target.getCurrentServer().get().getServer())
                 .connect()
-                .thenApply(result -> FriendResult.JUMP_SUCCESSFUL);
+                .thenApply(result -> FriendResult.JUMP_SUCCESSFUL)
+                .exceptionally(throwable -> FriendResult.JUMP_FAILED);
     }
 
-    public @NotNull CompletableFuture<Optional<FriendSettings>> getSettings(@NotNull UUID playerUuid) {
+    public @NonNull CompletableFuture<Optional<FriendSettings>> getSettings(@NonNull UUID playerUuid) {
         return storage.fetchSettings(playerUuid)
                 .thenApply(settingsOpt -> settingsOpt.or(() -> Optional.of(new FriendSettings(playerUuid))));
     }
 
-    public @NotNull CompletableFuture<Optional<Instant>> fetchLastSeen(@NotNull UUID playerUuid) {
+    public @NonNull CompletableFuture<Optional<Instant>> fetchLastSeen(@NonNull UUID playerUuid) {
         return storage.fetchLastSeen(playerUuid);
     }
 
-    public @NotNull CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUsername(@NotNull String username) {
+    public @NonNull CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUsername(@NonNull String username) {
         return storage.fetchPlayerByUsername(username);
     }
 
@@ -456,83 +458,68 @@ public class FriendService {
     // SETTINGS
     // ========================================
 
-    public @NotNull CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUuid(@NotNull UUID playerUuid) {
+    public @NonNull CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUuid(@NonNull UUID playerUuid) {
         return storage.fetchPlayerByUuid(playerUuid);
     }
 
-    public @NotNull CompletableFuture<Optional<UUID>> fetchLastMessageSender(@NotNull UUID playerUuid) {
+    public @NonNull CompletableFuture<Optional<UUID>> fetchLastMessageSender(@NonNull UUID playerUuid) {
         return storage.fetchLastMessageSender(playerUuid);
     }
 
-    public @NotNull CompletableFuture<FriendResult> updateSetting(@NotNull UUID playerUuid, @NotNull String setting, boolean value) {
-        return storage.fetchSettings(playerUuid)
-                .thenCompose(settingsOpt -> {
-                    FriendSettings currentSettings = settingsOpt.orElse(new FriendSettings(playerUuid));
-                    FriendSettings newSettings = applySettingUpdate(currentSettings, setting, value);
-
-                    if (newSettings == null) {
-                        return CompletableFuture.completedFuture(FriendResult.INVALID_SETTING);
-                    }
-
-                    return storage.saveSettings(playerUuid, newSettings)
-                            .thenApply(ignored -> FriendResult.SETTING_UPDATED);
-                });
+    public @NonNull CompletableFuture<FriendResult> updateSetting(@NonNull UUID playerUuid, @NonNull String setting, boolean value) {
+        return applySettingUpdateAtomic(playerUuid, setting, value)
+                .thenApply(success -> success ? FriendResult.SETTING_UPDATED : FriendResult.INVALID_SETTING);
     }
 
-    public @NotNull CompletableFuture<FriendResult> setPresence(@NotNull UUID playerUuid, @NotNull PresenceState presenceState) {
-        return storage.fetchSettings(playerUuid)
-                .thenCompose(settingsOpt -> {
-                    FriendSettings currentSettings = settingsOpt.orElse(new FriendSettings(playerUuid));
-                    FriendSettings newSettings = currentSettings.withPresenceState(presenceState);
-                    return storage.saveSettings(playerUuid, newSettings)
-                            .thenApply(ignored -> FriendResult.STATUS_UPDATED);
-                });
+    public @NonNull CompletableFuture<FriendResult> setPresence(@NonNull UUID playerUuid, @NonNull PresenceState presenceState) {
+        return storage.updatePresenceState(playerUuid, presenceState)
+                .thenApply(ignored -> FriendResult.STATUS_UPDATED);
     }
 
-    private @Nullable FriendSettings applySettingUpdate(@NotNull FriendSettings settings, @NotNull String setting, boolean value) {
+    private @NonNull CompletableFuture<Boolean> applySettingUpdateAtomic(@NonNull UUID playerUuid, @NonNull String setting, boolean value) {
         return switch (setting.toLowerCase()) {
-            case "messaging" -> settings.withAllowMessages(value);
-            case "jumping" -> settings.withAllowJump(value);
-            case "lastseen" -> settings.withShowLastSeen(value);
-            case "location" -> settings.withShowLocation(value);
-            case "requests" -> settings.withAllowRequests(value);
-            default -> null;
+            case "messaging" -> storage.updateAllowMessages(playerUuid, value).thenApply(ignored -> true);
+            case "jumping" -> storage.updateAllowJump(playerUuid, value).thenApply(ignored -> true);
+            case "lastseen" -> storage.updateShowLastSeen(playerUuid, value).thenApply(ignored -> true);
+            case "location" -> storage.updateShowLocation(playerUuid, value).thenApply(ignored -> true);
+            case "requests" -> storage.updateAllowRequests(playerUuid, value).thenApply(ignored -> true);
+            default -> CompletableFuture.completedFuture(false);
         };
     }
 
-    public @NotNull CompletableFuture<Void> handlePlayerConnect(@NotNull UUID playerUuid, @NotNull String username) {
+    public @NonNull CompletableFuture<Void> handlePlayerConnect(@NonNull UUID playerUuid, @NonNull String username) {
         return storage.upsertPlayer(playerUuid, username)
                 .thenCompose(ignored -> storage.fetchFriendRelations(playerUuid))
                 .thenAccept(friendRelations -> notificationService.notifyFriendsOfPlayerJoin(playerUuid, friendRelations));
     }
 
-    public @NotNull CompletableFuture<Void> handlePlayerDisconnect(@NotNull UUID playerUuid) {
+    public @NonNull CompletableFuture<Void> handlePlayerDisconnect(@NonNull UUID playerUuid) {
         return storage.saveLastSeen(playerUuid, Instant.now())
                 .thenCompose(ignored -> storage.fetchFriendRelations(playerUuid))
                 .thenAccept(friendRelations -> notificationService.notifyFriendsOfPlayerLeave(playerUuid, friendRelations));
     }
 
-    public @NotNull CompletableFuture<Void> cleanupExpiredRequests() {
-        return storage.cleanupExpiredFriendRequests(FriendProxyConstants.REQUEST_EXPIRY_DURATION);
+    public @NonNull CompletableFuture<Void> cleanupExpiredRequests() {
+        return storage.cleanupExpiredFriendRequests(Instant.now(), FriendProxyConstants.REQUEST_EXPIRY_DURATION);
     }
 
     // ========================================
     // PLAYER LIFECYCLE
     // ========================================
 
-    public @NotNull CompletableFuture<Void> cleanupExpiredCooldowns() {
-        return storage.cleanupExpiredFriendRequestCooldowns(FriendProxyConstants.COOLDOWN_EXPIRY_DURATION);
+    public @NonNull CompletableFuture<Void> cleanupExpiredCooldowns() {
+        return storage.cleanupExpiredFriendRequestCooldowns(Instant.now(), FriendProxyConstants.COOLDOWN_EXPIRY_DURATION);
     }
 
-    public @NotNull CompletableFuture<Void> cleanupExpiredLastMessageSenders() {
-        return storage.cleanupExpiredLastMessageSenders(FriendProxyConstants.LAST_MESSAGE_SENDER_RETENTION);
+    public @NonNull CompletableFuture<Void> cleanupExpiredLastMessageSenders() {
+        return storage.cleanupExpiredLastMessageSenders(Instant.now(), FriendProxyConstants.LAST_MESSAGE_SENDER_RETENTION);
     }
 
     // ========================================
     // CLEANUP
     // ========================================
 
-    private @NotNull CompletableFuture<Void> removeFriendRequestPair(@NotNull UUID senderUuid, @NotNull UUID receiverUuid) {
+    private @NonNull CompletableFuture<Void> removeFriendRequestPair(@NonNull UUID senderUuid, @NonNull UUID receiverUuid) {
         return storage.removeFriendRequest(senderUuid, receiverUuid)
                 .thenCompose(ignoredBool -> storage.removeFriendRequest(receiverUuid, senderUuid))
                 .thenApply(ignoredBool -> null);

@@ -2,7 +2,8 @@ package com.zornus.friends.proxy.operation;
 
 import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.storage.FriendStorage;
-import org.jetbrains.annotations.NotNull;
+import java.time.Instant;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -12,14 +13,14 @@ import org.slf4j.LoggerFactory;
 public class FriendExpirationOperation implements Runnable {
     private static final Logger LOGGER = LoggerFactory.getLogger(FriendExpirationOperation.class);
 
-    private final @NotNull FriendStorage storage;
+    private final @NonNull FriendStorage storage;
 
     /**
      * Creates a new friend request expiry operation.
      *
      * @param storage Storage for friend data
      */
-    public FriendExpirationOperation(@NotNull FriendStorage storage) {
+    public FriendExpirationOperation(@NonNull FriendStorage storage) {
         this.storage = storage;
     }
 
@@ -32,9 +33,10 @@ public class FriendExpirationOperation implements Runnable {
         try {
             LOGGER.debug("Starting cleanup of expired friend requests, cooldowns, and last message senders...");
 
-            storage.cleanupExpiredFriendRequests(FriendProxyConstants.REQUEST_EXPIRY_DURATION);
-            storage.cleanupExpiredFriendRequestCooldowns(FriendProxyConstants.COOLDOWN_EXPIRY_DURATION);
-            storage.cleanupExpiredLastMessageSenders(FriendProxyConstants.LAST_MESSAGE_SENDER_RETENTION);
+            Instant now = Instant.now();
+            storage.cleanupExpiredFriendRequests(now, FriendProxyConstants.REQUEST_EXPIRY_DURATION);
+            storage.cleanupExpiredFriendRequestCooldowns(now, FriendProxyConstants.COOLDOWN_EXPIRY_DURATION);
+            storage.cleanupExpiredLastMessageSenders(now, FriendProxyConstants.LAST_MESSAGE_SENDER_RETENTION);
 
             LOGGER.debug("Completed cleanup of expired friend requests, cooldowns, and last message senders");
         } catch (Exception exception) {

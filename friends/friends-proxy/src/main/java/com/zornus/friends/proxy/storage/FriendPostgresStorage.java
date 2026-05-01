@@ -33,12 +33,23 @@ public class FriendPostgresStorage implements FriendStorage, AutoCloseable {
         config.setDriverClassName("org.postgresql.Driver");
         this.dataSource = new HikariDataSource(config);
         this.databaseExecutor = Executors.newFixedThreadPool(FriendProxyConstants.DATABASE_EXECUTOR_POOL_SIZE);
-        initializeSchema();
+        try {
+            initializeSchema();
+        } catch (RuntimeException exception) {
+            databaseExecutor.shutdown();
+            try {
+                databaseExecutor.awaitTermination(5, TimeUnit.SECONDS);
+            } catch (InterruptedException interruptedException) {
+                Thread.currentThread().interrupt();
+            }
+            databaseExecutor.shutdownNow();
+            dataSource.close();
+            throw exception;
+        }
     }
 
     @Override
     public void close() {
-        dataSource.close();
         databaseExecutor.shutdown();
         try {
             if (!databaseExecutor.awaitTermination(FriendProxyConstants.DATABASE_SHUTDOWN_TIMEOUT_SECONDS, TimeUnit.SECONDS)) {
@@ -48,6 +59,7 @@ public class FriendPostgresStorage implements FriendStorage, AutoCloseable {
             databaseExecutor.shutdownNow();
             Thread.currentThread().interrupt();
         }
+        dataSource.close();
     }
 
     private void initializeSchema() {
@@ -405,6 +417,90 @@ public class FriendPostgresStorage implements FriendStorage, AutoCloseable {
     }
 
     @Override
+    public CompletableFuture<Void> updateAllowMessages(UUID playerId, boolean value) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = """
+                    INSERT INTO settings (player_id, allow_messages) VALUES (?, ?)
+                    ON CONFLICT (player_id) DO UPDATE SET allow_messages = EXCLUDED.allow_messages
+                    """;
+            executeUpdate(sql, statement -> {
+                statement.setObject(1, playerId);
+                statement.setBoolean(2, value);
+            }, "update allow_messages");
+        }, databaseExecutor);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateAllowJump(UUID playerId, boolean value) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = """
+                    INSERT INTO settings (player_id, allow_jump) VALUES (?, ?)
+                    ON CONFLICT (player_id) DO UPDATE SET allow_jump = EXCLUDED.allow_jump
+                    """;
+            executeUpdate(sql, statement -> {
+                statement.setObject(1, playerId);
+                statement.setBoolean(2, value);
+            }, "update allow_jump");
+        }, databaseExecutor);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateShowLastSeen(UUID playerId, boolean value) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = """
+                    INSERT INTO settings (player_id, show_last_seen) VALUES (?, ?)
+                    ON CONFLICT (player_id) DO UPDATE SET show_last_seen = EXCLUDED.show_last_seen
+                    """;
+            executeUpdate(sql, statement -> {
+                statement.setObject(1, playerId);
+                statement.setBoolean(2, value);
+            }, "update show_last_seen");
+        }, databaseExecutor);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateShowLocation(UUID playerId, boolean value) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = """
+                    INSERT INTO settings (player_id, show_location) VALUES (?, ?)
+                    ON CONFLICT (player_id) DO UPDATE SET show_location = EXCLUDED.show_location
+                    """;
+            executeUpdate(sql, statement -> {
+                statement.setObject(1, playerId);
+                statement.setBoolean(2, value);
+            }, "update show_location");
+        }, databaseExecutor);
+    }
+
+    @Override
+    public CompletableFuture<Void> updateAllowRequests(UUID playerId, boolean value) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = """
+                    INSERT INTO settings (player_id, accept_requests) VALUES (?, ?)
+                    ON CONFLICT (player_id) DO UPDATE SET accept_requests = EXCLUDED.accept_requests
+                    """;
+            executeUpdate(sql, statement -> {
+                statement.setObject(1, playerId);
+                statement.setBoolean(2, value);
+            }, "update accept_requests");
+        }, databaseExecutor);
+    }
+
+    @Override
+    public CompletableFuture<Void> updatePresenceState(UUID playerId, PresenceState value) {
+        return CompletableFuture.runAsync(() -> {
+            String sql = """
+                    INSERT INTO settings (player_id, presence_state) VALUES (?, ?)
+                    ON CONFLICT (player_id) DO UPDATE SET presence_state = EXCLUDED.presence_state
+                    """;
+            executeUpdate(sql, statement -> {
+                statement.setObject(1, playerId);
+                statement.setString(2, value.name().toLowerCase());
+            }, "update presence_state");
+        }, databaseExecutor);
+    }
+
+    @Override
     public CompletableFuture<Void> upsertPlayer(UUID playerId, String username) {
         return CompletableFuture.runAsync(() -> {
             String sql = """
@@ -528,26 +624,26 @@ public class FriendPostgresStorage implements FriendStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<Void> cleanupExpiredFriendRequests(Duration expiry) {
+    public CompletableFuture<Void> cleanupExpiredFriendRequests(Instant now, Duration expiry) {
         return CompletableFuture.runAsync(() -> {
             String sql = "DELETE FROM requests WHERE created_at < ?";
-            executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(Instant.now().minus(expiry))), "cleanup expired requests");
+            executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired requests");
         }, databaseExecutor);
     }
 
     @Override
-    public CompletableFuture<Void> cleanupExpiredFriendRequestCooldowns(Duration expiry) {
+    public CompletableFuture<Void> cleanupExpiredFriendRequestCooldowns(Instant now, Duration expiry) {
         return CompletableFuture.runAsync(() -> {
             String sql = "DELETE FROM request_cooldowns WHERE timestamp < ?";
-            executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(Instant.now().minus(expiry))), "cleanup expired cooldowns");
+            executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired cooldowns");
         }, databaseExecutor);
     }
 
     @Override
-    public CompletableFuture<Void> cleanupExpiredLastMessageSenders(Duration expiry) {
+    public CompletableFuture<Void> cleanupExpiredLastMessageSenders(Instant now, Duration expiry) {
         return CompletableFuture.runAsync(() -> {
             String sql = "DELETE FROM last_message WHERE timestamp < ?";
-            executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(Instant.now().minus(expiry))), "cleanup expired last message senders");
+            executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired last message senders");
         }, databaseExecutor);
     }
 

@@ -6,7 +6,7 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,17 +23,17 @@ import org.slf4j.LoggerFactory;
 public class FriendProxyPlugin {
     private static final Logger LOGGER = LoggerFactory.getLogger(FriendProxyPlugin.class);
 
-    private final @NotNull ProxyServer proxyServer;
-    private final @NotNull FriendProxyModule friendProxyModule;
+    private final @NonNull ProxyServer proxyServer;
+    private final @NonNull FriendProxyModule friendProxyModule;
 
     @Inject
-    public FriendProxyPlugin(@NotNull ProxyServer proxyServer) {
+    public FriendProxyPlugin(@NonNull ProxyServer proxyServer) {
         this.proxyServer = proxyServer;
         this.friendProxyModule = new FriendProxyModule(this, proxyServer);
     }
 
     @Subscribe
-    public void onProxyInitialize(@NotNull ProxyInitializeEvent event) {
+    public void onProxyInitialize(@NonNull ProxyInitializeEvent event) {
         try {
             LOGGER.info("Initializing Friends plugin...");
 
@@ -51,7 +51,7 @@ public class FriendProxyPlugin {
     }
 
     @Subscribe
-    public void onProxyShutdown(@NotNull ProxyShutdownEvent event) {
+    public void onProxyShutdown(@NonNull ProxyShutdownEvent event) {
         try {
             LOGGER.info("Shutting down Friends plugin...");
 
@@ -63,7 +63,7 @@ public class FriendProxyPlugin {
         }
     }
 
-    public @NotNull FriendProxyModule getFriendProxyModule() {
+    public @NonNull FriendProxyModule getFriendProxyModule() {
         return friendProxyModule;
     }
 }

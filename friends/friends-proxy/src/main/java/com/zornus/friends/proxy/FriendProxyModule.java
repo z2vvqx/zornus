@@ -10,7 +10,7 @@ import com.zornus.friends.proxy.registrar.FriendOperationRegistrar;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.friends.proxy.storage.FriendPostgresStorage;
 import com.zornus.friends.proxy.storage.FriendStorage;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -18,13 +18,13 @@ import org.slf4j.LoggerFactory;
  * Main module for friends proxy functionality.
  * Provides service coordination and initialization management.
  */
-public class FriendProxyModule {
+public final class FriendProxyModule {
     private static final Logger LOGGER = LoggerFactory.getLogger(FriendProxyModule.class);
 
-    private final @NotNull FriendService friendService;
-    private final @NotNull FriendCommandRegistrar friendCommandRegistrar;
-    private final @NotNull FriendListenerRegistrar friendListenerRegistrar;
-    private final @NotNull FriendOperationRegistrar friendOperationRegistrar;
+    private final @NonNull FriendService friendService;
+    private final @NonNull FriendCommandRegistrar friendCommandRegistrar;
+    private final @NonNull FriendListenerRegistrar friendListenerRegistrar;
+    private final @NonNull FriendOperationRegistrar friendOperationRegistrar;
 
     /**
      * Creates a new proxy module with service initialization.
@@ -32,7 +32,7 @@ public class FriendProxyModule {
      * @param plugin The plugin instance
      * @param proxyServer The proxy server instance
      */
-    public FriendProxyModule(@NotNull Object plugin, @NotNull ProxyServer proxyServer) {
+    public FriendProxyModule(@NonNull Object plugin, @NonNull ProxyServer proxyServer) {
         FriendStorage storage = new FriendPostgresStorage(
                 FriendProxyConstants.POSTGRESQL_URL,
                 FriendProxyConstants.POSTGRESQL_USER,
@@ -52,7 +52,7 @@ public class FriendProxyModule {
      * @param eventManager   The event manager for listener registration
      * @param scheduler      The scheduler for task registration
      */
-    public void initialize(@NotNull CommandManager commandManager, @NotNull EventManager eventManager, @NotNull Scheduler scheduler) {
+    public void initialize(@NonNull CommandManager commandManager, @NonNull EventManager eventManager, @NonNull Scheduler scheduler) {
         try {
             friendCommandRegistrar.registerCommands(commandManager);
             friendListenerRegistrar.registerListeners(eventManager);
@@ -68,7 +68,7 @@ public class FriendProxyModule {
      */
     public void shutdown() {
         try {
-            friendService.closeStorage();
+            friendService.close();
         } catch (Exception exception) {
             LOGGER.error("Error during proxy module shutdown", exception);
         }
@@ -79,7 +79,7 @@ public class FriendProxyModule {
      *
      * @return Friend service
      */
-    public @NotNull FriendService getFriendService() {
+    public @NonNull FriendService getFriendService() {
         return friendService;
     }
 
@@ -88,7 +88,7 @@ public class FriendProxyModule {
      *
      * @return Command registrar
      */
-    public @NotNull FriendCommandRegistrar getCommandRegistrar() {
+    public @NonNull FriendCommandRegistrar getCommandRegistrar() {
         return friendCommandRegistrar;
     }
 
@@ -97,7 +97,7 @@ public class FriendProxyModule {
      *
      * @return Listener registrar
      */
-    public @NotNull FriendListenerRegistrar getListenerRegistrar() {
+    public @NonNull FriendListenerRegistrar getListenerRegistrar() {
         return friendListenerRegistrar;
     }
 
@@ -106,7 +106,7 @@ public class FriendProxyModule {
      *
      * @return Operation registrar
      */
-    public @NotNull FriendOperationRegistrar getOperationRegistrar() {
+    public @NonNull FriendOperationRegistrar getOperationRegistrar() {
         return friendOperationRegistrar;
     }
 }

@@ -6,7 +6,7 @@ public final class CooldownKey {
     private CooldownKey() {}
 
     public static CanonicalKey canonicalize(UUID playerA, UUID playerB) {
-        if (playerA.compareTo(playerB) < 0) {
+        if (playerA.toString().compareTo(playerB.toString()) < 0) {
             return new CanonicalKey(playerA, playerB);
         } else {
             return new CanonicalKey(playerB, playerA);

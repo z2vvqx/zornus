@@ -11,7 +11,7 @@ import com.zornus.shared.utilities.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -20,10 +20,10 @@ import java.util.UUID;
 
 public class FriendNotificationService {
 
-    private final @NotNull FriendStorage storage;
-    private final @NotNull ProxyServer proxyServer;
+    private final @NonNull FriendStorage storage;
+    private final @NonNull ProxyServer proxyServer;
 
-    public FriendNotificationService(@NotNull FriendStorage storage, @NotNull ProxyServer proxyServer) {
+    public FriendNotificationService(@NonNull FriendStorage storage, @NonNull ProxyServer proxyServer) {
         this.storage = storage;
         this.proxyServer = proxyServer;
     }
@@ -32,8 +32,8 @@ public class FriendNotificationService {
     // JOIN/LEAVE NOTIFICATIONS
     // ========================================
 
-    public void notifyFriendsOfPlayerJoin(@NotNull UUID joiningPlayerUuid,
-                                          @NotNull List<FriendRelation> friendRelations) {
+    public void notifyFriendsOfPlayerJoin(@NonNull UUID joiningPlayerUuid,
+                                          @NonNull List<FriendRelation> friendRelations) {
         storage.fetchSettings(joiningPlayerUuid).thenAccept(settingsOptional -> {
             FriendSettings settings = settingsOptional.orElse(new FriendSettings(joiningPlayerUuid));
             if (settings.presenceState() == PresenceState.OFFLINE) {
@@ -58,7 +58,7 @@ public class FriendNotificationService {
         });
     }
 
-    public void notifyFriendsOfPlayerLeave(@NotNull UUID leavingPlayerUuid, @NotNull List<FriendRelation> friendRelations) {
+    public void notifyFriendsOfPlayerLeave(@NonNull UUID leavingPlayerUuid, @NonNull List<FriendRelation> friendRelations) {
         storage.fetchSettings(leavingPlayerUuid).thenAccept(settingsOptional -> {
             FriendSettings settings = settingsOptional.orElse(new FriendSettings(leavingPlayerUuid));
             if (settings.presenceState() == PresenceState.OFFLINE) {
@@ -86,7 +86,7 @@ public class FriendNotificationService {
     // REQUEST NOTIFICATIONS
     // ========================================
 
-    public void notifyFriendRequestReceived(@NotNull UUID receiverUuid, @NotNull UUID senderUuid) {
+    public void notifyFriendRequestReceived(@NonNull UUID receiverUuid, @NonNull UUID senderUuid) {
         Optional<Player> receiver = proxyServer.getPlayer(receiverUuid);
         if (receiver.isEmpty()) {
             return;
@@ -101,7 +101,7 @@ public class FriendNotificationService {
         receiver.get().sendMessage(message);
     }
 
-    public void notifyFriendRequestAccepted(@NotNull UUID targetUuid, @NotNull UUID otherPlayerUuid) {
+    public void notifyFriendRequestAccepted(@NonNull UUID targetUuid, @NonNull UUID otherPlayerUuid) {
         Optional<Player> targetPlayer = proxyServer.getPlayer(targetUuid);
         if (targetPlayer.isEmpty()) {
             return;
@@ -120,7 +120,7 @@ public class FriendNotificationService {
     // MESSAGE NOTIFICATIONS
     // ========================================
 
-    public void notifyFriendMessageReceived(@NotNull Player receiver, @NotNull UUID senderUuid, @NotNull String message) {
+    public void notifyFriendMessageReceived(@NonNull Player receiver, @NonNull UUID senderUuid, @NonNull String message) {
         Optional<Player> sender = proxyServer.getPlayer(senderUuid);
         String senderName = sender.map(Player::getUsername).orElse("Unknown");
 
@@ -136,7 +136,7 @@ public class FriendNotificationService {
     // HELPER METHODS
     // ========================================
 
-    private @NotNull List<Player> collectOnlineFriends(@NotNull UUID playerId, @NotNull List<FriendRelation> friendRelations) {
+    private @NonNull List<Player> collectOnlineFriends(@NonNull UUID playerId, @NonNull List<FriendRelation> friendRelations) {
         List<Player> onlineFriends = new ArrayList<>(friendRelations.size());
         for (FriendRelation friendRelation : friendRelations) {
             UUID friendId = friendRelation.getOtherPlayerUuid(playerId);

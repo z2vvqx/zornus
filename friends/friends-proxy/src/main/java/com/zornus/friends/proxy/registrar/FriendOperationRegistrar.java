@@ -4,7 +4,7 @@ import com.velocitypowered.api.scheduler.Scheduler;
 import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.operation.FriendExpirationOperation;
 import com.zornus.friends.proxy.storage.FriendStorage;
-import org.jetbrains.annotations.NotNull;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -17,8 +17,8 @@ import java.util.concurrent.TimeUnit;
 public class FriendOperationRegistrar {
     private static final Logger LOGGER = LoggerFactory.getLogger(FriendOperationRegistrar.class);
 
-    private final @NotNull Object plugin;
-    private final @NotNull FriendExpirationOperation expirationOperation;
+    private final @NonNull Object plugin;
+    private final @NonNull FriendExpirationOperation expirationOperation;
 
     /**
      * Creates a new operation registrar.
@@ -26,7 +26,7 @@ public class FriendOperationRegistrar {
      * @param plugin  The plugin instance for task registration
      * @param storage Storage for friend operations
      */
-    public FriendOperationRegistrar(@NotNull Object plugin, @NotNull FriendStorage storage) {
+    public FriendOperationRegistrar(@NonNull Object plugin, @NonNull FriendStorage storage) {
         this.plugin = plugin;
         this.expirationOperation = new FriendExpirationOperation(storage);
     }
@@ -37,7 +37,7 @@ public class FriendOperationRegistrar {
      *
      * @param scheduler The scheduler for task registration
      */
-    public void registerOperations(@NotNull Scheduler scheduler) {
+    public void registerOperations(@NonNull Scheduler scheduler) {
         try {
             registerExpiryOperation(scheduler);
         } catch (Exception exception) {
@@ -51,7 +51,7 @@ public class FriendOperationRegistrar {
      *
      * @param scheduler The scheduler for task registration
      */
-    private void registerExpiryOperation(@NotNull Scheduler scheduler) {
+    private void registerExpiryOperation(@NonNull Scheduler scheduler) {
         Duration cleanupInterval = FriendProxyConstants.CLEANUP_TASK_INTERVAL;
 
         scheduler.buildTask(plugin, expirationOperation)
@@ -64,7 +64,7 @@ public class FriendOperationRegistrar {
      *
      * @return Expiry operation
      */
-    public @NotNull FriendExpirationOperation getExpirationOperation() {
+    public @NonNull FriendExpirationOperation getExpirationOperation() {
         return expirationOperation;
     }
 }

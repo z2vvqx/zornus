@@ -7,7 +7,6 @@ import com.zornus.parties.proxy.model.*;
 import com.zornus.parties.proxy.utilities.CooldownKey;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 
 import java.sql.*;
 import java.time.Duration;
@@ -283,10 +282,16 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
-                    // 1. Check if party exists and get current leader
+                    // 1. Lock party_members and get leader + member count atomically
                     UUID currentLeaderId;
-                    String checkPartySql = "SELECT leader_id FROM parties WHERE party_id = ?";
-                    try (PreparedStatement statement = connection.prepareStatement(checkPartySql)) {
+                    int memberCount;
+                    String lockAndCheckSql = """
+                            SELECT p.leader_id, (SELECT COUNT(*) FROM party_members pm WHERE pm.party_id = p.party_id)
+                            FROM parties p
+                            WHERE p.party_id = ?
+                            FOR UPDATE OF p
+                            """;
+                    try (PreparedStatement statement = connection.prepareStatement(lockAndCheckSql)) {
                         statement.setObject(1, partyId);
                         try (ResultSet resultSet = statement.executeQuery()) {
                             if (!resultSet.next()) {
@@ -294,22 +299,13 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                                 return new RemoveMemberOutcome.PartyNotFound();
                             }
                             currentLeaderId = (UUID) resultSet.getObject("leader_id");
+                            memberCount = resultSet.getInt(2);
                         }
                     }
 
-                    // 2. Get member count and verify member exists
-                    int memberCount;
                     boolean wasLeader = memberId.equals(currentLeaderId);
-                    String countSql = "SELECT COUNT(*) FROM party_members WHERE party_id = ? FOR UPDATE";
-                    try (PreparedStatement statement = connection.prepareStatement(countSql)) {
-                        statement.setObject(1, partyId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            resultSet.next();
-                            memberCount = resultSet.getInt(1);
-                        }
-                    }
 
-                    // 3. Delete the member
+                    // 2. Delete the member
                     String deleteMemberSql = "DELETE FROM party_members WHERE party_id = ? AND player_id = ?";
                     int rowsDeleted;
                     try (PreparedStatement statement = connection.prepareStatement(deleteMemberSql)) {
@@ -323,7 +319,7 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         return new RemoveMemberOutcome.MemberNotFound();
                     }
 
-                    // 4. If count was 1: delete party → return PartyDisbanded
+                    // 3. If count was 1: delete party → return PartyDisbanded
                     if (memberCount == 1) {
                         String deletePartySql = "DELETE FROM parties WHERE party_id = ?";
                         try (PreparedStatement statement = connection.prepareStatement(deletePartySql)) {
@@ -334,7 +330,7 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         return new RemoveMemberOutcome.PartyDisbanded();
                     }
 
-                    // 5. If leader left: select new leader (alphabetically first UUID among remaining)
+                    // 4. If leader left: select new leader (alphabetically first UUID among remaining)
                     if (wasLeader) {
                         String selectNewLeaderSql = """
                                 SELECT player_id FROM party_members
@@ -482,6 +478,10 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                     // Check for unique_violation on player_id (player already in party)
                     if ("23505".equals(e.getSQLState())) {
                         return new JoinOutcome.AlreadyMember();
+                    }
+                    // Check for serialization failure (REPEATABLE READ conflict)
+                    if ("40001".equals(e.getSQLState())) {
+                        return new JoinOutcome.InvitationNoLongerValid();
                     }
                     throw new RuntimeException("Failed to accept invitation and join", e);
                 }
@@ -1096,6 +1096,26 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                     return new ConfirmationOutcome.Set();
                 } catch (SQLException e) {
                     connection.rollback();
+                    // Check for unique violation - another transaction inserted first
+                    if ("23505".equals(e.getSQLState())) {
+                        // Re-fetch the existing confirmation that caused the conflict
+                        String selectSql = "SELECT confirmation_type, target_id, created_at FROM party_confirmations WHERE player_id = ?";
+                        try (PreparedStatement statement = connection.prepareStatement(selectSql)) {
+                            statement.setObject(1, confirmation.playerId());
+                            try (ResultSet resultSet = statement.executeQuery()) {
+                                if (resultSet.next()) {
+                                    String typeStr = resultSet.getString("confirmation_type");
+                                    ConfirmationType type = ConfirmationType.valueOf(typeStr);
+                                    UUID targetId = (UUID) resultSet.getObject("target_id");
+                                    Instant timestamp = resultSet.getTimestamp("created_at").toInstant();
+                                    PendingConfirmation existing = new PendingConfirmation(confirmation.playerId(), type, targetId, timestamp);
+                                    return new ConfirmationOutcome.AlreadyExists(existing);
+                                }
+                            }
+                        } catch (SQLException fetchException) {
+                            throw new RuntimeException("Failed to fetch existing confirmation after conflict", fetchException);
+                        }
+                    }
                     throw new RuntimeException("Failed to set pending confirmation", e);
                 }
             } catch (SQLException e) {
@@ -1135,26 +1155,6 @@ public class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 }
                 return Optional.empty();
             }, "fetch settings");
-        }, databaseExecutor);
-    }
-
-    @Override
-    public CompletableFuture<Void> saveSettings(@NonNull UUID playerId, @NonNull PartySettings settings) {
-        return CompletableFuture.runAsync(() -> {
-            String sql = """
-                    INSERT INTO party_settings (player_id, allow_chat, allow_warp, invite_privacy)
-                    VALUES (?, ?, ?, ?)
-                    ON CONFLICT (player_id) DO UPDATE SET
-                        allow_chat = EXCLUDED.allow_chat,
-                        allow_warp = EXCLUDED.allow_warp,
-                        invite_privacy = EXCLUDED.invite_privacy
-                    """;
-            executeUpdate(sql, statement -> {
-                statement.setObject(1, playerId);
-                statement.setBoolean(2, settings.allowChat());
-                statement.setBoolean(3, settings.allowWarp());
-                statement.setString(4, settings.invitePrivacy());
-            }, "save settings");
         }, databaseExecutor);
     }
 
