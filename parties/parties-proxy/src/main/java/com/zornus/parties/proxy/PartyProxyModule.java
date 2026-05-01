@@ -53,7 +53,7 @@ public final class PartyProxyModule {
 
     public void shutdown() {
         try {
-            partyService.closeStorage();
+            partyService.close();
         } catch (Exception exception) {
             LOGGER.error("Error during party proxy module shutdown", exception);
         }

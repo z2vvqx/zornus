@@ -26,13 +26,22 @@ public final class PartyNotificationService {
         this.proxyServer = proxyServer;
     }
 
-    public void notifyMemberDisconnected(@NonNull Party party, @NonNull String playerName) {
+    public void notifyMemberDisconnected(@NonNull Party party, @NonNull UUID playerId) {
+        String playerName = proxyServer.getPlayer(playerId)
+                .map(Player::getUsername)
+                .orElse("Unknown");
         Component message = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_MEMBER_DISCONNECTED,
                 TagResolver.resolver(Placeholder.unparsed("player", playerName)));
         broadcastToParty(party, message);
     }
 
-    public void notifyLeaderDisconnected(@NonNull Party party, @NonNull String oldLeaderName, @NonNull String newLeaderName) {
+    public void notifyLeaderDisconnected(@NonNull Party party, @NonNull UUID oldLeaderId) {
+        String oldLeaderName = proxyServer.getPlayer(oldLeaderId)
+                .map(Player::getUsername)
+                .orElse("Unknown");
+        String newLeaderName = proxyServer.getPlayer(party.leaderId())
+                .map(Player::getUsername)
+                .orElse("Unknown");
         Component message = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_LEADER_DISCONNECTED,
                 TagResolver.resolver(
                         Placeholder.unparsed("old_leader", oldLeaderName),
@@ -47,8 +56,9 @@ public final class PartyNotificationService {
     }
 
     public void notifyMemberLeft(@NonNull Party party, @NonNull UUID memberId) {
-        String memberName = party.memberNames().get(memberId);
-        if (memberName == null) return;
+        String memberName = proxyServer.getPlayer(memberId)
+                .map(Player::getUsername)
+                .orElse("Unknown");
         Component message = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_MEMBER_LEFT,
                 TagResolver.resolver(Placeholder.unparsed("sender", memberName)));
         broadcastToParty(party, message);
@@ -75,8 +85,7 @@ public final class PartyNotificationService {
     public void sendInviteReceived(@NonNull Player target, @NonNull Player sender, @NonNull Party party) {
         Component message = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_INVITE_RECEIVED,
                 TagResolver.resolver(
-                        Placeholder.unparsed("player", sender.getUsername()),
-                        Placeholder.unparsed("party", party.partyName())));
+                        Placeholder.unparsed("player", sender.getUsername())));
         target.sendMessage(message);
     }
 
@@ -89,9 +98,9 @@ public final class PartyNotificationService {
     }
 
     public void notifyLeadershipTransferred(@NonNull Party party, @NonNull UUID oldLeaderId, @NonNull Player newLeader) {
-        Optional<Player> oldLeader = proxyServer.getPlayer(oldLeaderId);
-        String oldLeaderName = oldLeader.map(Player::getUsername).orElse(party.memberNames().get(oldLeaderId));
-        if (oldLeaderName == null) oldLeaderName = "Unknown";
+        String oldLeaderName = proxyServer.getPlayer(oldLeaderId)
+                .map(Player::getUsername)
+                .orElse("Unknown");
 
         Component message = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_LEADERSHIP_TRANSFERRED,
                 TagResolver.resolver(
@@ -107,8 +116,9 @@ public final class PartyNotificationService {
     }
 
     public void notifyPartyDisbanded(@NonNull Party party, @NonNull UUID leaderId) {
-        String leaderName = party.memberNames().get(leaderId);
-        if (leaderName == null) leaderName = "Unknown";
+        String leaderName = proxyServer.getPlayer(leaderId)
+                .map(Player::getUsername)
+                .orElse("Unknown");
         Component message = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_PARTY_DISBANDED,
                 TagResolver.resolver(Placeholder.unparsed("leader", leaderName)));
         broadcastToParty(party, message, leaderId);

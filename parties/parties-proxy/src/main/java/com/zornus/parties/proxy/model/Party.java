@@ -8,20 +8,17 @@ import java.util.*;
 
 public record Party(
         @NonNull UUID partyId,
-        @NonNull String partyName,
         @NonNull UUID leaderId,
-        @NonNull String leaderName,
-        @NonNull Map<UUID, String> memberNames,
+        @NonNull Set<UUID> memberIds,
         @NonNull Optional<Instant> lastWarpTime
 ) {
 
     public Party {
-        memberNames = Map.copyOf(memberNames);
+        memberIds = Set.copyOf(memberIds);
     }
 
-    public Party(@NonNull UUID leaderId, @NonNull String leaderName) {
-        this(UUID.randomUUID(), leaderName + "'s Party", leaderId, leaderName,
-                Map.of(leaderId, leaderName), Optional.empty());
+    public Party(@NonNull UUID leaderId) {
+        this(UUID.randomUUID(), leaderId, Set.of(leaderId), Optional.empty());
     }
 
     public boolean isLeader(@NonNull UUID playerId) {
@@ -29,20 +26,20 @@ public record Party(
     }
 
     public boolean isMember(@NonNull UUID playerId) {
-        return memberNames.containsKey(playerId);
+        return memberIds.contains(playerId);
     }
 
     public @NonNull Set<UUID> getMemberIds() {
-        return memberNames.keySet();
+        return memberIds;
     }
 
     public boolean isFull() {
-        return memberNames.size() >= PartyProxyConstants.MAX_PARTY_SIZE;
+        return memberIds.size() >= PartyProxyConstants.MAX_PARTY_SIZE;
     }
 
     public @NonNull List<UUID> getNonLeaderMembers() {
         List<UUID> nonLeaders = new ArrayList<>();
-        for (UUID memberId : memberNames.keySet()) {
+        for (UUID memberId : memberIds) {
             if (!memberId.equals(leaderId)) {
                 nonLeaders.add(memberId);
             }

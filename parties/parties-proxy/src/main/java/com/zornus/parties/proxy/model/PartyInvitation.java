@@ -8,17 +8,13 @@ import java.util.UUID;
 
 public record PartyInvitation(
         @NonNull UUID partyId,
-        @NonNull String partyName,
         @NonNull UUID senderId,
-        @NonNull String senderName,
         @NonNull UUID targetId,
-        @NonNull String targetName,
         @NonNull Instant timestamp
 ) {
 
-    public PartyInvitation(@NonNull UUID partyId, @NonNull String partyName, @NonNull UUID senderId,
-                           @NonNull String senderName, @NonNull UUID targetId, @NonNull String targetName) {
-        this(partyId, partyName, senderId, senderName, targetId, targetName, Instant.now());
+    public PartyInvitation(@NonNull UUID partyId, @NonNull UUID senderId, @NonNull UUID targetId) {
+        this(partyId, senderId, targetId, Instant.now());
     }
 
     public boolean isExpired() {

@@ -16,34 +16,25 @@ import java.util.Optional;
 import java.util.Set;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Predicate;
 
 public interface PartyStorage {
 
     // Compound operations
     CompletableFuture<CreatePartyOutcome> createParty(@NonNull Party party);
     CompletableFuture<DisbandPartyOutcome> disbandParty(@NonNull UUID partyId, @NonNull UUID leaderId);
-    CompletableFuture<RemoveMemberOutcome> removeMember(@NonNull UUID partyId, @NonNull UUID memberId,
-                                                         @Nullable UUID newLeaderId, @Nullable String newLeaderName);
-    CompletableFuture<JoinOutcome> acceptInvitationAndJoin(@NonNull UUID partyId, @NonNull UUID playerId,
-                                                            @NonNull String playerName, @NonNull UUID invitationSenderId);
-    CompletableFuture<TransferLeadershipOutcome> transferLeadership(@NonNull UUID partyId, @NonNull UUID newLeaderId,
-                                                                       @NonNull String newLeaderName, @NonNull UUID confirmedByPlayerId);
-    CompletableFuture<WarpOutcome> checkAndUpdateLastWarpTime(@NonNull UUID partyId, @NonNull Instant now,
-                                                                 @NonNull Duration cooldown);
+    CompletableFuture<RemoveMemberOutcome> removeMember(@NonNull UUID partyId, @NonNull UUID memberId);
+    CompletableFuture<JoinOutcome> acceptInvitationAndJoin(@NonNull UUID partyId, @NonNull UUID playerId, @NonNull UUID invitationSenderId);
+    CompletableFuture<TransferLeadershipOutcome> transferLeadership(@NonNull UUID partyId, @NonNull UUID newLeaderId, @NonNull UUID confirmedByPlayerId);
+    CompletableFuture<WarpOutcome> checkAndUpdateLastWarpTime(@NonNull UUID partyId, @NonNull Instant now, @NonNull Duration cooldown);
     CompletableFuture<Map<UUID, PartySettings>> fetchSettingsForMembers(@NonNull Collection<UUID> memberIds);
 
-    CompletableFuture<SendInvitationOutcome> trySendInvitation(@NonNull UUID partyId, @NonNull String partyName,
-                                                                @NonNull UUID senderId, @NonNull String senderName,
-                                                                @NonNull UUID targetId, @NonNull String targetName,
-                                                                @Nullable Predicate<UUID> isFriendChecker);
+    CompletableFuture<SendInvitationOutcome> trySendInvitation(@NonNull UUID partyId, @NonNull UUID senderId, @NonNull UUID targetId, boolean isFriend);
 
     // Single-query operations
     CompletableFuture<Optional<Party>> fetchParty(@NonNull UUID partyId);
     CompletableFuture<Boolean> isInParty(@NonNull UUID playerId);
     CompletableFuture<Optional<Party>> getPlayerParty(@NonNull UUID playerId);
 
-    CompletableFuture<Boolean> addPendingInvitation(@NonNull PartyInvitation invitation);
     CompletableFuture<Boolean> removePendingInvitation(@NonNull UUID partyId, @NonNull UUID senderId, @NonNull UUID targetId);
     CompletableFuture<Optional<PartyInvitation>> fetchInvitation(@NonNull UUID partyId, @NonNull UUID senderId, @NonNull UUID targetId);
     CompletableFuture<List<PartyInvitation>> fetchIncomingInvitations(@NonNull UUID playerId);
@@ -55,19 +46,25 @@ public interface PartyStorage {
     CompletableFuture<Integer> countIncomingInvitations(@NonNull UUID playerId);
     CompletableFuture<Integer> countOutgoingInvitations(@NonNull UUID playerId);
 
-    CompletableFuture<Void> setPendingConfirmation(@NonNull PendingConfirmation confirmation);
+    CompletableFuture<ConfirmationOutcome> setPendingConfirmation(@NonNull PendingConfirmation confirmation);
     CompletableFuture<Void> removePendingConfirmation(@NonNull UUID playerId);
     CompletableFuture<Optional<PendingConfirmation>> fetchPendingConfirmation(@NonNull UUID playerId);
 
     CompletableFuture<Optional<PartySettings>> fetchSettings(@NonNull UUID playerId);
     CompletableFuture<Void> saveSettings(@NonNull UUID playerId, @NonNull PartySettings settings);
 
-    CompletableFuture<Boolean> recordInvitationCooldown(@NonNull UUID senderId, @NonNull UUID receiverId);
-    CompletableFuture<Optional<Instant>> fetchInvitationCooldown(@NonNull UUID senderId, @NonNull UUID receiverId);
+    // Atomic column-specific updates to avoid read-modify-write races
+    CompletableFuture<Void> updateAllowChat(@NonNull UUID playerId, boolean allowChat);
+    CompletableFuture<Void> updateAllowWarp(@NonNull UUID playerId, boolean allowWarp);
+    CompletableFuture<Void> updateInvitePrivacy(@NonNull UUID playerId, @NonNull String invitePrivacy);
 
-    CompletableFuture<Void> cleanupExpiredInvitations(@NonNull Duration expiry);
-    CompletableFuture<Void> cleanupExpiredConfirmations(@NonNull Duration expiry);
-    CompletableFuture<Void> cleanupExpiredCooldowns(@NonNull Duration expiry);
+    CompletableFuture<Boolean> recordInvitationCooldown(@NonNull UUID playerA, @NonNull UUID playerB, @NonNull Instant now);
+    CompletableFuture<Optional<Instant>> fetchInvitationCooldown(@NonNull UUID playerA, @NonNull UUID playerB);
+
+    CompletableFuture<Void> cleanupExpiredInvitations(@NonNull Instant now, @NonNull Duration expiry);
+    CompletableFuture<Void> cleanupExpiredConfirmations(@NonNull Instant now, @NonNull Duration expiry);
+    CompletableFuture<Void> cleanupExpiredCooldowns(@NonNull Instant now, @NonNull Duration expiry);
+    CompletableFuture<Void> cleanupOrphanedSettings();
 
     void close();
 }

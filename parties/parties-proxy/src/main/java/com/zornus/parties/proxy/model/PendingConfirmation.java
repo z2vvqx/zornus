@@ -11,13 +11,11 @@ public record PendingConfirmation(
         @NonNull UUID playerId,
         @NonNull ConfirmationType type,
         @Nullable UUID targetId,
-        @Nullable String targetName,
         @NonNull Instant timestamp
 ) {
 
-    public PendingConfirmation(@NonNull UUID playerId, @NonNull ConfirmationType type,
-                               @Nullable UUID targetId, @Nullable String targetName) {
-        this(playerId, type, targetId, targetName, Instant.now());
+    public PendingConfirmation(@NonNull UUID playerId, @NonNull ConfirmationType type, @Nullable UUID targetId) {
+        this(playerId, type, targetId, Instant.now());
     }
 
     public boolean isExpired() {
