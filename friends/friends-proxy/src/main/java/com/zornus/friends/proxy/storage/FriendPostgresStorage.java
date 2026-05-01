@@ -470,7 +470,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
-                connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+                connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
                 try {
                     // 1. Check if already friends
                     CanonicalUuidPair pair = canonicalizePair(senderId, receiverId);
@@ -684,7 +684,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     }
 
     private int countFriendsInTransaction(Connection connection, UUID playerId) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM relations WHERE player1 = ? OR player2 = ?";
+        String sql = "SELECT COUNT(*) FROM relations WHERE player1 = ? OR player2 = ? FOR UPDATE";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, playerId);
             statement.setObject(2, playerId);
@@ -700,7 +700,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
-                connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+                connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
                 try {
                     // 1. Verify the incoming request exists
                     String checkRequestSql = "SELECT 1 FROM requests WHERE sender = ? AND receiver = ?";

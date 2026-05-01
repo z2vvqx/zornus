@@ -376,7 +376,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
-                connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+                connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
                 try {
                     // 1. Check if player is already in a party (UNIQUE constraint on party_members.player_id)
                     // This is caught by the INSERT later, but we check early for better error messages
