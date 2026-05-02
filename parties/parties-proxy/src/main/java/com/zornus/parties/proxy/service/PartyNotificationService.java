@@ -22,19 +22,13 @@ public final class PartyNotificationService {
         this.proxyServer = proxyServer;
     }
 
-    public void notifyMemberDisconnected(@NonNull Party party, @NonNull UUID playerId) {
-        String playerName = proxyServer.getPlayer(playerId)
-                .map(Player::getUsername)
-                .orElse("Unknown");
+    public void notifyMemberDisconnected(@NonNull Party party, @NonNull UUID playerId, @NonNull String playerName) {
         Component message = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_MEMBER_DISCONNECTED,
                 TagResolver.resolver(Placeholder.unparsed("player", playerName)));
         broadcastToParty(party, message);
     }
 
-    public void notifyLeaderDisconnected(@NonNull Party party, @NonNull UUID oldLeaderId) {
-        String oldLeaderName = proxyServer.getPlayer(oldLeaderId)
-                .map(Player::getUsername)
-                .orElse("Unknown");
+    public void notifyLeaderDisconnected(@NonNull Party party, @NonNull UUID oldLeaderId, @NonNull String oldLeaderName) {
         String newLeaderName = proxyServer.getPlayer(party.leaderId())
                 .map(Player::getUsername)
                 .orElse("Unknown");

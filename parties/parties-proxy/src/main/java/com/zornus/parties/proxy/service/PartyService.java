@@ -460,7 +460,7 @@ public final class PartyService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<Void> handlePlayerDisconnect(@NonNull UUID playerId) {
+    public @NonNull CompletableFuture<Void> handlePlayerDisconnect(@NonNull UUID playerId, @NonNull String username) {
         return storage.getPlayerParty(playerId)
                 .thenCompose(partyOptional -> {
                     if (partyOptional.isEmpty()) {
@@ -482,9 +482,9 @@ public final class PartyService implements AutoCloseable {
                                             }
                                             Party updatedParty = updatedPartyOptional.get();
                                             if (wasLeader) {
-                                                notificationService.notifyLeaderDisconnected(updatedParty, playerId);
+                                                notificationService.notifyLeaderDisconnected(updatedParty, playerId, username);
                                             } else {
-                                                notificationService.notifyMemberDisconnected(updatedParty, playerId);
+                                                notificationService.notifyMemberDisconnected(updatedParty, playerId, username);
                                             }
                                         });
                             });

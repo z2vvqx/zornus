@@ -2,13 +2,13 @@ package com.zornus.parties.proxy.registrar;
 
 import com.velocitypowered.api.scheduler.ScheduledTask;
 import com.velocitypowered.api.scheduler.Scheduler;
+import com.zornus.parties.proxy.PartyProxyConstants;
 import com.zornus.parties.proxy.operation.PartyExpirationOperation;
 import com.zornus.parties.proxy.service.PartyService;
 import org.jspecify.annotations.NonNull;
 
 import java.util.ArrayList;
 import java.util.List;
-import java.util.concurrent.TimeUnit;
 
 public final class PartyOperationRegistrar {
 
@@ -23,10 +23,15 @@ public final class PartyOperationRegistrar {
     }
 
     public void registerOperations(@NonNull Scheduler scheduler) {
-        scheduledTasks.add(scheduler.buildTask(plugin, new PartyExpirationOperation(service))
-                .delay(1, TimeUnit.MINUTES)
-                .repeat(1, TimeUnit.MINUTES)
-                .schedule());
+        registerPartyExpiration(scheduler);
+    }
+
+    private void registerPartyExpiration(@NonNull Scheduler scheduler) {
+        ScheduledTask task = scheduler.buildTask(plugin, new PartyExpirationOperation(service))
+                .delay(PartyProxyConstants.CLEANUP_TASK_INTERVAL)
+                .repeat(PartyProxyConstants.CLEANUP_TASK_INTERVAL)
+                .schedule();
+        scheduledTasks.add(task);
     }
 
     public void cancelOperations() {

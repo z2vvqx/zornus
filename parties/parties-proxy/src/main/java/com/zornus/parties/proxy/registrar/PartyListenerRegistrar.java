@@ -1,6 +1,7 @@
 package com.zornus.parties.proxy.registrar;
 
 import com.velocitypowered.api.event.EventManager;
+import com.zornus.parties.proxy.listener.player.PartyConnectionListener;
 import com.zornus.parties.proxy.service.PartyService;
 import org.jspecify.annotations.NonNull;
 
@@ -15,5 +16,6 @@ public final class PartyListenerRegistrar {
     }
 
     public void registerListeners(@NonNull EventManager eventManager) {
+        eventManager.register(plugin, new PartyConnectionListener(partyService));
     }
 }

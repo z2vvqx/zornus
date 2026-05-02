@@ -22,6 +22,8 @@ public final class PartyProxyConstants {
     public static final Duration INVITATION_EXPIRY = Duration.ofMinutes(2).plus(Duration.ofSeconds(30));
     public static final Duration WARP_COOLDOWN = Duration.ofSeconds(30);
 
+    public static final Duration CLEANUP_TASK_INTERVAL = Duration.ofMinutes(15);
+
     public static final int MAX_MESSAGE_LENGTH = 256;
 
     // ========================================

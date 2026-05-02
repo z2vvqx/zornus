@@ -68,6 +68,7 @@ public final class FriendProxyModule {
      */
     public void shutdown() {
         try {
+            friendOperationRegistrar.cancelOperations();
             friendService.close();
         } catch (Exception exception) {
             LOGGER.error("Error during proxy module shutdown", exception);
