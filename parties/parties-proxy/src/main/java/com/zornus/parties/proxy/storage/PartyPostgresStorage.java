@@ -228,7 +228,39 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
-                    // 1. Delete all member confirmations first (rollback-safe, no conditions)
+                    // Defer FK constraint so we can delete members before the party
+                    try (PreparedStatement deferFkStatement = connection.prepareStatement(
+                            "SET CONSTRAINTS fk_leader_is_member DEFERRED")) {
+                        deferFkStatement.execute();
+                    }
+
+                    // 1. Lock party_members first (consistent lock ordering with other methods)
+                    String lockMembersSql = "SELECT 1 FROM party_members WHERE party_id = ? FOR UPDATE";
+                    try (PreparedStatement statement = connection.prepareStatement(lockMembersSql)) {
+                        statement.setObject(1, partyId);
+                        statement.executeQuery();
+                    }
+
+                    // 2. Verify leader (must be done after locking to prevent TOCTOU)
+                    String checkLeaderSql = "SELECT leader_id FROM parties WHERE party_id = ?";
+                    UUID currentLeaderId;
+                    try (PreparedStatement statement = connection.prepareStatement(checkLeaderSql)) {
+                        statement.setObject(1, partyId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (!resultSet.next()) {
+                                connection.rollback();
+                                return new DisbandPartyOutcome.PartyNotFound();
+                            }
+                            currentLeaderId = (UUID) resultSet.getObject("leader_id");
+                        }
+                    }
+
+                    if (!currentLeaderId.equals(leaderId)) {
+                        connection.rollback();
+                        return new DisbandPartyOutcome.NotLeader();
+                    }
+
+                    // 3. Delete confirmations (subquery reads locked party_members)
                     String deleteConfirmationsSql = """
                             DELETE FROM party_confirmations
                             WHERE player_id IN (SELECT player_id FROM party_members WHERE party_id = ?)
@@ -238,7 +270,21 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         statement.executeUpdate();
                     }
 
-                    // 2. Delete party with conditional leader check (atomic)
+                    // 4. Delete invitations
+                    String deleteInvitationsSql = "DELETE FROM party_invitations WHERE party_id = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(deleteInvitationsSql)) {
+                        statement.setObject(1, partyId);
+                        statement.executeUpdate();
+                    }
+
+                    // 5. Delete members explicitly (no CASCADE needed)
+                    String deleteMembersSql = "DELETE FROM party_members WHERE party_id = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(deleteMembersSql)) {
+                        statement.setObject(1, partyId);
+                        statement.executeUpdate();
+                    }
+
+                    // 6. Delete party with conditional leader check (atomically re-verifies leader)
                     String deletePartySql = "DELETE FROM parties WHERE party_id = ? AND leader_id = ?";
                     int rowsDeleted;
                     try (PreparedStatement statement = connection.prepareStatement(deletePartySql)) {
@@ -249,16 +295,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
                     if (rowsDeleted == 0) {
                         connection.rollback();
-                        // Distinguish: party not found vs not leader
-                        String checkExistsSql = "SELECT 1 FROM parties WHERE party_id = ?";
-                        try (PreparedStatement statement = connection.prepareStatement(checkExistsSql)) {
-                            statement.setObject(1, partyId);
-                            try (ResultSet resultSet = statement.executeQuery()) {
-                                if (!resultSet.next()) {
-                                    return new DisbandPartyOutcome.PartyNotFound();
-                                }
-                            }
-                        }
+                        // Leader changed between step 2 and step 6, or party was already deleted
                         return new DisbandPartyOutcome.NotLeader();
                     }
 
