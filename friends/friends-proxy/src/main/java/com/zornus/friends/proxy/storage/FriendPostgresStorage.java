@@ -653,6 +653,19 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
             lockStatement.executeQuery();
         }
 
+        // Re-verify the incoming request still exists under lock
+        String verifySql = "SELECT 1 FROM requests WHERE sender = ? AND receiver = ?";
+        try (PreparedStatement statement = connection.prepareStatement(verifySql)) {
+            statement.setObject(1, receiverId);
+            statement.setObject(2, senderId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next()) {
+                    connection.rollback();
+                    return new SendRequestOutcome.RequestNoLongerValid();
+                }
+            }
+        }
+
         // Check friend limits for both players
         int senderFriendCount = countFriendsInTransaction(connection, senderId);
         if (senderFriendCount >= FriendProxyConstants.MAX_FRIENDS) {

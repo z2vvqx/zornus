@@ -70,6 +70,7 @@ public final class FriendService implements AutoCloseable {
                     case SendRequestOutcome.ReceiverFriendsLimitReached receiverFriends -> FriendResult.RECEIVER_FRIENDS_LIMIT_REACHED;
                     case SendRequestOutcome.RequestCooldownActive cooldown -> FriendResult.REQUEST_COOLDOWN_ACTIVE;
                     case SendRequestOutcome.PlayerNotAcceptingRequests notAccepting -> FriendResult.PLAYER_NOT_ACCEPTING_REQUESTS;
+                    case SendRequestOutcome.RequestNoLongerValid noLongerValid -> FriendResult.REQUEST_NO_LONGER_VALID;
                 });
     }
 

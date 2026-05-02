@@ -10,7 +10,8 @@ public sealed interface SendRequestOutcome permits
         SendRequestOutcome.SenderFriendsLimitReached,
         SendRequestOutcome.ReceiverFriendsLimitReached,
         SendRequestOutcome.RequestCooldownActive,
-        SendRequestOutcome.PlayerNotAcceptingRequests {
+        SendRequestOutcome.PlayerNotAcceptingRequests,
+        SendRequestOutcome.RequestNoLongerValid {
     record Sent() implements SendRequestOutcome {}
     record RequestAcceptedAutomatically() implements SendRequestOutcome {}
     record AlreadyFriends() implements SendRequestOutcome {}
@@ -21,4 +22,5 @@ public sealed interface SendRequestOutcome permits
     record ReceiverFriendsLimitReached() implements SendRequestOutcome {}
     record RequestCooldownActive() implements SendRequestOutcome {}
     record PlayerNotAcceptingRequests() implements SendRequestOutcome {}
+    record RequestNoLongerValid() implements SendRequestOutcome {}
 }
