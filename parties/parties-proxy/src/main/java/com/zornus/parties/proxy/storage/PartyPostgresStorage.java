@@ -358,7 +358,14 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         return new RemoveMemberOutcome.MemberNotFound();
                     }
 
-                    // 4. If count was 1: delete party → return PartyDisbanded
+                    // 4. Clean up any pending confirmation for the removed member
+                    String deleteConfirmationSql = "DELETE FROM party_confirmations WHERE player_id = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(deleteConfirmationSql)) {
+                        statement.setObject(1, memberId);
+                        statement.executeUpdate();
+                    }
+
+                    // 5. If count was 1: delete party → return PartyDisbanded
                     if (memberCount == 1) {
                         String deletePartySql = "DELETE FROM parties WHERE party_id = ?";
                         try (PreparedStatement statement = connection.prepareStatement(deletePartySql)) {
@@ -369,7 +376,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         return new RemoveMemberOutcome.PartyDisbanded();
                     }
 
-                    // 5. If leader left: select new leader (alphabetically first UUID among remaining)
+                    // 6. If leader left: select new leader (alphabetically first UUID among remaining)
                     if (wasLeader) {
                         String selectNewLeaderSql = """
                                 SELECT player_id FROM party_members
