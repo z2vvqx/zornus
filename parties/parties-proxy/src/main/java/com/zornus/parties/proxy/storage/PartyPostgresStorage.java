@@ -1319,14 +1319,6 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
         }, databaseExecutor);
     }
 
-    @Override
-    public CompletableFuture<Void> cleanupOrphanedSettings() {
-        return CompletableFuture.runAsync(() -> {
-            String sql = "DELETE FROM party_settings ps WHERE NOT EXISTS (SELECT 1 FROM party_members pm WHERE pm.player_id = ps.player_id)";
-            executeUpdate(sql, null, "cleanup orphaned settings");
-        }, databaseExecutor);
-    }
-
     @Contract("_ -> new")
     private @NonNull PartyInvitation mapResultSetToPartyInvitation(@NonNull ResultSet resultSet) throws SQLException {
         return new PartyInvitation(

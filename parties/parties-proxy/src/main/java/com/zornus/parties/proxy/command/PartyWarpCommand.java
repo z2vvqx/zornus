@@ -40,7 +40,7 @@ public final class PartyWarpCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to warp party for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.SUCCESS;
+                    return PartyResult.ERROR_ALREADY_HANDLED;
                 })
                 .thenAccept(result -> {
                     switch (result) {
@@ -54,6 +54,7 @@ public final class PartyWarpCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_ERROR_NO_INSTANCE));
                         case PARTY_WARPED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_SUCCESS));
+                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }

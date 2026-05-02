@@ -40,7 +40,7 @@ public final class PartyJumpCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to jump to leader for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.SUCCESS;
+                    return PartyResult.ERROR_ALREADY_HANDLED;
                 })
                 .thenAccept(result -> {
                     switch (result) {
@@ -56,6 +56,7 @@ public final class PartyJumpCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.JUMP_INFO_ALREADY_WITH_LEADER));
                         case JUMPED_TO_LEADER ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.JUMP_SUCCESS));
+                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }

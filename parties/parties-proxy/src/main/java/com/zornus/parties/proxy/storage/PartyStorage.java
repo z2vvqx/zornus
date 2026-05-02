@@ -63,7 +63,6 @@ public interface PartyStorage {
     CompletableFuture<Void> cleanupExpiredInvitations(@NonNull Instant now, @NonNull Duration expiry);
     CompletableFuture<Void> cleanupExpiredConfirmations(@NonNull Instant now, @NonNull Duration expiry);
     CompletableFuture<Void> cleanupExpiredCooldowns(@NonNull Instant now, @NonNull Duration expiry);
-    CompletableFuture<Void> cleanupOrphanedSettings();
 
     void close();
 }

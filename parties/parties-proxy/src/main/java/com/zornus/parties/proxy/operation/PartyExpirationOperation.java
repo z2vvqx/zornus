@@ -18,7 +18,6 @@ public final class PartyExpirationOperation implements Runnable {
             service.cleanupExpiredInvitations();
             service.cleanupExpiredConfirmations();
             service.cleanupExpiredCooldowns();
-            service.cleanupOrphanedSettings();
         } catch (Exception exception) {
             LOGGER.error("Error during party cleanup", exception);
         }

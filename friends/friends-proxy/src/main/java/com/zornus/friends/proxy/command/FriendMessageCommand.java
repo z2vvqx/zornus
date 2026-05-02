@@ -67,7 +67,7 @@ public final class FriendMessageCommand {
 
     private static int handleFriendMessage(Player sender, String targetName, String message,
                                            FriendService friendService, ProxyServer proxyServer) {
-        resolveTargetPlayer(targetName, proxyServer, friendService)
+        FriendCommandUtils.resolveTargetPlayer(targetName, proxyServer, friendService)
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to resolve player by username: {}", targetName, throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
@@ -80,18 +80,18 @@ public final class FriendMessageCommand {
                     }
 
                     UUID targetUuid = targetOptional.get();
-                    handleMessageSend(sender, targetUuid, targetName, message, friendService);
+                    handleFriendMessageSend(sender, targetUuid, targetName, message, friendService);
                 });
 
         return Command.SINGLE_SUCCESS;
     }
 
-    public static void handleMessageSend(@NonNull Player sender, UUID targetUuid, String targetName, String message, @NonNull FriendService friendService) {
+    public static void handleFriendMessageSend(@NonNull Player sender, UUID targetUuid, String targetName, String message, @NonNull FriendService friendService) {
         friendService.sendFriendMessage(sender.getUniqueId(), targetUuid, message)
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to send friend message from {} to {}", sender.getUniqueId(), targetUuid, throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return FriendResult.SUCCESS;
+                    return FriendResult.ERROR_ALREADY_HANDLED;
                 })
                 .thenAccept(result -> {
                     switch (result) {
@@ -111,16 +111,10 @@ public final class FriendMessageCommand {
                                                 Placeholder.unparsed("target", targetName),
                                                 Placeholder.unparsed("message", message)
                                         )));
+                        case ERROR_ALREADY_HANDLED -> {}
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 });
     }
 
-    private static CompletableFuture<Optional<UUID>> resolveTargetPlayer(String username, @NonNull ProxyServer proxyServer, FriendService friendService) {
-        Optional<Player> onlinePlayer = proxyServer.getPlayer(username);
-        if (onlinePlayer.isPresent()) {
-            return CompletableFuture.completedFuture(Optional.of(onlinePlayer.get().getUniqueId()));
-        }
-        return friendService.fetchPlayerByUsername(username).thenApply(optional -> optional.map(playerRecord -> playerRecord.playerUuid()));
-    }
 }

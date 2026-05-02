@@ -40,5 +40,7 @@ public enum FriendResult {
 
     INVALID_PAGE,
     LIST_EMPTY,
-    NO_RECENT_MESSAGE
+    NO_RECENT_MESSAGE,
+
+    ERROR_ALREADY_HANDLED
 }

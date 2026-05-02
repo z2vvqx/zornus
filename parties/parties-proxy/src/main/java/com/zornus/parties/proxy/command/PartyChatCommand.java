@@ -51,7 +51,7 @@ public final class PartyChatCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to send party chat from player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.SUCCESS;
+                    return PartyResult.ERROR_ALREADY_HANDLED;
                 })
                 .thenAccept(result -> {
                     switch (result) {
@@ -65,6 +65,7 @@ public final class PartyChatCommand {
                         case CHAT_SENT -> {
                             // Message already sent by the service, nothing more to do
                         }
+                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }

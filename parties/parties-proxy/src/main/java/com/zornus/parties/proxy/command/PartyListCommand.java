@@ -61,18 +61,18 @@ public final class PartyListCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to get party members for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return null;
+                    return new PartyMembersResult(PartyResult.ERROR_ALREADY_HANDLED, null);
                 })
                 .thenAccept(result -> {
-                    if (result == null) return;
                     switch (result.result()) {
-                        case SUCCESS -> displayPartyMembers(sender, result, partyService, proxyServer, page);
+                        case SUCCESS -> handleDisplayPartyMembers(sender, result, partyService, proxyServer, page);
                         case NOT_IN_PARTY ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.LIST_ERROR_NOT_IN_PARTY));
                         case INVALID_PAGE -> {
                             TagResolver resolver = Placeholder.unparsed("maximum_pages", String.valueOf(result.pagination().maximumPages()));
                             sender.sendMessage(StringUtils.deserialize(SharedConstants.INVALID_PAGE, resolver));
                         }
+                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
@@ -81,7 +81,7 @@ public final class PartyListCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static void displayPartyMembers(Player sender, @NonNull PartyMembersResult result,
+    private static void handleDisplayPartyMembers(Player sender, @NonNull PartyMembersResult result,
                                            PartyService partyService, ProxyServer proxyServer, int page) {
         partyService.getPlayerParty(sender.getUniqueId())
                 .thenAccept(partyOptional -> {

@@ -76,6 +76,7 @@ public final class FriendProxyConstants {
     public static final String MESSAGE_SENT_FORMAT = "<gray>[To <yellow><target></yellow>] <white><message></white></gray>";
     public static final String MESSAGE_RECEIVED_FORMAT = "<gray>[From <yellow><sender></yellow>] <white><message></white></gray>";
     public static final String MESSAGE_ERROR_NO_REPLY_TARGET = "<red>No recent friend messages to reply to.</red>";
+    public static final String MESSAGE_REPLY_SUCCESS = "<green>Reply sent!</green>";
 
     public static final String JUMP_SUCCESS = "<green>Teleported to <yellow><target></yellow>!</green>";
     public static final String JUMP_ERROR_NO_INSTANCE = "<red><yellow><target></yellow> is not in a valid instance.</red>";

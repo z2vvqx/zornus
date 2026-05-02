@@ -40,7 +40,7 @@ public final class PartyCreateCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to create party for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.SUCCESS;
+                    return PartyResult.ERROR_ALREADY_HANDLED;
                 })
                 .thenAccept(result -> {
                     switch (result) {
@@ -48,6 +48,7 @@ public final class PartyCreateCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_ALREADY_IN_PARTY));
                         case PARTY_CREATED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.CREATE_SUCCESS));
+                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }

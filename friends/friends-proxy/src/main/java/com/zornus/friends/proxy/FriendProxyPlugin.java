@@ -8,7 +8,6 @@ import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 /**
  * Main Velocity plugin for friends system.
@@ -21,31 +20,32 @@ import org.slf4j.LoggerFactory;
         authors = {"Zornus"}
 )
 public class FriendProxyPlugin {
-    private static final Logger LOGGER = LoggerFactory.getLogger(FriendProxyPlugin.class);
 
     private final @NonNull ProxyServer proxyServer;
-    private final @NonNull FriendProxyModule friendProxyModule;
+    private final @NonNull Logger logger;
+    private FriendProxyModule friendProxyModule;
 
     @Inject
-    public FriendProxyPlugin(@NonNull ProxyServer proxyServer) {
+    public FriendProxyPlugin(@NonNull ProxyServer proxyServer, @NonNull Logger logger) {
         this.proxyServer = proxyServer;
-        this.friendProxyModule = new FriendProxyModule(this, proxyServer);
+        this.logger = logger;
     }
 
     @Subscribe
     public void onProxyInitialize(@NonNull ProxyInitializeEvent event) {
         try {
-            LOGGER.info("Initializing Friends plugin...");
+            logger.info("Initializing Friends plugin...");
 
+            this.friendProxyModule = new FriendProxyModule(this, proxyServer);
             friendProxyModule.initialize(
                     proxyServer.getCommandManager(),
                     proxyServer.getEventManager(),
                     proxyServer.getScheduler()
             );
 
-            LOGGER.info("Friends plugin initialized successfully");
+            logger.info("Friends plugin initialized successfully");
         } catch (Exception exception) {
-            LOGGER.error("Failed to initialize Friends plugin", exception);
+            logger.error("Failed to initialize Friends plugin", exception);
             throw exception;
         }
     }
@@ -53,17 +53,19 @@ public class FriendProxyPlugin {
     @Subscribe
     public void onProxyShutdown(@NonNull ProxyShutdownEvent event) {
         try {
-            LOGGER.info("Shutting down Friends plugin...");
+            logger.info("Shutting down Friends plugin...");
 
-            friendProxyModule.shutdown();
+            if (friendProxyModule != null) {
+                friendProxyModule.shutdown();
+            }
 
-            LOGGER.info("Friends plugin shut down successfully");
+            logger.info("Friends plugin shut down successfully");
         } catch (Exception exception) {
-            LOGGER.error("Error during Friends plugin shutdown", exception);
+            logger.error("Error during Friends plugin shutdown", exception);
         }
     }
 
-    public @NonNull FriendProxyModule getFriendProxyModule() {
+    public FriendProxyModule getFriendProxyModule() {
         return friendProxyModule;
     }
 }

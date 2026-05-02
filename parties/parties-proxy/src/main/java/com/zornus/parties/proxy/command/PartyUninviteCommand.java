@@ -68,7 +68,7 @@ public final class PartyUninviteCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to revoke party invitation for {} to {}", sender.getUniqueId(), target.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.SUCCESS;
+                    return PartyResult.ERROR_ALREADY_HANDLED;
                 })
                 .thenAccept(result -> {
                     switch (result) {
@@ -82,6 +82,7 @@ public final class PartyUninviteCommand {
                         case INVITATION_REVOKED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.UNINVITE_SUCCESS,
                                         Placeholder.unparsed("target", targetName)));
+                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }

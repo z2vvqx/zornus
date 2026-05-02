@@ -68,7 +68,7 @@ public final class PartyRejectCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to reject party invitation for {} from {}", sender.getUniqueId(), target.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.SUCCESS;
+                    return PartyResult.ERROR_ALREADY_HANDLED;
                 })
                 .thenAccept(result -> {
                     switch (result) {
@@ -80,6 +80,7 @@ public final class PartyRejectCommand {
                         case INVITATION_REJECTED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.REJECT_SUCCESS,
                                         Placeholder.unparsed("target", targetName)));
+                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }

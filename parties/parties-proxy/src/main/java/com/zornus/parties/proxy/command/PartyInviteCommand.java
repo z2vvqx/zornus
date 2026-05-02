@@ -72,7 +72,7 @@ public final class PartyInviteCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to send party invitation from {} to {}", sender.getUniqueId(), target.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.SUCCESS;
+                    return PartyResult.ERROR_ALREADY_HANDLED;
                 })
                 .thenAccept(result -> {
                     switch (result) {
@@ -102,6 +102,7 @@ public final class PartyInviteCommand {
                         case INVITATION_SENT ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.INVITE_SUCCESS,
                                         Placeholder.unparsed("target", targetName)));
+                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }

@@ -61,7 +61,7 @@ public final class FriendAddCommand {
 
         String targetName = StringArgumentType.getString(context, "player_name");
 
-        resolveTargetPlayer(targetName, proxyServer, friendService)
+        FriendCommandUtils.resolveTargetPlayer(targetName, proxyServer, friendService)
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to resolve player by username: {}", targetName, throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
@@ -78,7 +78,7 @@ public final class FriendAddCommand {
                             .exceptionally(throwable -> {
                                 LOGGER.error("Failed to send friend request from {} to {}", sender.getUniqueId(), targetUuid, throwable);
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                                return FriendResult.SUCCESS;
+                                return FriendResult.ERROR_ALREADY_HANDLED;
                             })
                             .thenAccept(result -> {
                                 switch (result) {
@@ -110,6 +110,7 @@ public final class FriendAddCommand {
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ADD_SUCCESS, Placeholder.unparsed("target", targetName)));
                                     case REQUEST_ACCEPTED_AUTOMATICALLY ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ACCEPT_SUCCESS_AUTO, Placeholder.unparsed("target", targetName)));
+                                    case ERROR_ALREADY_HANDLED -> {}
                                     default ->
                                             sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                                 }
@@ -119,11 +120,4 @@ public final class FriendAddCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static CompletableFuture<Optional<UUID>> resolveTargetPlayer(String username, @NonNull ProxyServer proxyServer, FriendService friendService) {
-        Optional<Player> onlinePlayer = proxyServer.getPlayer(username);
-        if (onlinePlayer.isPresent()) {
-            return CompletableFuture.completedFuture(Optional.of(onlinePlayer.get().getUniqueId()));
-        }
-        return friendService.fetchPlayerByUsername(username).thenApply(optional -> optional.map(playerRecord -> playerRecord.playerUuid()));
-    }
 }

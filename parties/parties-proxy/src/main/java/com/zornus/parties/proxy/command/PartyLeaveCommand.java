@@ -40,7 +40,7 @@ public final class PartyLeaveCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to leave party for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.SUCCESS;
+                    return PartyResult.ERROR_ALREADY_HANDLED;
                 })
                 .thenAccept(result -> {
                     switch (result) {
@@ -50,6 +50,7 @@ public final class PartyLeaveCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.LEAVE_SUCCESS_DISBANDED));
                         case NOT_IN_PARTY ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.LEAVE_ERROR_NOT_IN_PARTY));
+                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }

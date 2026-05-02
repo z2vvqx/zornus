@@ -39,7 +39,42 @@ public final class FriendSettingsCommand {
                 .then(createSettingBranch("requests", friendService));
     }
 
-    private static int handleDisplaySettings(@NonNull CommandContext<CommandSource> context, FriendService friendService) {
+    private static LiteralArgumentBuilder<CommandSource> createSettingBranch(String setting, FriendService friendService) {
+        return BrigadierCommand
+                .literalArgumentBuilder(setting)
+                .then(BrigadierCommand
+                        .requiredArgumentBuilder("value", BoolArgumentType.bool())
+                        .executes(context -> handleFriendSettings(context, friendService, setting))
+                );
+    }
+
+    private static int handleFriendSettings(@NonNull CommandContext<CommandSource> context, FriendService friendService, String setting) {
+        CommandSource source = context.getSource();
+        if (!(source instanceof Player sender)) {
+            source.sendMessage(StringUtils.deserialize(SharedConstants.PLAYERS_ONLY));
+            return Command.SINGLE_SUCCESS;
+        }
+
+        boolean value = BoolArgumentType.getBool(context, "value");
+
+        friendService.updateSetting(sender.getUniqueId(), setting, value).thenAccept(result -> {
+            switch (result) {
+                case SETTING_UPDATED ->
+                        sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.SETTINGS_UPDATE_SUCCESS,
+                                TagResolver.resolver(
+                                        Placeholder.unparsed("setting", setting),
+                                        Placeholder.unparsed("value", String.valueOf(value))
+                                )));
+                case INVALID_SETTING ->
+                        sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_INVALID_SETTING, Placeholder.unparsed("setting", setting)));
+                default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+            }
+        });
+
+        return Command.SINGLE_SUCCESS;
+    }
+
+    private static int handleDisplayFriendSettings(@NonNull CommandContext<CommandSource> context, FriendService friendService) {
         CommandSource source = context.getSource();
         if (!(source instanceof Player sender)) {
             source.sendMessage(StringUtils.deserialize(SharedConstants.PLAYERS_ONLY));
@@ -82,38 +117,4 @@ public final class FriendSettingsCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static LiteralArgumentBuilder<CommandSource> createSettingBranch(String setting, FriendService friendService) {
-        return BrigadierCommand
-                .literalArgumentBuilder(setting)
-                .then(BrigadierCommand
-                        .requiredArgumentBuilder("value", BoolArgumentType.bool())
-                        .executes(context -> handleFriendSettings(context, friendService, setting))
-                );
-    }
-
-    private static int handleFriendSettings(@NonNull CommandContext<CommandSource> context, FriendService friendService, String setting) {
-        CommandSource source = context.getSource();
-        if (!(source instanceof Player sender)) {
-            source.sendMessage(StringUtils.deserialize(SharedConstants.PLAYERS_ONLY));
-            return Command.SINGLE_SUCCESS;
-        }
-
-        boolean value = BoolArgumentType.getBool(context, "value");
-
-        friendService.updateSetting(sender.getUniqueId(), setting, value).thenAccept(result -> {
-            switch (result) {
-                case SETTING_UPDATED ->
-                        sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.SETTINGS_UPDATE_SUCCESS,
-                                TagResolver.resolver(
-                                        Placeholder.unparsed("setting", setting),
-                                        Placeholder.unparsed("value", String.valueOf(value))
-                                )));
-                case INVALID_SETTING ->
-                        sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_INVALID_SETTING, Placeholder.unparsed("setting", setting)));
-                default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-            }
-        });
-
-        return Command.SINGLE_SUCCESS;
-    }
 }

@@ -14,6 +14,7 @@ import com.zornus.parties.proxy.model.PartyResult;
 import com.zornus.parties.proxy.model.result.PartyRequestsResult;
 import com.zornus.parties.proxy.service.PartyService;
 import com.zornus.shared.SharedConstants;
+import com.zornus.shared.utilities.PaginationResult;
 import com.zornus.shared.utilities.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
@@ -73,10 +74,9 @@ public final class PartyRequestsCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to get party requests for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return null;
+                    return new PartyRequestsResult(PartyResult.ERROR_ALREADY_HANDLED, PaginationResult.invalidPage(1));
                 })
                 .thenAccept(result -> {
-                    if (result == null) return;
                     switch (result.result()) {
                         case LIST_EMPTY -> {
                             String emptyMessage = type.equalsIgnoreCase("incoming")
@@ -90,7 +90,8 @@ public final class PartyRequestsCommand {
                             );
                             sender.sendMessage(StringUtils.deserialize(SharedConstants.INVALID_PAGE, pageResolver));
                         }
-                        case SUCCESS -> displayRequestsPage(sender, result, type, page, proxyServer);
+                        case SUCCESS -> handleDisplayRequestsPage(sender, result, type, page, proxyServer);
+                        case ERROR_ALREADY_HANDLED -> {}
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 });
@@ -98,7 +99,7 @@ public final class PartyRequestsCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static void displayRequestsPage(@NonNull Player sender, @NonNull PartyRequestsResult result,
+    private static void handleDisplayRequestsPage(@NonNull Player sender, @NonNull PartyRequestsResult result,
                                            @NonNull String type, int currentPage, ProxyServer proxyServer) {
         TextComponent.Builder messageBuilder = Component.text().appendNewline();
 

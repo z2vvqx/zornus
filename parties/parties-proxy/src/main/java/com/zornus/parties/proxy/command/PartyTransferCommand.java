@@ -75,7 +75,7 @@ public final class PartyTransferCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to transfer leadership from {} to {}", sender.getUniqueId(), target.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.SUCCESS;
+                    return PartyResult.ERROR_ALREADY_HANDLED;
                 })
                 .thenAccept(result -> {
                     switch (result) {
@@ -98,6 +98,7 @@ public final class PartyTransferCommand {
                                         Placeholder.unparsed("target", targetName)));
                         case TRANSFER_FAILED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.TRANSFER_ERROR_FAILED));
+                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }

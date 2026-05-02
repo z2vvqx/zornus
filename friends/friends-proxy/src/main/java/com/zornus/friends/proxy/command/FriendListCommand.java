@@ -12,9 +12,11 @@ import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.FriendRelation;
 import com.zornus.friends.proxy.model.FriendSettings;
 import com.zornus.friends.proxy.model.PresenceState;
+import com.zornus.friends.proxy.model.result.FriendResult;
 import com.zornus.friends.proxy.model.result.FriendListResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
+import com.zornus.shared.utilities.PaginationResult;
 import com.zornus.shared.utilities.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
@@ -31,6 +33,7 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
+import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Command for listing friends with pagination.
@@ -59,10 +62,9 @@ public final class FriendListCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to fetch friends list for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return null;
+                    return new FriendListResult(FriendResult.ERROR_ALREADY_HANDLED, PaginationResult.invalidPage(1));
                 })
                 .thenAccept(result -> {
-                    if (result == null) return;
                     switch (result.result()) {
                         case LIST_EMPTY ->
                                 sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.UI_LIST_EMPTY));
@@ -71,6 +73,7 @@ public final class FriendListCommand {
                             sender.sendMessage(StringUtils.deserialize(SharedConstants.INVALID_PAGE, pageResolver));
                         }
                         case SUCCESS -> handleDisplayFriendList(sender, result, friendService, proxyServer, page);
+                        case ERROR_ALREADY_HANDLED -> {}
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 });
@@ -81,7 +84,7 @@ public final class FriendListCommand {
     private static void handleDisplayFriendList(Player sender, @NonNull FriendListResult result,
                                                 FriendService friendService, ProxyServer proxyServer, int currentPage) {
         TextComponent.Builder messageBuilder = Component.text().appendNewline();
-        List<Component> friendEntries = new ArrayList<>();
+        ConcurrentLinkedQueue<Component> friendEntries = new ConcurrentLinkedQueue<>();
 
         List<CompletableFuture<Void>> friendDataFutures = new ArrayList<>();
 
