@@ -647,7 +647,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         UUID smaller = senderId.compareTo(receiverId) < 0 ? senderId : receiverId;
         UUID larger = smaller.equals(senderId) ? receiverId : senderId;
         try (PreparedStatement lockStatement = connection.prepareStatement(
-                "SELECT pg_advisory_xact_lock(2, hashtextextended(?, 0)::int), pg_advisory_xact_lock(2, hashtextextended(?, 0)::int)")) {
+                "SELECT pg_advisory_xact_lock(hashtextextended(?, 2)), pg_advisory_xact_lock(hashtextextended(?, 2))")) {
             lockStatement.setString(1, smaller.toString());
             lockStatement.setString(2, larger.toString());
             lockStatement.executeQuery();
@@ -711,7 +711,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 UUID smaller = accepterId.compareTo(requesterId) < 0 ? accepterId : requesterId;
                 UUID larger = smaller.equals(accepterId) ? requesterId : accepterId;
                 try (PreparedStatement lockStatement = connection.prepareStatement(
-                        "SELECT pg_advisory_xact_lock(2, hashtextextended(?, 0)::int), pg_advisory_xact_lock(2, hashtextextended(?, 0)::int)")) {
+                        "SELECT pg_advisory_xact_lock(hashtextextended(?, 2)), pg_advisory_xact_lock(hashtextextended(?, 2))")) {
                     lockStatement.setString(1, smaller.toString());
                     lockStatement.setString(2, larger.toString());
                     lockStatement.executeQuery();

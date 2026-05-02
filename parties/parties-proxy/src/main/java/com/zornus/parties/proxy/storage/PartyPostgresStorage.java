@@ -422,7 +422,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 connection.setAutoCommit(false);
                 // Serialize joins per party to prevent concurrent accepts exceeding MAX_PARTY_SIZE
                 try (PreparedStatement lockStatement = connection.prepareStatement(
-                        "SELECT pg_advisory_xact_lock(1, hashtextextended(?, 0)::int)")) {
+                        "SELECT pg_advisory_xact_lock(hashtextextended(?, 1))")) {
                     lockStatement.setString(1, partyId.toString());
                     lockStatement.executeQuery();
                 }
