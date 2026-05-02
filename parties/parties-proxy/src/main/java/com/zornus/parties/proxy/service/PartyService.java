@@ -20,7 +20,12 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
 public final class PartyService implements AutoCloseable {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PartyService.class);
 
     private final @NonNull PartyStorage storage;
     private final @NonNull ProxyServer proxyServer;
@@ -424,10 +429,29 @@ public final class PartyService implements AutoCloseable {
                     }
                     Party party = partyOptional.get();
                     Set<UUID> memberIds = party.getMemberIds();
+
+                    LOGGER.debug("Party chat from {} in party {} (leader: {}, members: {}, member count: {})",
+                            senderId, party.partyId(), party.leaderId(), memberIds, memberIds.size());
+
+                    if (!memberIds.contains(senderId)) {
+                        LOGGER.warn("Sender {} not in party {} member list, but was able to getPlayerParty. Members: {}",
+                                senderId, party.partyId(), memberIds);
+                    }
+
                     return storage.fetchSettingsForMembers(memberIds)
                             .thenApply(memberSettingsMap -> {
                                 PartySettings senderSettings = memberSettingsMap.getOrDefault(senderId, new PartySettings(senderId));
+
+                                LOGGER.debug("Party chat settings for {}: allowChat={}, in DB={}",
+                                        senderId, senderSettings.allowChat(), memberSettingsMap.containsKey(senderId));
+
+                                // Log all member settings for debugging
+                                for (Map.Entry<UUID, PartySettings> entry : memberSettingsMap.entrySet()) {
+                                    LOGGER.debug("  Member {}: allowChat={}", entry.getKey(), entry.getValue().allowChat());
+                                }
+
                                 if (!senderSettings.allowChat()) {
+                                    LOGGER.warn("Party chat blocked for {}: allowChat is false in settings", senderId);
                                     return PartyResult.CHAT_DISABLED;
                                 }
                                 notificationService.sendPartyChatFiltered(party, sender, message, memberSettingsMap);
