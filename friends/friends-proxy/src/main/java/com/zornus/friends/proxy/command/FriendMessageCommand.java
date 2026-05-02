@@ -59,13 +59,13 @@ public final class FriendMessageCommand {
                                     }
                                     String targetName = StringArgumentType.getString(context, "friend_name");
                                     String message = StringArgumentType.getString(context, "message_array");
-                                    return handleFriendMessage(sender, targetName, message, friendService, proxyServer);
+                                    return handleSendMessage(sender, targetName, message, friendService, proxyServer);
                                 })
                         )
                 );
     }
 
-    private static int handleFriendMessage(Player sender, String targetName, String message,
+    private static int handleSendMessage(Player sender, String targetName, String message,
                                            FriendService friendService, ProxyServer proxyServer) {
         FriendCommandUtils.resolveTargetPlayer(targetName, proxyServer, friendService)
                 .exceptionally(throwable -> {
@@ -80,13 +80,13 @@ public final class FriendMessageCommand {
                     }
 
                     UUID targetUuid = targetOptional.get();
-                    handleFriendMessageSend(sender, targetUuid, targetName, message, friendService);
+                    processMessageSend(sender, targetUuid, targetName, message, friendService);
                 });
 
         return Command.SINGLE_SUCCESS;
     }
 
-    public static void handleFriendMessageSend(@NonNull Player sender, UUID targetUuid, String targetName, String message, @NonNull FriendService friendService) {
+    public static void processMessageSend(@NonNull Player sender, UUID targetUuid, String targetName, String message, @NonNull FriendService friendService) {
         friendService.sendFriendMessage(sender.getUniqueId(), targetUuid, message)
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to send friend message from {} to {}", sender.getUniqueId(), targetUuid, throwable);

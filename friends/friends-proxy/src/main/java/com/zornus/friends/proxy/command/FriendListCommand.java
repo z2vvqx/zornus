@@ -45,17 +45,17 @@ public final class FriendListCommand {
     public static LiteralArgumentBuilder<CommandSource> create(FriendService friendService, ProxyServer proxyServer) {
         return BrigadierCommand
                 .literalArgumentBuilder("list")
-                .executes(context -> handleFriendList(context, friendService, proxyServer, 1))
+                .executes(context -> handleListFriends(context, friendService, proxyServer, 1))
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("page_index", IntegerArgumentType.integer(1))
                         .executes(context -> {
                             int page = IntegerArgumentType.getInteger(context, "page_index");
-                            return handleFriendList(context, friendService, proxyServer, page);
+                            return handleListFriends(context, friendService, proxyServer, page);
                         })
                 );
     }
 
-    private static int handleFriendList(@NonNull CommandContext<CommandSource> context, @NonNull FriendService friendService, ProxyServer proxyServer, int page) {
+    private static int handleListFriends(@NonNull CommandContext<CommandSource> context, @NonNull FriendService friendService, ProxyServer proxyServer, int page) {
         Player sender = (Player) context.getSource();
 
         friendService.getFriendsList(sender.getUniqueId(), page)
@@ -72,7 +72,7 @@ public final class FriendListCommand {
                             TagResolver pageResolver = TagResolver.resolver(Placeholder.unparsed("maximum_pages", String.valueOf(result.paginationResult().maximumPages())));
                             sender.sendMessage(StringUtils.deserialize(SharedConstants.INVALID_PAGE, pageResolver));
                         }
-                        case SUCCESS -> handleDisplayFriendList(sender, result, friendService, proxyServer, page);
+                        case SUCCESS -> handleDisplayList(sender, result, friendService, proxyServer, page);
                         case ERROR_ALREADY_HANDLED -> {}
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
@@ -81,7 +81,7 @@ public final class FriendListCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static void handleDisplayFriendList(Player sender, @NonNull FriendListResult result,
+    private static void handleDisplayList(Player sender, @NonNull FriendListResult result,
                                                 FriendService friendService, ProxyServer proxyServer, int currentPage) {
         TextComponent.Builder messageBuilder = Component.text().appendNewline();
         ConcurrentLinkedQueue<Component> friendEntries = new ConcurrentLinkedQueue<>();
@@ -105,8 +105,8 @@ public final class FriendListCommand {
                     .thenCombine(lastSeenFuture.exceptionally(throwable -> {
                         LOGGER.error("Failed to fetch last seen for friend {}", friendId, throwable);
                         return Optional.empty();
-                    }), (settingsOpt, lastSeenOpt) -> {
-                        FriendSettings settings = settingsOpt.orElse(new FriendSettings(friendId));
+                    }), (settingsOptional, lastSeenOptional) -> {
+                        FriendSettings settings = settingsOptional.orElse(new FriendSettings(friendId));
                         boolean friendAppearsOffline = settings.presenceState() == PresenceState.OFFLINE;
                         boolean friendShowsLastSeen = settings.showLastSeen();
                         boolean friendShowsLocation = settings.showLocation();
@@ -127,8 +127,8 @@ public final class FriendListCommand {
                                         Placeholder.unparsed("friend", friendName));
                             }
                         } else {
-                            if (lastSeenOpt.isPresent() && friendShowsLastSeen) {
-                                Component timestampComponent = StringUtils.formatRelativeTime(lastSeenOpt.get());
+                            if (lastSeenOptional.isPresent() && friendShowsLastSeen) {
+                                Component timestampComponent = StringUtils.formatRelativeTime(lastSeenOptional.get());
                                 entryComponent = StringUtils.deserialize(SharedConstants.BULLET_POINT + FriendProxyConstants.UI_STATUS_OFFLINE,
                                         TagResolver.resolver(
                                                 Placeholder.unparsed("friend", friendName),

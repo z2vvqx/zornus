@@ -48,11 +48,11 @@ public final class FriendAcceptCommand {
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("player_name", StringArgumentType.word())
                         .suggests(PLAYER_SUGGESTIONS)
-                        .executes(context -> handleFriendAccept(context, friendService, proxyServer))
+                        .executes(context -> handleAcceptRequest(context, friendService, proxyServer))
                 );
     }
 
-    private static int handleFriendAccept(@NonNull CommandContext<CommandSource> context, FriendService friendService,
+    private static int handleAcceptRequest(@NonNull CommandContext<CommandSource> context, FriendService friendService,
                                           ProxyServer proxyServer) {
         CommandSource source = context.getSource();
         if (!(source instanceof Player sender)) {

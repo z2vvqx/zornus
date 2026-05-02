@@ -14,6 +14,7 @@ import com.zornus.parties.proxy.model.PartyResult;
 import com.zornus.parties.proxy.model.result.PartyMembersResult;
 import com.zornus.parties.proxy.service.PartyService;
 import com.zornus.shared.SharedConstants;
+import com.zornus.shared.utilities.PaginationResult;
 import com.zornus.shared.utilities.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
@@ -61,7 +62,7 @@ public final class PartyListCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to get party members for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return new PartyMembersResult(PartyResult.ERROR_ALREADY_HANDLED, null);
+                    return new PartyMembersResult(PartyResult.ERROR_ALREADY_HANDLED, PaginationResult.invalidPage(1));
                 })
                 .thenAccept(result -> {
                     switch (result.result()) {

@@ -45,11 +45,11 @@ public final class FriendRemoveCommand {
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("friend_name", StringArgumentType.word())
                         .suggests(FRIEND_SUGGESTIONS)
-                        .executes(context -> handleRemoveFriend(context, friendService, proxyServer))
+                        .executes(context -> handleRemove(context, friendService, proxyServer))
                 );
     }
 
-    private static int handleRemoveFriend(@NonNull CommandContext<CommandSource> context, FriendService friendService,
+    private static int handleRemove(@NonNull CommandContext<CommandSource> context, FriendService friendService,
                                           ProxyServer proxyServer) {
         CommandSource source = context.getSource();
         if (!(source instanceof Player sender)) {

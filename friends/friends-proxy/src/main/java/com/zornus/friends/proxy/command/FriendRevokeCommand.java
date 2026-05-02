@@ -45,11 +45,11 @@ public final class FriendRevokeCommand {
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("player_name", StringArgumentType.word())
                         .suggests(OUTGOING_REQUEST_SUGGESTIONS)
-                        .executes(context -> handleRevokeFriend(context, friendService, proxyServer))
+                        .executes(context -> handleRevokeRequest(context, friendService, proxyServer))
                 );
     }
 
-    private static int handleRevokeFriend(@NonNull CommandContext<CommandSource> context, FriendService friendService,
+    private static int handleRevokeRequest(@NonNull CommandContext<CommandSource> context, FriendService friendService,
                                           ProxyServer proxyServer) {
         CommandSource source = context.getSource();
         if (!(source instanceof Player sender)) {

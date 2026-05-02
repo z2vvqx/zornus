@@ -20,22 +20,22 @@ public final class FriendHelpCommand {
     public static LiteralArgumentBuilder<CommandSource> create(FriendService friendService) {
         return BrigadierCommand
                 .literalArgumentBuilder("help")
-                .executes(context -> handleFriendHelp(context, 1))
+                .executes(context -> handleDisplayHelp(context, 1))
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("page", IntegerArgumentType.integer(1))
                         .executes(context -> {
                             int page = IntegerArgumentType.getInteger(context, "page");
-                            return handleFriendHelp(context, page);
+                            return handleDisplayHelp(context, page);
                         })
                 );
     }
 
     @Contract(pure = true)
     public static @NonNull Command<CommandSource> defaultExecutor(FriendService friendService) {
-        return context -> handleFriendHelp(context, 1);
+        return context -> handleDisplayHelp(context, 1);
     }
 
-    private static int handleFriendHelp(@NonNull CommandContext<CommandSource> context, int page) {
+    private static int handleDisplayHelp(@NonNull CommandContext<CommandSource> context, int page) {
         HelpUtils.sendHelpPage(context.getSource(), FriendProxyConstants.HELP_COMMANDS, page, FriendProxyConstants.UI_HELP_PAGINATION);
         return Command.SINGLE_SUCCESS;
     }

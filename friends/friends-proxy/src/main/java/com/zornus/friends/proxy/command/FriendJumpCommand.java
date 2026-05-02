@@ -45,11 +45,11 @@ public final class FriendJumpCommand {
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("friend_name", StringArgumentType.word())
                         .suggests(FRIEND_SUGGESTIONS)
-                        .executes(context -> handleFriendJump(context, friendService, proxyServer))
+                        .executes(context -> handleJumpToFriend(context, friendService, proxyServer))
                 );
     }
 
-    private static int handleFriendJump(@NonNull CommandContext<CommandSource> context, FriendService friendService,
+    private static int handleJumpToFriend(@NonNull CommandContext<CommandSource> context, FriendService friendService,
                                         ProxyServer proxyServer) {
         CommandSource source = context.getSource();
         if (!(source instanceof Player sender)) {

@@ -44,11 +44,11 @@ public final class FriendSettingsCommand {
                 .literalArgumentBuilder(setting)
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("value", BoolArgumentType.bool())
-                        .executes(context -> handleFriendSettings(context, friendService, setting))
+                        .executes(context -> handleUpdateSetting(context, friendService, setting))
                 );
     }
 
-    private static int handleFriendSettings(@NonNull CommandContext<CommandSource> context, FriendService friendService, String setting) {
+    private static int handleUpdateSetting(@NonNull CommandContext<CommandSource> context, FriendService friendService, String setting) {
         CommandSource source = context.getSource();
         if (!(source instanceof Player sender)) {
             source.sendMessage(StringUtils.deserialize(SharedConstants.PLAYERS_ONLY));
@@ -74,7 +74,7 @@ public final class FriendSettingsCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static int handleDisplayFriendSettings(@NonNull CommandContext<CommandSource> context, FriendService friendService) {
+    private static int handleDisplaySettings(@NonNull CommandContext<CommandSource> context, FriendService friendService) {
         CommandSource source = context.getSource();
         if (!(source instanceof Player sender)) {
             source.sendMessage(StringUtils.deserialize(SharedConstants.PLAYERS_ONLY));

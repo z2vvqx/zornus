@@ -34,11 +34,11 @@ public final class FriendReplyCommand {
                 })
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("message_array", StringArgumentType.greedyString())
-                        .executes(context -> handleReplyFriend(context, friendService))
+                        .executes(context -> handleReply(context, friendService))
                 );
     }
 
-    private static int handleReplyFriend(@NonNull CommandContext<CommandSource> context, FriendService friendService) {
+    private static int handleReply(@NonNull CommandContext<CommandSource> context, FriendService friendService) {
         CommandSource source = context.getSource();
         if (!(source instanceof Player sender)) {
             source.sendMessage(StringUtils.deserialize(SharedConstants.PLAYERS_ONLY));
