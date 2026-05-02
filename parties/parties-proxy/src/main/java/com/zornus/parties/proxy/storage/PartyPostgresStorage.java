@@ -92,10 +92,10 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                             ADD CONSTRAINT fk_party_members_party
                             FOREIGN KEY (party_id) REFERENCES parties(party_id) ON DELETE CASCADE
                         """);
-            } catch (SQLException e) {
+            } catch (SQLException exception) {
                 // Constraint already exists - ignore
-                if (!"42710".equals(e.getSQLState())) {
-                    throw e;
+                if (!"42710".equals(exception.getSQLState())) {
+                    throw exception;
                 }
             }
 
@@ -180,8 +180,8 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 connection.setAutoCommit(false);
                 try {
                     // Defer the leader-is-member FK check until commit
-                    try (Statement stmt = connection.createStatement()) {
-                        stmt.execute("SET CONSTRAINTS fk_leader_is_member DEFERRED");
+                    try (Statement deferStatement = connection.createStatement()) {
+                        deferStatement.execute("SET CONSTRAINTS fk_leader_is_member DEFERRED");
                     }
 
                     Instant now = party.lastWarpTime().orElse(Instant.now());
@@ -208,16 +208,16 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                     connection.commit();
                     return new CreatePartyOutcome.Created();
 
-                } catch (SQLException e) {
+                } catch (SQLException exception) {
                     connection.rollback();
                     // Check for unique_violation on player_id (player already in party)
-                    if ("23505".equals(e.getSQLState())) {
+                    if ("23505".equals(exception.getSQLState())) {
                         return new CreatePartyOutcome.AlreadyInParty();
                     }
-                    throw new RuntimeException("Failed to create party", e);
+                    throw new RuntimeException("Failed to create party", exception);
                 }
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to create party", e);
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed to create party", exception);
             }
         }, databaseExecutor);
     }
@@ -301,12 +301,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
                     connection.commit();
                     return new DisbandPartyOutcome.Disbanded();
-                } catch (SQLException e) {
+                } catch (SQLException exception) {
                     connection.rollback();
-                    throw new RuntimeException("Failed to disband party", e);
+                    throw new RuntimeException("Failed to disband party", exception);
                 }
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to disband party", e);
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed to disband party", exception);
             }
         }, databaseExecutor);
     }
@@ -405,12 +405,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
                     connection.commit();
                     return new RemoveMemberOutcome.MemberRemoved();
-                } catch (SQLException e) {
+                } catch (SQLException exception) {
                     connection.rollback();
-                    throw new RuntimeException("Failed to remove member", e);
+                    throw new RuntimeException("Failed to remove member", exception);
                 }
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to remove member", e);
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed to remove member", exception);
             }
         }, databaseExecutor);
     }
@@ -420,7 +420,13 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
-                connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+                // Serialize joins per party to prevent concurrent accepts exceeding MAX_PARTY_SIZE
+                try (PreparedStatement lockStatement = connection.prepareStatement(
+                        "SELECT pg_advisory_xact_lock(1, hashtextextended(?, 0)::int)")) {
+                    lockStatement.setString(1, partyId.toString());
+                    lockStatement.executeQuery();
+                }
+
                 try {
                     // 1. Check if player is already in a party (UNIQUE constraint on party_members.player_id)
                     // This is caught by the INSERT later, but we check early for better error messages
@@ -456,9 +462,9 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         return new JoinOutcome.InvitationExpired();
                     }
 
-                    // 3. Get party member count with FOR UPDATE
+                    // 3. Get party member count
                     int memberCount;
-                    String countSql = "SELECT COUNT(*) FROM party_members WHERE party_id = ? FOR UPDATE";
+                    String countSql = "SELECT COUNT(*) FROM party_members WHERE party_id = ?";
                     try (PreparedStatement statement = connection.prepareStatement(countSql)) {
                         statement.setObject(1, partyId);
                         try (ResultSet resultSet = statement.executeQuery()) {
@@ -519,20 +525,16 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
                     connection.commit();
                     return new JoinOutcome.Joined();
-                } catch (SQLException e) {
+                } catch (SQLException exception) {
                     connection.rollback();
                     // Check for unique_violation on player_id (player already in party)
-                    if ("23505".equals(e.getSQLState())) {
+                    if ("23505".equals(exception.getSQLState())) {
                         return new JoinOutcome.AlreadyMember();
                     }
-                    // Check for serialization failure (REPEATABLE READ conflict)
-                    if ("40001".equals(e.getSQLState())) {
-                        return new JoinOutcome.InvitationNoLongerValid();
-                    }
-                    throw new RuntimeException("Failed to accept invitation and join", e);
+                    throw new RuntimeException("Failed to accept invitation and join", exception);
                 }
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to accept invitation and join", e);
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed to accept invitation and join", exception);
             }
         }, databaseExecutor);
     }
@@ -593,12 +595,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
                     connection.commit();
                     return new TransferLeadershipOutcome.Transferred();
-                } catch (SQLException e) {
+                } catch (SQLException exception) {
                     connection.rollback();
-                    throw new RuntimeException("Failed to transfer leadership", e);
+                    throw new RuntimeException("Failed to transfer leadership", exception);
                 }
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to transfer leadership", e);
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed to transfer leadership", exception);
             }
         }, databaseExecutor);
     }
@@ -645,12 +647,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
                     connection.commit();
                     return new WarpOutcome.Allowed();
-                } catch (SQLException e) {
+                } catch (SQLException exception) {
                     connection.rollback();
-                    throw new RuntimeException("Failed to check and update warp time", e);
+                    throw new RuntimeException("Failed to check and update warp time", exception);
                 }
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to check and update warp time", e);
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed to check and update warp time", exception);
             }
         }, databaseExecutor);
     }
@@ -791,7 +793,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         }
                     }
 
-                    // 5. Check sender invitation limits
+                    // 6. Check sender invitation limits
                     String countSenderInvitesSql = """
                         SELECT (SELECT COUNT(*) FROM party_invitations WHERE sender_id = ?) +
                                (SELECT COUNT(*) FROM party_invitations WHERE target_id = ?)
@@ -810,7 +812,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         return new SendInvitationOutcome.SenderLimitReached();
                     }
 
-                    // 6. Check receiver invitation limits
+                    // 7. Check receiver invitation limits
                     String countReceiverInvitesSql = """
                         SELECT (SELECT COUNT(*) FROM party_invitations WHERE sender_id = ?) +
                                (SELECT COUNT(*) FROM party_invitations WHERE target_id = ?)
@@ -829,7 +831,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         return new SendInvitationOutcome.ReceiverLimitReached();
                     }
 
-                    // 7. Check if already invited
+                    // 8. Check if already invited
                     String checkExistingInviteSql = "SELECT 1 FROM party_invitations WHERE party_id = ? AND sender_id = ? AND target_id = ?";
                     try (PreparedStatement statement = connection.prepareStatement(checkExistingInviteSql)) {
                         statement.setObject(1, partyId);
@@ -843,7 +845,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         }
                     }
 
-                    // 8. Insert invitation (no name columns)
+                    // 9. Insert invitation (no name columns)
                     String insertInviteSql = """
                         INSERT INTO party_invitations (party_id, sender_id, target_id, created_at)
                         VALUES (?, ?, ?, NOW())
@@ -855,7 +857,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         statement.executeUpdate();
                     }
 
-                    // 9. Record/refresh cooldown using canonicalized keys
+                    // 10. Record/refresh cooldown using canonicalized keys
                     CooldownKey.CanonicalKey key = CooldownKey.canonicalize(senderId, targetId);
                     String upsertCooldownSql = """
                         INSERT INTO party_cooldowns (player_a, player_b, timestamp)
@@ -870,18 +872,18 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
                     connection.commit();
                     return new SendInvitationOutcome.Sent();
-                } catch (SQLException e) {
+                } catch (SQLException exception) {
                     connection.rollback();
-                    if ("23505".equals(e.getSQLState())) {
+                    if ("23505".equals(exception.getSQLState())) {
                         return new SendInvitationOutcome.AlreadyInvited();
                     }
-                    if ("40001".equals(e.getSQLState())) {
+                    if ("40001".equals(exception.getSQLState())) {
                         return new SendInvitationOutcome.AlreadyInvited();
                     }
-                    throw new RuntimeException("Failed to send invitation", e);
+                    throw new RuntimeException("Failed to send invitation", exception);
                 }
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to send invitation", e);
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed to send invitation", exception);
             }
         }, databaseExecutor);
     }
@@ -1113,7 +1115,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 try {
                     // Try to get existing confirmation first
                     String selectSql = "SELECT confirmation_type, target_id, created_at FROM party_confirmations WHERE player_id = ?";
-                    Optional<PendingConfirmation> existingOpt;
+                    Optional<PendingConfirmation> existingOptional;
                     try (PreparedStatement statement = connection.prepareStatement(selectSql)) {
                         statement.setObject(1, confirmation.playerId());
                         try (ResultSet resultSet = statement.executeQuery()) {
@@ -1122,16 +1124,16 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                                 ConfirmationType type = ConfirmationType.valueOf(typeStr);
                                 UUID targetId = (UUID) resultSet.getObject("target_id");
                                 Instant timestamp = resultSet.getTimestamp("created_at").toInstant();
-                                existingOpt = Optional.of(new PendingConfirmation(confirmation.playerId(), type, targetId, timestamp));
+                                existingOptional = Optional.of(new PendingConfirmation(confirmation.playerId(), type, targetId, timestamp));
                             } else {
-                                existingOpt = Optional.empty();
+                                existingOptional = Optional.empty();
                             }
                         }
                     }
 
-                    if (existingOpt.isPresent()) {
+                    if (existingOptional.isPresent()) {
                         connection.rollback();
-                        return new ConfirmationOutcome.AlreadyExists(existingOpt.get());
+                        return new ConfirmationOutcome.AlreadyExists(existingOptional.get());
                     }
 
                     // No existing confirmation - insert new one
@@ -1146,10 +1148,10 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
                     connection.commit();
                     return new ConfirmationOutcome.Set();
-                } catch (SQLException e) {
+                } catch (SQLException exception) {
                     connection.rollback();
                     // Check for unique violation - another transaction inserted first
-                    if ("23505".equals(e.getSQLState())) {
+                    if ("23505".equals(exception.getSQLState())) {
                         // Re-fetch the existing confirmation that caused the conflict
                         String selectSql = "SELECT confirmation_type, target_id, created_at FROM party_confirmations WHERE player_id = ?";
                         try (PreparedStatement statement = connection.prepareStatement(selectSql)) {
@@ -1168,10 +1170,10 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                             throw new RuntimeException("Failed to fetch existing confirmation after conflict", fetchException);
                         }
                     }
-                    throw new RuntimeException("Failed to set pending confirmation", e);
+                    throw new RuntimeException("Failed to set pending confirmation", exception);
                 }
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to set pending confirmation", e);
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed to set pending confirmation", exception);
             }
         }, databaseExecutor);
     }

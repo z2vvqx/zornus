@@ -470,7 +470,6 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
-                connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
                 try {
                     // 1. Check if already friends
                     CanonicalUuidPair pair = canonicalizePair(senderId, receiverId);
@@ -611,42 +610,49 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
 
                     connection.commit();
                     return new SendRequestOutcome.Sent();
-                } catch (SQLException e) {
+                } catch (SQLException exception) {
                     connection.rollback();
                     // Check for unique violation (already friends or request already exists)
-                    if ("23505".equals(e.getSQLState())) {
+                    if ("23505".equals(exception.getSQLState())) {
                         // Could be either already friends or request already sent
                         // Check which one by querying
                         try {
                             CanonicalUuidPair pair = canonicalizePair(senderId, receiverId);
                             String checkSql = "SELECT 1 FROM relations WHERE player1 = ? AND player2 = ?";
-                            try (PreparedStatement stmt = connection.prepareStatement(checkSql)) {
-                                stmt.setObject(1, pair.firstPlayer());
-                                stmt.setObject(2, pair.secondPlayer());
-                                try (ResultSet rs = stmt.executeQuery()) {
-                                    if (rs.next()) {
+                            try (PreparedStatement checkStatement = connection.prepareStatement(checkSql)) {
+                                checkStatement.setObject(1, pair.firstPlayer());
+                                checkStatement.setObject(2, pair.secondPlayer());
+                                try (ResultSet checkResultSet = checkStatement.executeQuery()) {
+                                    if (checkResultSet.next()) {
                                         return new SendRequestOutcome.AlreadyFriends();
                                     }
                                 }
                             }
                             return new SendRequestOutcome.RequestAlreadySent();
-                        } catch (SQLException ex) {
-                            throw new RuntimeException("Failed to determine conflict type", ex);
+                        } catch (SQLException innerException) {
+                            throw new RuntimeException("Failed to determine conflict type", innerException);
                         }
                     }
-                    // Check for serialization failure
-                    if ("40001".equals(e.getSQLState())) {
-                        return new SendRequestOutcome.RequestAlreadySent();
-                    }
-                    throw new RuntimeException("Failed to send friend request", e);
+                    throw new RuntimeException("Failed to send friend request", exception);
                 }
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to send friend request", e);
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed to send friend request", exception);
             }
         }, databaseExecutor);
     }
 
     private SendRequestOutcome handleMutualAutoAccept(Connection connection, UUID senderId, UUID receiverId) throws SQLException {
+        // Serialize accepts per player to prevent concurrent accepts exceeding MAX_FRIENDS
+        // Lock in canonical UUID order to prevent deadlocks
+        UUID smaller = senderId.compareTo(receiverId) < 0 ? senderId : receiverId;
+        UUID larger = smaller.equals(senderId) ? receiverId : senderId;
+        try (PreparedStatement lockStatement = connection.prepareStatement(
+                "SELECT pg_advisory_xact_lock(2, hashtextextended(?, 0)::int), pg_advisory_xact_lock(2, hashtextextended(?, 0)::int)")) {
+            lockStatement.setString(1, smaller.toString());
+            lockStatement.setString(2, larger.toString());
+            lockStatement.executeQuery();
+        }
+
         // Check friend limits for both players
         int senderFriendCount = countFriendsInTransaction(connection, senderId);
         if (senderFriendCount >= FriendProxyConstants.MAX_FRIENDS) {
@@ -684,7 +690,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     }
 
     private int countFriendsInTransaction(Connection connection, UUID playerId) throws SQLException {
-        String sql = "SELECT COUNT(*) FROM relations WHERE player1 = ? OR player2 = ? FOR UPDATE";
+        String sql = "SELECT COUNT(*) FROM relations WHERE player1 = ? OR player2 = ?";
         try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, playerId);
             statement.setObject(2, playerId);
@@ -700,7 +706,17 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
-                connection.setTransactionIsolation(Connection.TRANSACTION_READ_COMMITTED);
+                // Serialize accepts per player to prevent concurrent accepts exceeding MAX_FRIENDS
+                // Lock in canonical UUID order to prevent deadlocks
+                UUID smaller = accepterId.compareTo(requesterId) < 0 ? accepterId : requesterId;
+                UUID larger = smaller.equals(accepterId) ? requesterId : accepterId;
+                try (PreparedStatement lockStatement = connection.prepareStatement(
+                        "SELECT pg_advisory_xact_lock(2, hashtextextended(?, 0)::int), pg_advisory_xact_lock(2, hashtextextended(?, 0)::int)")) {
+                    lockStatement.setString(1, smaller.toString());
+                    lockStatement.setString(2, larger.toString());
+                    lockStatement.executeQuery();
+                }
+
                 try {
                     // 1. Verify the incoming request exists
                     String checkRequestSql = "SELECT 1 FROM requests WHERE sender = ? AND receiver = ?";
@@ -762,20 +778,16 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
 
                     connection.commit();
                     return new AcceptRequestOutcome.Accepted();
-                } catch (SQLException e) {
+                } catch (SQLException exception) {
                     connection.rollback();
                     // Check for unique violation (already friends)
-                    if ("23505".equals(e.getSQLState())) {
+                    if ("23505".equals(exception.getSQLState())) {
                         return new AcceptRequestOutcome.AlreadyFriends();
                     }
-                    // Check for serialization failure
-                    if ("40001".equals(e.getSQLState())) {
-                        return new AcceptRequestOutcome.NoRequestFound();
-                    }
-                    throw new RuntimeException("Failed to accept friend request", e);
+                    throw new RuntimeException("Failed to accept friend request", exception);
                 }
-            } catch (SQLException e) {
-                throw new RuntimeException("Failed to accept friend request", e);
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed to accept friend request", exception);
             }
         }, databaseExecutor);
     }

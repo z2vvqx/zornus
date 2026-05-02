@@ -18,8 +18,8 @@ public final class FriendExpirationOperation implements Runnable {
             service.cleanupExpiredRequests();
             service.cleanupExpiredCooldowns();
             service.cleanupExpiredLastMessageSenders();
-        } catch (Exception e) {
-            LOGGER.error("Error during friend cleanup", e);
+        } catch (Exception exception) {
+            LOGGER.error("Error during friend cleanup", exception);
         }
     }
 }
