@@ -13,6 +13,7 @@
         <module>bootstrap</module>
         <module>shared</module>
         <module>parties</module>
+        <module>guilds</module>
     </modules>
 
     <properties>

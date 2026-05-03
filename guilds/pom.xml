@@ -10,13 +10,13 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>parties</artifactId>
+    <artifactId>guilds</artifactId>
     <packaging>pom</packaging>
     <modules>
-        <module>parties-api</module>
-        <module>parties-internal</module>
-        <module>parties-proxy</module>
-        <module>parties-server</module>
+        <module>guilds-api</module>
+        <module>guilds-internal</module>
+        <module>guilds-proxy</module>
+        <module>guilds-server</module>
     </modules>
 
     <dependencies>
