@@ -40,6 +40,7 @@ public interface GuildStorage {
     CompletableFuture<Boolean> removePendingInvitation(@NonNull UUID guildId, @NonNull UUID senderId, @NonNull UUID targetId);
 
     CompletableFuture<Optional<GuildSettings>> fetchSettings(@NonNull UUID playerId);
+    CompletableFuture<Map<UUID, GuildSettings>> fetchSettingsForMembers(@NonNull Collection<UUID> memberIds);
     CompletableFuture<Void> updateInvitePrivacy(@NonNull UUID playerId, @NonNull String value);
     CompletableFuture<Void> updateShowChat(@NonNull UUID playerId, boolean value);
 

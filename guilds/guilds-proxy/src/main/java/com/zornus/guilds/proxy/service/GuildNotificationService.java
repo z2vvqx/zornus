@@ -2,23 +2,43 @@ package com.zornus.guilds.proxy.service;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.zornus.friends.proxy.model.PlayerRecord;
 import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.model.Guild;
 import com.zornus.guilds.proxy.model.GuildSettings;
+import com.zornus.guilds.proxy.storage.GuildStorage;
 import com.zornus.shared.utilities.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.*;
+import java.util.concurrent.CompletableFuture;
 
 public final class GuildNotificationService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(GuildNotificationService.class);
+    private final @NonNull GuildStorage storage;
     private final @NonNull ProxyServer proxyServer;
 
-    public GuildNotificationService(@NonNull ProxyServer proxyServer) {
+    public GuildNotificationService(@NonNull GuildStorage storage, @NonNull ProxyServer proxyServer) {
+        this.storage = storage;
         this.proxyServer = proxyServer;
+    }
+
+    private CompletableFuture<String> resolvePlayerName(@NonNull UUID playerId) {
+        return proxyServer.getPlayer(playerId)
+                .map(player -> CompletableFuture.completedFuture(player.getUsername()))
+                .orElseGet(() -> storage.fetchPlayersByUuids(Set.of(playerId))
+                        .thenApply(players -> players.getOrDefault(playerId,
+                                new PlayerRecord(playerId, "Unknown")).username())
+                        .exceptionally(throwable -> {
+                            LOGGER.error("Failed to resolve player name for {}", playerId, throwable);
+                            return "Unknown";
+                        }));
     }
 
     public void notifyMemberJoined(@NonNull Guild guild, @NonNull Player sender) {
@@ -27,30 +47,34 @@ public final class GuildNotificationService {
         broadcastToGuild(guild, message, sender.getUniqueId());
     }
 
-    public void notifyMemberLeft(@NonNull Guild guild, @NonNull UUID memberId, @NonNull String memberName) {
+    public void notifyMemberLeft(@NonNull Guild guild, @NonNull String memberName) {
         Component message = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_MEMBER_LEFT,
                 TagResolver.resolver(Placeholder.unparsed("sender", memberName)));
         broadcastToGuild(guild, message);
     }
 
-    public void notifyMemberKicked(@NonNull Guild guild, @NonNull String memberName, @NonNull String kickerName) {
+    public void notifyMemberKicked(@NonNull Guild guild, @NonNull UUID kickedMemberId,
+                                   @NonNull String memberName, @NonNull String kickerName) {
         Component message = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_MEMBER_KICKED,
                 TagResolver.resolver(
                         Placeholder.unparsed("member", memberName),
                         Placeholder.unparsed("kicker", kickerName)));
-        broadcastToGuild(guild, message);
+        broadcastToGuild(guild, message, kickedMemberId);
     }
 
-    public void notifyLeadershipTransferred(@NonNull Guild guild, @NonNull UUID oldLeaderId, @NonNull Player newLeader) {
-        String oldLeaderName = proxyServer.getPlayer(oldLeaderId)
-                .map(Player::getUsername)
-                .orElse("Unknown");
-
-        Component message = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_LEADERSHIP_TRANSFERRED,
-                TagResolver.resolver(
-                        Placeholder.unparsed("sender", oldLeaderName),
-                        Placeholder.unparsed("member", newLeader.getUsername())));
-        broadcastToGuild(guild, message);
+    public CompletableFuture<Void> notifyLeadershipTransferred(@NonNull Guild guild,
+                                                                @NonNull UUID oldLeaderId,
+                                                                @NonNull UUID newLeaderId) {
+        return resolvePlayerName(oldLeaderId)
+                .thenCombine(resolvePlayerName(newLeaderId), (oldName, newName) -> {
+                    Component message = StringUtils.deserialize(
+                            GuildProxyConstants.NOTIFICATION_LEADERSHIP_TRANSFERRED,
+                            TagResolver.resolver(
+                                    Placeholder.unparsed("sender", oldName),
+                                    Placeholder.unparsed("member", newName)));
+                    broadcastToGuild(guild, message);
+                    return null;
+                });
     }
 
     public void sendInviteReceived(@NonNull Player target, @NonNull Player sender, @NonNull Guild guild) {
@@ -69,13 +93,12 @@ public final class GuildNotificationService {
         broadcastToGuild(guild, message, sender.getUniqueId());
     }
 
-    public void notifyGuildDisbanded(@NonNull Guild guild, @NonNull UUID leaderId) {
-        String leaderName = proxyServer.getPlayer(leaderId)
-                .map(Player::getUsername)
-                .orElse("Unknown");
-        Component message = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_GUILD_DISBANDED,
-                TagResolver.resolver(Placeholder.unparsed("leader", leaderName)));
-        broadcastToGuild(guild, message, leaderId);
+    public CompletableFuture<Void> notifyGuildDisbanded(@NonNull Guild guild, @NonNull UUID leaderId) {
+        return resolvePlayerName(leaderId).thenAccept(leaderName -> {
+            Component message = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_GUILD_DISBANDED,
+                    TagResolver.resolver(Placeholder.unparsed("leader", leaderName)));
+            broadcastToGuild(guild, message, leaderId);
+        });
     }
 
     public void notifyGuildRenamed(@NonNull Guild guild, @NonNull String oldName, @NonNull String newName) {
@@ -103,16 +126,23 @@ public final class GuildNotificationService {
         }
     }
 
-    private void broadcastToGuild(@NonNull Guild guild, @NonNull Component message, @NonNull UUID... excludedMemberIds) {
-        Set<UUID> exclusions = excludedMemberIds == null || excludedMemberIds.length == 0
-                ? Collections.emptySet()
-                : new HashSet<>(Arrays.asList(excludedMemberIds));
+    private void broadcastToGuild(@NonNull Guild guild, @NonNull Component message) {
+        for (UUID memberId : guild.getMemberIds()) {
+            proxyServer.getPlayer(memberId).ifPresent(member -> member.sendMessage(message));
+        }
+    }
 
-        Set<UUID> memberIds = guild.getMemberIds();
-        if (memberIds.isEmpty()) return;
+    private void broadcastToGuild(@NonNull Guild guild, @NonNull Component message, @NonNull UUID excludedMemberId) {
+        for (UUID memberId : guild.getMemberIds()) {
+            if (!memberId.equals(excludedMemberId)) {
+                proxyServer.getPlayer(memberId).ifPresent(member -> member.sendMessage(message));
+            }
+        }
+    }
 
-        for (UUID memberId : memberIds) {
-            if (!exclusions.contains(memberId)) {
+    private void broadcastToGuild(@NonNull Guild guild, @NonNull Component message, @NonNull Set<UUID> excludedMemberIds) {
+        for (UUID memberId : guild.getMemberIds()) {
+            if (!excludedMemberIds.contains(memberId)) {
                 proxyServer.getPlayer(memberId).ifPresent(member -> member.sendMessage(message));
             }
         }

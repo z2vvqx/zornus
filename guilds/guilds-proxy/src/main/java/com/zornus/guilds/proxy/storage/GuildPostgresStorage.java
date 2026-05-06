@@ -8,6 +8,7 @@ import com.zornus.guilds.proxy.model.*;
 import com.zornus.guilds.proxy.utilities.CooldownKey;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
+import org.postgresql.util.PSQLException;
 
 import java.sql.*;
 import java.time.Duration;
@@ -86,7 +87,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS guilds (
                         guild_id UUID PRIMARY KEY,
-                        guild_name VARCHAR(24) UNIQUE NOT NULL,
+                        guild_name VARCHAR(24) NOT NULL,
                         guild_tag VARCHAR(5) NOT NULL,
                         guild_color VARCHAR(32) NOT NULL DEFAULT '<white>',
                         leader_id UUID NOT NULL,
@@ -95,7 +96,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                             REFERENCES guild_members(guild_id, player_id) DEFERRABLE INITIALLY DEFERRED
                     )
                     """);
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_guilds_name ON guilds(guild_name)");
+            statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_guilds_name_ci ON guilds(LOWER(guild_name))");
 
             // STEP 4: Add FK from guild_members to guilds (now that both tables exist)
             try {
@@ -224,10 +225,14 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 } catch (SQLException exception) {
                     connection.rollback();
                     if ("23505".equals(exception.getSQLState())) {
-                        // Check if it's a guild_name unique violation or player_id unique violation
-                        if (exception.getMessage() != null && exception.getMessage().contains("guild_name")) {
-                            // Guild name already exists - this shouldn't happen with UUID primary key
-                            throw new RuntimeException("Guild name already exists", exception);
+                        String constraintName = "";
+                        if (exception instanceof PSQLException psqlException
+                                && psqlException.getServerErrorMessage() != null) {
+                            constraintName = Objects.toString(
+                                    psqlException.getServerErrorMessage().getConstraint(), "");
+                        }
+                        if ("idx_guilds_name_ci".equals(constraintName)) {
+                            return new CreateGuildOutcome.GuildNameAlreadyExists();
                         }
                         return new CreateGuildOutcome.AlreadyInGuild();
                     }
@@ -484,13 +489,16 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     }
 
                     // 3. Check if target is already in a guild
-                    String checkTargetInGuildSql = "SELECT 1 FROM guild_members WHERE player_id = ?";
+                    String checkTargetInGuildSql = "SELECT guild_id FROM guild_members WHERE player_id = ?";
                     try (PreparedStatement statement = connection.prepareStatement(checkTargetInGuildSql)) {
                         statement.setObject(1, targetId);
                         try (ResultSet resultSet = statement.executeQuery()) {
                             if (resultSet.next()) {
+                                UUID targetGuildId = resultSet.getObject("guild_id", UUID.class);
                                 connection.rollback();
-                                return new SendInvitationOutcome.TargetInAnotherGuild();
+                                return targetGuildId.equals(guildId)
+                                        ? new SendInvitationOutcome.TargetAlreadyInGuild()
+                                        : new SendInvitationOutcome.TargetInAnotherGuild();
                             }
                         }
                     }
@@ -803,7 +811,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     }
 
                     // 2. Check if new name already exists
-                    String checkNameSql = "SELECT 1 FROM guilds WHERE guild_name = ? AND guild_id != ?";
+                    String checkNameSql = "SELECT 1 FROM guilds WHERE LOWER(guild_name) = LOWER(?) AND guild_id != ?";
                     try (PreparedStatement statement = connection.prepareStatement(checkNameSql)) {
                         statement.setString(1, newName);
                         statement.setObject(2, guildId);
@@ -835,7 +843,16 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 } catch (SQLException exception) {
                     connection.rollback();
                     if ("23505".equals(exception.getSQLState())) {
-                        return new RenameGuildOutcome.NameAlreadyExists();
+                        String constraintName = "";
+                        if (exception instanceof PSQLException psqlException
+                                && psqlException.getServerErrorMessage() != null) {
+                            constraintName = Objects.toString(
+                                    psqlException.getServerErrorMessage().getConstraint(), "");
+                        }
+                        if ("idx_guilds_name_ci".equals(constraintName)) {
+                            return new RenameGuildOutcome.NameAlreadyExists();
+                        }
+                        throw new RuntimeException("Unexpected unique violation during rename", exception);
                     }
                     throw new RuntimeException("Failed to rename guild", exception);
                 }
@@ -1012,6 +1029,35 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 }
                 return Optional.empty();
             }, "fetch settings");
+        }, databaseExecutor);
+    }
+
+    @Override
+    public CompletableFuture<Map<UUID, GuildSettings>> fetchSettingsForMembers(@NonNull Collection<UUID> memberIds) {
+        return CompletableFuture.supplyAsync(() -> {
+            if (memberIds.isEmpty()) {
+                return Map.of();
+            }
+            String sql = "SELECT player_id, invite_privacy, show_chat FROM guild_settings WHERE player_id = ANY(?)";
+            try (Connection connection = dataSource.getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                Array array = connection.createArrayOf("uuid", memberIds.toArray());
+                try {
+                    statement.setArray(1, array);
+                    try (ResultSet resultSet = statement.executeQuery()) {
+                        Map<UUID, GuildSettings> settingsMap = new HashMap<>();
+                        while (resultSet.next()) {
+                            GuildSettings settings = mapResultSetToGuildSettings(resultSet);
+                            settingsMap.put(settings.playerId(), settings);
+                        }
+                        return settingsMap;
+                    }
+                } finally {
+                    array.free();
+                }
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed to fetch settings for members", exception);
+            }
         }, databaseExecutor);
     }
 

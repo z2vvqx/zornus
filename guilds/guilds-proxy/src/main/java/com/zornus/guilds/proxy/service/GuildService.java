@@ -35,7 +35,7 @@ public final class GuildService implements AutoCloseable {
         this.storage = storage;
         this.proxyServer = proxyServer;
         this.friendService = friendService;
-        this.notificationService = new GuildNotificationService(proxyServer);
+        this.notificationService = new GuildNotificationService(storage, proxyServer);
     }
 
     @Override
@@ -61,12 +61,10 @@ public final class GuildService implements AutoCloseable {
         }
 
         return storage.tryCreateGuild(senderId, guildName, guildTag, guildColor)
-                .thenCompose(outcome -> switch (outcome) {
-                    case CreateGuildOutcome.Created created -> {
-                        notificationService.notifyMemberJoined(new Guild(senderId, guildName, guildTag, guildColor), sender);
-                        yield CompletableFuture.completedFuture(GuildResult.GUILD_CREATED);
-                    }
-                    case CreateGuildOutcome.AlreadyInGuild alreadyInGuild -> CompletableFuture.completedFuture(GuildResult.ALREADY_IN_GUILD);
+                .thenApply(outcome -> switch (outcome) {
+                    case CreateGuildOutcome.Created created -> GuildResult.GUILD_CREATED;
+                    case CreateGuildOutcome.AlreadyInGuild alreadyInGuild -> GuildResult.ALREADY_IN_GUILD;
+                    case CreateGuildOutcome.GuildNameAlreadyExists ignored -> GuildResult.NAME_ALREADY_EXISTS;
                 });
     }
 
@@ -332,7 +330,7 @@ public final class GuildService implements AutoCloseable {
                     return removePlayerFromGuild(senderId, guild, true)
                             .thenApply(result -> {
                                 if (result == GuildResult.LEFT_GUILD || result == GuildResult.LEFT_GUILD_DISBANDED) {
-                                    notificationService.notifyMemberLeft(guild, senderId, sender.getUsername());
+                                    notificationService.notifyMemberLeft(guild, sender.getUsername());
                                 }
                                 return result;
                             });
@@ -376,7 +374,7 @@ public final class GuildService implements AutoCloseable {
                     return storage.tryRemoveMember(guild.guildId(), targetId, guild.leaderId())
                             .thenApply(outcome -> switch (outcome) {
                                 case RemoveMemberOutcome.MemberRemoved memberRemoved -> {
-                                    notificationService.notifyMemberKicked(guild, targetName, kickerName);
+                                    notificationService.notifyMemberKicked(guild, targetId, targetName, kickerName);
                                     yield GuildResult.MEMBER_REMOVED;
                                 }
                                 case RemoveMemberOutcome.GuildDisbanded guildDisbanded -> GuildResult.LEFT_GUILD_DISBANDED;
@@ -384,11 +382,6 @@ public final class GuildService implements AutoCloseable {
                                 case RemoveMemberOutcome.GuildNotFound guildNotFound -> GuildResult.GUILD_NOT_FOUND;
                                 case RemoveMemberOutcome.CannotRemoveLeader cannotRemoveLeader -> GuildResult.CANNOT_REMOVE_LEADER;
                                 case RemoveMemberOutcome.NotLeader notLeader -> GuildResult.NOT_LEADER;
-                                case RemoveMemberOutcome.LeaderTransferred leaderTransferred -> {
-                                    // Should not happen when leader kicks someone
-                                    notificationService.notifyMemberKicked(guild, targetName, kickerName);
-                                    yield GuildResult.MEMBER_REMOVED;
-                                }
                             });
                 });
     }
@@ -437,28 +430,14 @@ public final class GuildService implements AutoCloseable {
                     Guild guild = guildOptional.get();
                     Set<UUID> memberIds = guild.getMemberIds();
 
-                    return storage.fetchSettings(memberIds.stream().findFirst().orElse(senderId))
-                            .thenApply(settingsOpt -> {
-                                GuildSettings senderSettings = settingsOpt.orElse(new GuildSettings(senderId));
-
+                    return storage.fetchSettingsForMembers(memberIds)
+                            .thenApply(settingsMap -> {
+                                GuildSettings senderSettings = settingsMap.getOrDefault(senderId, new GuildSettings(senderId));
                                 if (!senderSettings.showChat()) {
                                     return GuildResult.CHAT_DISABLED;
                                 }
-                                
-                                // Get all member settings
-                                return CompletableFuture.supplyAsync(() -> {
-                                    Map<UUID, GuildSettings> settingsMap = new HashMap<>();
-                                    for (UUID memberId : memberIds) {
-                                        try {
-                                            Optional<GuildSettings> settings = storage.fetchSettings(memberId).get();
-                                            settingsMap.put(memberId, settings.orElse(new GuildSettings(memberId)));
-                                        } catch (Exception e) {
-                                            settingsMap.put(memberId, new GuildSettings(memberId));
-                                        }
-                                    }
-                                    notificationService.sendGuildChat(guild, sender, message, settingsMap);
-                                    return GuildResult.CHAT_SENT;
-                                }).join();
+                                notificationService.sendGuildChat(guild, sender, message, settingsMap);
+                                return GuildResult.CHAT_SENT;
                             });
                 });
     }
@@ -467,10 +446,6 @@ public final class GuildService implements AutoCloseable {
         return storage.tryRemoveMember(guild.guildId(), memberId, memberId)
                 .thenApply(outcome -> switch (outcome) {
                     case RemoveMemberOutcome.MemberRemoved memberRemoved -> GuildResult.LEFT_GUILD;
-                    case RemoveMemberOutcome.LeaderTransferred leaderTransferred -> {
-                        // Guilds don't auto-transfer leadership on leave - leader must transfer first
-                        yield GuildResult.CANNOT_REMOVE_LEADER;
-                    }
                     case RemoveMemberOutcome.GuildDisbanded guildDisbanded ->
                             isLeaving ? GuildResult.LEFT_GUILD_DISBANDED : GuildResult.LEFT_GUILD;
                     case RemoveMemberOutcome.MemberNotFound memberNotFound -> GuildResult.PLAYER_NOT_IN_GUILD;
@@ -528,8 +503,7 @@ public final class GuildService implements AutoCloseable {
         return storage.tryTransferLeadership(guild.guildId(), targetId, senderId)
                 .thenApply(outcome -> switch (outcome) {
                     case TransferLeadershipOutcome.Transferred transferred -> {
-                        proxyServer.getPlayer(targetId).ifPresent(newLeader ->
-                                notificationService.notifyLeadershipTransferred(guild, senderId, newLeader));
+                        notificationService.notifyLeadershipTransferred(guild, senderId, targetId);
                         yield GuildResult.LEADERSHIP_TRANSFERRED;
                     }
                     case TransferLeadershipOutcome.GuildNotFound guildNotFound -> GuildResult.GUILD_NOT_FOUND;
@@ -559,7 +533,7 @@ public final class GuildService implements AutoCloseable {
                     }
 
                     // Check if name is actually different
-                    if (guild.guildName().equalsIgnoreCase(newName)) {
+                    if (guild.guildName().equals(newName)) {
                         return CompletableFuture.completedFuture(GuildResult.NAME_ALREADY_EXISTS);
                     }
 
