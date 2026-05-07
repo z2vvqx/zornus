@@ -45,13 +45,10 @@ public final class PartyNotificationService {
         broadcastToParty(party, message, sender.getUniqueId());
     }
 
-    public void notifyMemberLeft(@NonNull Party party, @NonNull UUID memberId) {
-        String memberName = proxyServer.getPlayer(memberId)
-                .map(Player::getUsername)
-                .orElse("Unknown");
+    public void notifyMemberLeft(@NonNull Party party, @NonNull String memberName, @NonNull UUID excludedMemberId) {
         Component message = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_MEMBER_LEFT,
                 TagResolver.resolver(Placeholder.unparsed("sender", memberName)));
-        broadcastToParty(party, message);
+        broadcastToParty(party, message, excludedMemberId);
     }
 
     public void notifyMemberKicked(@NonNull Party party, @NonNull Player member, @Nullable String reason) {
@@ -87,11 +84,7 @@ public final class PartyNotificationService {
         broadcastToParty(party, message, sender.getUniqueId());
     }
 
-    public void notifyLeadershipTransferred(@NonNull Party party, @NonNull UUID oldLeaderId, @NonNull Player newLeader) {
-        String oldLeaderName = proxyServer.getPlayer(oldLeaderId)
-                .map(Player::getUsername)
-                .orElse("Unknown");
-
+    public void notifyLeadershipTransferred(@NonNull Party party, @NonNull String oldLeaderName, @NonNull Player newLeader) {
         Component message = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_LEADERSHIP_TRANSFERRED,
                 TagResolver.resolver(
                         Placeholder.unparsed("sender", oldLeaderName),

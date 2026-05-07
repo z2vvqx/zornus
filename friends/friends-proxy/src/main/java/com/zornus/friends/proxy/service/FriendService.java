@@ -4,6 +4,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.*;
+import com.zornus.shared.model.PlayerRecord;
 import com.zornus.friends.proxy.model.result.FriendListResult;
 import com.zornus.friends.proxy.model.result.FriendRequestListResult;
 import com.zornus.friends.proxy.model.result.FriendResult;
@@ -330,13 +331,13 @@ public final class FriendService implements AutoCloseable {
     public @NonNull CompletableFuture<Void> handlePlayerConnect(@NonNull UUID playerUuid, @NonNull String username) {
         return storage.upsertPlayer(playerUuid, username)
                 .thenCompose(ignored -> storage.fetchFriendRelations(playerUuid))
-                .thenAccept(friendRelations -> notificationService.notifyFriendsOfPlayerJoin(playerUuid, friendRelations));
+                .thenAccept(friendRelations -> notificationService.notifyFriendsOfPlayerJoin(playerUuid, username, friendRelations));
     }
 
-    public @NonNull CompletableFuture<Void> handlePlayerDisconnect(@NonNull UUID playerUuid) {
+    public @NonNull CompletableFuture<Void> handlePlayerDisconnect(@NonNull UUID playerUuid, @NonNull String username) {
         return storage.saveLastSeen(playerUuid, Instant.now())
                 .thenCompose(ignored -> storage.fetchFriendRelations(playerUuid))
-                .thenAccept(friendRelations -> notificationService.notifyFriendsOfPlayerLeave(playerUuid, friendRelations));
+                .thenAccept(friendRelations -> notificationService.notifyFriendsOfPlayerLeave(playerUuid, username, friendRelations));
     }
 
     public @NonNull CompletableFuture<Void> cleanupExpiredRequests() {

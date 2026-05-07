@@ -2,7 +2,7 @@ package com.zornus.guilds.proxy.service;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-import com.zornus.friends.proxy.model.PlayerRecord;
+import com.zornus.shared.model.PlayerRecord;
 import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.model.Guild;
 import com.zornus.guilds.proxy.model.GuildSettings;
@@ -47,10 +47,10 @@ public final class GuildNotificationService {
         broadcastToGuild(guild, message, sender.getUniqueId());
     }
 
-    public void notifyMemberLeft(@NonNull Guild guild, @NonNull String memberName) {
+    public void notifyMemberLeft(@NonNull Guild guild, @NonNull String memberName, @NonNull UUID excludedMemberId) {
         Component message = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_MEMBER_LEFT,
                 TagResolver.resolver(Placeholder.unparsed("sender", memberName)));
-        broadcastToGuild(guild, message);
+        broadcastToGuild(guild, message, excludedMemberId);
     }
 
     public void notifyMemberKicked(@NonNull Guild guild, @NonNull UUID kickedMemberId,

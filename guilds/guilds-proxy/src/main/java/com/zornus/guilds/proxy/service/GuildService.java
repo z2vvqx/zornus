@@ -2,6 +2,7 @@ package com.zornus.guilds.proxy.service;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.zornus.shared.model.PlayerRecord;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.model.*;
@@ -13,14 +14,12 @@ import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.PaginationResult;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
-import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
 
 public final class GuildService implements AutoCloseable {
 
@@ -81,11 +80,11 @@ public final class GuildService implements AutoCloseable {
         return storage.getPlayerGuild(senderId)
                 .thenCompose(guildOptional -> {
                     if (guildOptional.isEmpty()) {
-                        return CompletableFuture.<GuildResult>completedFuture(GuildResult.NOT_IN_GUILD);
+                        return CompletableFuture.completedFuture(GuildResult.NOT_IN_GUILD);
                     }
                     Guild guild = guildOptional.get();
                     if (!guild.isLeader(senderId)) {
-                        return CompletableFuture.<GuildResult>completedFuture(GuildResult.NOT_LEADER);
+                        return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
                     }
                     return handleDisbandConfirmation(senderId, guild, isConfirming);
                 });
@@ -137,11 +136,11 @@ public final class GuildService implements AutoCloseable {
                     return storage.getPlayerGuild(senderId)
                             .thenCompose(guildOptional -> {
                                 if (guildOptional.isEmpty()) {
-                                    return CompletableFuture.<GuildResult>completedFuture(GuildResult.NOT_IN_GUILD);
+                                    return CompletableFuture.completedFuture(GuildResult.NOT_IN_GUILD);
                                 }
                                 Guild guild = guildOptional.get();
                                 if (!guild.isLeader(senderId)) {
-                                    return CompletableFuture.<GuildResult>completedFuture(GuildResult.NOT_LEADER);
+                                    return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
                                 }
                                 return executeSendInvitation(sender, targetPlayer.get(), guild);
                             });
@@ -171,12 +170,16 @@ public final class GuildService implements AutoCloseable {
                         notificationService.announceInviteSent(guild, sender, target);
                         yield GuildResult.INVITATION_SENT;
                     }
-                    case SendInvitationOutcome.TargetAlreadyInGuild targetAlreadyInGuild -> GuildResult.TARGET_ALREADY_IN_GUILD;
-                    case SendInvitationOutcome.TargetInAnotherGuild targetInAnotherGuild -> GuildResult.TARGET_IN_ANOTHER_GUILD;
+                    case SendInvitationOutcome.TargetAlreadyInGuild targetAlreadyInGuild ->
+                            GuildResult.TARGET_ALREADY_IN_GUILD;
+                    case SendInvitationOutcome.TargetInAnotherGuild targetInAnotherGuild ->
+                            GuildResult.TARGET_IN_ANOTHER_GUILD;
                     case SendInvitationOutcome.GuildFull guildFull -> GuildResult.GUILD_FULL;
                     case SendInvitationOutcome.CooldownActive cooldownActive -> GuildResult.INVITATION_COOLDOWN_ACTIVE;
-                    case SendInvitationOutcome.SenderLimitReached senderLimitReached -> GuildResult.SENDER_INVITATION_LIMIT_REACHED;
-                    case SendInvitationOutcome.ReceiverLimitReached receiverLimitReached -> GuildResult.RECEIVER_INVITATION_LIMIT_REACHED;
+                    case SendInvitationOutcome.SenderLimitReached senderLimitReached ->
+                            GuildResult.SENDER_INVITATION_LIMIT_REACHED;
+                    case SendInvitationOutcome.ReceiverLimitReached receiverLimitReached ->
+                            GuildResult.RECEIVER_INVITATION_LIMIT_REACHED;
                     case SendInvitationOutcome.InvitesDisabled invitesDisabled ->
                             "friend".equals(invitesDisabled.privacy()) ? GuildResult.INVITES_FRIENDS_ONLY : GuildResult.INVITES_DISABLED;
                     case SendInvitationOutcome.AlreadyInvited alreadyInvited -> GuildResult.ALREADY_INVITED;
@@ -216,18 +219,21 @@ public final class GuildService implements AutoCloseable {
         UUID guildId = invitation.guildId();
         return storage.tryAcceptInvitation(guildId, invitation.senderId(), playerId)
                 .thenCompose(outcome -> switch (outcome) {
-                    case AcceptInvitationOutcome.Accepted accepted ->
-                            storage.fetchGuild(guildId)
-                                    .thenApply(guildOptional -> {
-                                        guildOptional.ifPresent(guild ->
-                                                proxyServer.getPlayer(playerId).ifPresent(player ->
-                                                        notificationService.notifyMemberJoined(guild, player)));
-                                        return GuildResult.JOINED_GUILD;
-                                    });
-                    case AcceptInvitationOutcome.GuildFull guildFull -> CompletableFuture.completedFuture(GuildResult.GUILD_FULL);
-                    case AcceptInvitationOutcome.AlreadyInGuild alreadyInGuild -> CompletableFuture.completedFuture(GuildResult.ALREADY_IN_GUILD);
-                    case AcceptInvitationOutcome.InvitationExpired invitationExpired -> CompletableFuture.completedFuture(GuildResult.NO_INVITATION_FOUND);
-                    case AcceptInvitationOutcome.InvitationNoLongerValid invitationNoLongerValid -> CompletableFuture.completedFuture(GuildResult.NO_INVITATION_FOUND);
+                    case AcceptInvitationOutcome.Accepted accepted -> storage.fetchGuild(guildId)
+                            .thenApply(guildOptional -> {
+                                guildOptional.ifPresent(guild ->
+                                        proxyServer.getPlayer(playerId).ifPresent(player ->
+                                                notificationService.notifyMemberJoined(guild, player)));
+                                return GuildResult.JOINED_GUILD;
+                            });
+                    case AcceptInvitationOutcome.GuildFull guildFull ->
+                            CompletableFuture.completedFuture(GuildResult.GUILD_FULL);
+                    case AcceptInvitationOutcome.AlreadyInGuild alreadyInGuild ->
+                            CompletableFuture.completedFuture(GuildResult.ALREADY_IN_GUILD);
+                    case AcceptInvitationOutcome.InvitationExpired invitationExpired ->
+                            CompletableFuture.completedFuture(GuildResult.NO_INVITATION_FOUND);
+                    case AcceptInvitationOutcome.InvitationNoLongerValid invitationNoLongerValid ->
+                            CompletableFuture.completedFuture(GuildResult.NO_INVITATION_FOUND);
                 });
     }
 
@@ -241,7 +247,7 @@ public final class GuildService implements AutoCloseable {
         return storage.findInvitationByGuildName(senderId, guildName)
                 .thenCompose(invitationOptional -> {
                     if (invitationOptional.isEmpty()) {
-                        return CompletableFuture.<GuildResult>completedFuture(GuildResult.NO_INVITATION_FOUND);
+                        return CompletableFuture.completedFuture(GuildResult.NO_INVITATION_FOUND);
                     }
                     GuildInvitation invitation = invitationOptional.get();
                     return storage.removePendingInvitation(invitation.guildId(), invitation.senderId(), senderId)
@@ -330,7 +336,7 @@ public final class GuildService implements AutoCloseable {
                     return removePlayerFromGuild(senderId, guild, true)
                             .thenApply(result -> {
                                 if (result == GuildResult.LEFT_GUILD || result == GuildResult.LEFT_GUILD_DISBANDED) {
-                                    notificationService.notifyMemberLeft(guild, sender.getUsername());
+                                    notificationService.notifyMemberLeft(guild, sender.getUsername(), senderId);
                                 }
                                 return result;
                             });
@@ -377,10 +383,13 @@ public final class GuildService implements AutoCloseable {
                                     notificationService.notifyMemberKicked(guild, targetId, targetName, kickerName);
                                     yield GuildResult.MEMBER_REMOVED;
                                 }
-                                case RemoveMemberOutcome.GuildDisbanded guildDisbanded -> GuildResult.LEFT_GUILD_DISBANDED;
-                                case RemoveMemberOutcome.MemberNotFound memberNotFound -> GuildResult.PLAYER_NOT_IN_GUILD;
+                                case RemoveMemberOutcome.GuildDisbanded guildDisbanded ->
+                                        GuildResult.LEFT_GUILD_DISBANDED;
+                                case RemoveMemberOutcome.MemberNotFound memberNotFound ->
+                                        GuildResult.PLAYER_NOT_IN_GUILD;
                                 case RemoveMemberOutcome.GuildNotFound guildNotFound -> GuildResult.GUILD_NOT_FOUND;
-                                case RemoveMemberOutcome.CannotRemoveLeader cannotRemoveLeader -> GuildResult.CANNOT_REMOVE_LEADER;
+                                case RemoveMemberOutcome.CannotRemoveLeader cannotRemoveLeader ->
+                                        GuildResult.CANNOT_REMOVE_LEADER;
                                 case RemoveMemberOutcome.NotLeader notLeader -> GuildResult.NOT_LEADER;
                             });
                 });
@@ -471,22 +480,22 @@ public final class GuildService implements AutoCloseable {
                     if (!guild.isLeader(senderId)) {
                         return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
                     }
-                    
+
                     return storage.fetchPlayerByUsername(targetUsername)
                             .thenCompose(targetOptional -> {
                                 if (targetOptional.isEmpty()) {
                                     return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
                                 }
                                 UUID targetId = targetOptional.get().playerUuid();
-                                
+
                                 if (senderId.equals(targetId)) {
                                     return CompletableFuture.completedFuture(GuildResult.CANNOT_TRANSFER_TO_SELF);
                                 }
-                                
+
                                 if (!guild.isMember(targetId)) {
                                     return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_IN_GUILD);
                                 }
-                                
+
                                 return handleTransferConfirmation(senderId, targetId, guild, isConfirming);
                             });
                 });
@@ -663,7 +672,7 @@ public final class GuildService implements AutoCloseable {
     }
 
     private @NonNull CompletableFuture<GuildResult> confirmAndExecute(@NonNull UUID playerId, @NonNull ConfirmationType expectedType,
-                                                                       @Nullable UUID expectedTargetId, java.util.function.@NonNull Supplier<CompletableFuture<GuildResult>> onSuccess) {
+                                                                      @Nullable UUID expectedTargetId, java.util.function.@NonNull Supplier<CompletableFuture<GuildResult>> onSuccess) {
         return storage.fetchPendingConfirmation(playerId)
                 .thenCompose(existingOpt -> {
                     if (existingOpt.isEmpty()) {

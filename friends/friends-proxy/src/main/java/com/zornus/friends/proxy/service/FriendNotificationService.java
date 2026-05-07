@@ -32,7 +32,7 @@ public final class FriendNotificationService {
     // JOIN/LEAVE NOTIFICATIONS
     // ========================================
 
-    public void notifyFriendsOfPlayerJoin(@NonNull UUID joiningPlayerUuid,
+    public void notifyFriendsOfPlayerJoin(@NonNull UUID joiningPlayerUuid, @NonNull String username,
                                           @NonNull List<FriendRelation> friendRelations) {
         storage.fetchSettings(joiningPlayerUuid).thenAccept(settingsOptional -> {
             FriendSettings settings = settingsOptional.orElse(new FriendSettings(joiningPlayerUuid));
@@ -45,11 +45,7 @@ public final class FriendNotificationService {
                 return;
             }
 
-            String joiningPlayerUsername = proxyServer.getPlayer(joiningPlayerUuid)
-                    .map(Player::getUsername)
-                    .orElse("Unknown");
-
-            TagResolver resolver = TagResolver.resolver(Placeholder.unparsed("friend", joiningPlayerUsername));
+            TagResolver resolver = TagResolver.resolver(Placeholder.unparsed("friend", username));
             Component joinMessage = StringUtils.deserialize(FriendProxyConstants.NOTIFICATION_FRIEND_JOINED, resolver);
 
             for (Player friend : onlineFriends) {
@@ -58,7 +54,8 @@ public final class FriendNotificationService {
         });
     }
 
-    public void notifyFriendsOfPlayerLeave(@NonNull UUID leavingPlayerUuid, @NonNull List<FriendRelation> friendRelations) {
+    public void notifyFriendsOfPlayerLeave(@NonNull UUID leavingPlayerUuid, @NonNull String username,
+                                           @NonNull List<FriendRelation> friendRelations) {
         storage.fetchSettings(leavingPlayerUuid).thenAccept(settingsOptional -> {
             FriendSettings settings = settingsOptional.orElse(new FriendSettings(leavingPlayerUuid));
             if (settings.presenceState() == PresenceState.OFFLINE) {
@@ -69,9 +66,6 @@ public final class FriendNotificationService {
             if (onlineFriends.isEmpty()) {
                 return;
             }
-
-            Optional<Player> leavingPlayer = proxyServer.getPlayer(leavingPlayerUuid);
-            String username = leavingPlayer.map(Player::getUsername).orElse("Unknown");
 
             TagResolver resolver = TagResolver.resolver(Placeholder.unparsed("friend", username));
             Component leaveMessage = StringUtils.deserialize(FriendProxyConstants.NOTIFICATION_FRIEND_LEFT, resolver);

@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.*;
+import com.zornus.shared.model.PlayerRecord;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 

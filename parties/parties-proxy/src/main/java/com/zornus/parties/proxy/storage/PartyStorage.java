@@ -29,6 +29,7 @@ public interface PartyStorage {
     CompletableFuture<Map<UUID, PartySettings>> fetchSettingsForMembers(@NonNull Collection<UUID> memberIds);
 
     CompletableFuture<SendInvitationOutcome> trySendInvitation(@NonNull UUID partyId, @NonNull UUID senderId, @NonNull UUID targetId, boolean isFriend);
+    CompletableFuture<ConfirmationOutcome> setPendingConfirmation(@NonNull PendingConfirmation confirmation);
 
     // Single-query operations
     CompletableFuture<Optional<Party>> fetchParty(@NonNull UUID partyId);
@@ -46,7 +47,6 @@ public interface PartyStorage {
     CompletableFuture<Integer> countIncomingInvitations(@NonNull UUID playerId);
     CompletableFuture<Integer> countOutgoingInvitations(@NonNull UUID playerId);
 
-    CompletableFuture<ConfirmationOutcome> setPendingConfirmation(@NonNull PendingConfirmation confirmation);
     CompletableFuture<Void> removePendingConfirmation(@NonNull UUID playerId);
     CompletableFuture<Optional<PendingConfirmation>> fetchPendingConfirmation(@NonNull UUID playerId);
 

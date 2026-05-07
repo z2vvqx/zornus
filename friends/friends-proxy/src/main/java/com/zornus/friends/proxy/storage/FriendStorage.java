@@ -3,7 +3,7 @@ package com.zornus.friends.proxy.storage;
 import com.zornus.friends.proxy.model.FriendRelation;
 import com.zornus.friends.proxy.model.FriendRequest;
 import com.zornus.friends.proxy.model.FriendSettings;
-import com.zornus.friends.proxy.model.PlayerRecord;
+import com.zornus.shared.model.PlayerRecord;
 import com.zornus.friends.proxy.model.PresenceState;
 
 import java.time.Duration;

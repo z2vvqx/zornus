@@ -337,10 +337,10 @@ public final class PartyService implements AutoCloseable {
                         return CompletableFuture.completedFuture(PartyResult.NOT_IN_PARTY);
                     }
                     Party party = partyOptional.get();
-                    return removePlayerFromParty(senderId, party, true)
+                    return removePlayerFromParty(senderId, sender.getUsername(), party, true)
                             .thenApply(result -> {
                                 if (result == PartyResult.LEFT_PARTY || result == PartyResult.LEFT_PARTY_DISBANDED) {
-                                    notificationService.notifyMemberLeft(party, senderId);
+                                    notificationService.notifyMemberLeft(party, sender.getUsername(), senderId);
                                 }
                                 return result;
                             });
@@ -371,7 +371,7 @@ public final class PartyService implements AutoCloseable {
                     if (!party.isMember(targetId)) {
                         return CompletableFuture.completedFuture(PartyResult.PLAYER_NOT_IN_PARTY);
                     }
-                    return removePlayerFromParty(targetId, party, false)
+                    return removePlayerFromParty(targetId, target.getUsername(), party, false)
                             .thenCompose(result -> {
                                 if (result == PartyResult.LEFT_PARTY) {
                                     return storage.fetchParty(party.partyId())
@@ -451,7 +451,7 @@ public final class PartyService implements AutoCloseable {
                     }
                     Party party = partyOptional.get();
                     boolean wasLeader = party.isLeader(playerId);
-                    return removePlayerFromParty(playerId, party, true)
+                    return removePlayerFromParty(playerId, username, party, true)
                             .thenCompose(result -> {
                                 if (result != PartyResult.LEFT_PARTY && result != PartyResult.LEFT_PARTY_DISBANDED) {
                                     return CompletableFuture.<Void>completedFuture(null);
@@ -474,13 +474,15 @@ public final class PartyService implements AutoCloseable {
                 });
     }
 
-    private @NonNull CompletableFuture<PartyResult> removePlayerFromParty(@NonNull UUID memberId, @NonNull Party party, boolean isLeaving) {
+    private @NonNull CompletableFuture<PartyResult> removePlayerFromParty(@NonNull UUID memberId, @NonNull String memberName, @NonNull Party party, boolean isLeaving) {
         return storage.removeMember(party.partyId(), memberId)
                 .thenApply(outcome -> switch (outcome) {
                     case RemoveMemberOutcome.MemberRemoved memberRemoved -> PartyResult.LEFT_PARTY;
                     case RemoveMemberOutcome.LeaderTransferred leaderTransferred -> {
-                        proxyServer.getPlayer(leaderTransferred.newLeaderId()).ifPresent(newLeader ->
-                                notificationService.notifyLeadershipTransferred(party, memberId, newLeader));
+                        if (!isLeaving) {
+                            proxyServer.getPlayer(leaderTransferred.newLeaderId()).ifPresent(newLeader ->
+                                    notificationService.notifyLeadershipTransferred(party, memberName, newLeader));
+                        }
                         yield PartyResult.LEFT_PARTY;
                     }
                     case RemoveMemberOutcome.PartyDisbanded partyDisbanded ->
@@ -533,8 +535,11 @@ public final class PartyService implements AutoCloseable {
         return storage.transferLeadership(party.partyId(), targetId, senderId)
                 .thenApply(outcome -> switch (outcome) {
                     case TransferLeadershipOutcome.Transferred transferred -> {
+                        String oldLeaderName = proxyServer.getPlayer(senderId)
+                                .map(Player::getUsername)
+                                .orElse("Unknown");
                         proxyServer.getPlayer(targetId).ifPresent(newLeader ->
-                                notificationService.notifyLeadershipTransferred(party, senderId, newLeader));
+                                notificationService.notifyLeadershipTransferred(party, oldLeaderName, newLeader));
                         yield PartyResult.LEADERSHIP_TRANSFERRED;
                     }
                     case TransferLeadershipOutcome.PartyNotFound partyNotFound -> PartyResult.PARTY_NOT_FOUND;

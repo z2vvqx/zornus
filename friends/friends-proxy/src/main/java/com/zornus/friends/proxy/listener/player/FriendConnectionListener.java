@@ -36,10 +36,11 @@ public class FriendConnectionListener {
     @Subscribe
     public void onDisconnect(@NonNull DisconnectEvent event) {
         Player player = event.getPlayer();
-        friendService.handlePlayerDisconnect(player.getUniqueId())
+        String username = player.getUsername();
+        friendService.handlePlayerDisconnect(player.getUniqueId(), username)
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to handle player disconnect for {} ({})",
-                            player.getUsername(), player.getUniqueId(), throwable);
+                            username, player.getUniqueId(), throwable);
                     return null;
                 });
     }

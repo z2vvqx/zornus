@@ -2,7 +2,7 @@ package com.zornus.guilds.proxy.storage;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
-import com.zornus.friends.proxy.model.PlayerRecord;
+import com.zornus.shared.model.PlayerRecord;
 import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.model.*;
 import com.zornus.guilds.proxy.utilities.CooldownKey;

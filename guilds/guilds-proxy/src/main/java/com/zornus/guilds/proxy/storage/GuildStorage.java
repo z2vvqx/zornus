@@ -1,6 +1,6 @@
 package com.zornus.guilds.proxy.storage;
 
-import com.zornus.friends.proxy.model.PlayerRecord;
+import com.zornus.shared.model.PlayerRecord;
 import com.zornus.guilds.proxy.model.Guild;
 import com.zornus.guilds.proxy.model.GuildInvitation;
 import com.zornus.guilds.proxy.model.GuildSettings;
@@ -27,6 +27,7 @@ public interface GuildStorage {
     CompletableFuture<AcceptInvitationOutcome> tryAcceptInvitation(@NonNull UUID guildId, @NonNull UUID senderId, @NonNull UUID targetId);
     CompletableFuture<TransferLeadershipOutcome> tryTransferLeadership(@NonNull UUID guildId, @NonNull UUID newLeaderId, @NonNull UUID oldLeaderId);
     CompletableFuture<RenameGuildOutcome> tryRenameGuild(@NonNull UUID guildId, @NonNull UUID leaderId, @NonNull String newName);
+    CompletableFuture<ConfirmationOutcome> setPendingConfirmation(@NonNull PendingConfirmation confirmation);
 
     // Single-query operations
     CompletableFuture<Optional<Guild>> fetchGuild(@NonNull UUID guildId);
@@ -48,7 +49,6 @@ public interface GuildStorage {
     CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUsername(@NonNull String username);
     CompletableFuture<Map<UUID, PlayerRecord>> fetchPlayersByUuids(@NonNull Collection<UUID> playerIds);
 
-    CompletableFuture<ConfirmationOutcome> setPendingConfirmation(@NonNull PendingConfirmation confirmation);
     CompletableFuture<Void> removePendingConfirmation(@NonNull UUID playerId);
     CompletableFuture<Optional<PendingConfirmation>> fetchPendingConfirmation(@NonNull UUID playerId);
 

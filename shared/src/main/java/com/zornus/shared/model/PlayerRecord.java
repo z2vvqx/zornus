@@ -1,4 +1,4 @@
-package com.zornus.friends.proxy.model;
+package com.zornus.shared.model;
 
 import org.jspecify.annotations.NonNull;
 
