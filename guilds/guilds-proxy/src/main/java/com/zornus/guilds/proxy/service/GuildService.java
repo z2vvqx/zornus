@@ -20,6 +20,7 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 public final class GuildService implements AutoCloseable {
 
@@ -94,7 +95,7 @@ public final class GuildService implements AutoCloseable {
         if (!isConfirming) {
             return setupConfirmation(senderId, ConfirmationType.DISBAND_GUILD, null, null);
         }
-        return confirmAndExecute(senderId, ConfirmationType.DISBAND_GUILD, null, () -> disbandGuildInternal(guild, senderId));
+        return confirmAndExecute(senderId, ConfirmationType.DISBAND_GUILD, null, null, () -> disbandGuildInternal(guild, senderId));
     }
 
     private @NonNull CompletableFuture<GuildResult> disbandGuildInternal(@NonNull Guild guild, @NonNull UUID leaderId) {
@@ -506,7 +507,7 @@ public final class GuildService implements AutoCloseable {
         if (!isConfirming) {
             return setupConfirmation(senderId, ConfirmationType.TRANSFER_LEADERSHIP, targetId, null);
         }
-        return confirmAndExecute(senderId, ConfirmationType.TRANSFER_LEADERSHIP, targetId, () -> executeTransferLeadership(senderId, targetId, guild));
+        return confirmAndExecute(senderId, ConfirmationType.TRANSFER_LEADERSHIP, targetId, null, () -> executeTransferLeadership(senderId, targetId, guild));
     }
 
     private @NonNull CompletableFuture<GuildResult> executeTransferLeadership(@NonNull UUID senderId, @NonNull UUID targetId, @NonNull Guild guild) {
@@ -555,7 +556,7 @@ public final class GuildService implements AutoCloseable {
         if (!isConfirming) {
             return setupConfirmation(senderId, ConfirmationType.RENAME_GUILD, null, newName);
         }
-        return confirmAndExecute(senderId, ConfirmationType.RENAME_GUILD, null, () -> executeRenameGuild(senderId, newName, guild));
+        return confirmAndExecute(senderId, ConfirmationType.RENAME_GUILD, null, newName, () -> executeRenameGuild(senderId, newName, guild));
     }
 
     private @NonNull CompletableFuture<GuildResult> executeRenameGuild(@NonNull UUID senderId, @NonNull String newName, @NonNull Guild guild) {
@@ -675,7 +676,7 @@ public final class GuildService implements AutoCloseable {
     }
 
     private @NonNull CompletableFuture<GuildResult> confirmAndExecute(@NonNull UUID playerId, @NonNull ConfirmationType expectedType,
-                                                                      @Nullable UUID expectedTargetId, java.util.function.@NonNull Supplier<CompletableFuture<GuildResult>> onSuccess) {
+                                                                      @Nullable UUID expectedTargetId, @Nullable String expectedNewValue, @NonNull Supplier<CompletableFuture<GuildResult>> onSuccess) {
         return storage.fetchPendingConfirmation(playerId)
                 .thenCompose(existingOpt -> {
                     if (existingOpt.isEmpty()) {
@@ -689,7 +690,12 @@ public final class GuildService implements AutoCloseable {
                     if (expectedTargetId != null && !expectedTargetId.equals(existing.targetId())) {
                         return CompletableFuture.completedFuture(GuildResult.NO_CONFIRMATION_PENDING);
                     }
-                    return onSuccess.get();
+                    if (expectedNewValue != null && !expectedNewValue.equalsIgnoreCase(
+                            existing.newValue() != null ? existing.newValue() : "")) {
+                        return CompletableFuture.completedFuture(GuildResult.NO_CONFIRMATION_PENDING);
+                    }
+                    return storage.removePendingConfirmation(playerId)
+                            .thenCompose(ignored -> onSuccess.get());
                 });
     }
 
