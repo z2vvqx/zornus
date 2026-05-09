@@ -10,7 +10,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Registrar for friend event listeners.
  */
-public class FriendListenerRegistrar {
+public final class FriendListenerRegistrar {
     private static final Logger LOGGER = LoggerFactory.getLogger(FriendListenerRegistrar.class);
 
     private final @NonNull Object plugin;

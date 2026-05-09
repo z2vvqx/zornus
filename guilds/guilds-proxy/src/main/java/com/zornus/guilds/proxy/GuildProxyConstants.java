@@ -122,8 +122,8 @@ public final class GuildProxyConstants {
     // ========================================
 
     public static final String SETTINGS_UPDATE_SUCCESS = "<green>Setting <yellow><setting></yellow> has been updated to <yellow><value></yellow>.</green>";
-    public static final String SETTINGS_DISPLAY_INVITES = "<click:suggest_command:'/guild settings invites '><#2DA0ED>invites</#2DA0ED></click> <dark_gray>-</dark_gray> <white>Who can invite you to guild: <value></white>";
-    public static final String SETTINGS_DISPLAY_CHAT = "<click:suggest_command:'/guild settings chat '><#2DA0ED>chat</#2DA0ED></click> <dark_gray>-</dark_gray> <white>Show guild chat messages: <value></white>";
+    public static final String SETTINGS_DISPLAY_INVITES = "<click:suggest_command:'/guild settings invites '><#2DA0ED>invites</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Who can invite you to guild: <value></white>";
+    public static final String SETTINGS_DISPLAY_CHAT = "<click:suggest_command:'/guild settings chat '><#2DA0ED>chat</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Show guild chat messages: <value></white>";
     public static final String SETTINGS_ERROR_INVITES_DISABLED = "<red><yellow><target></yellow> is not accepting guild invites.</red>";
     public static final String SETTINGS_ERROR_INVITES_FRIENDS_ONLY = "<red><yellow><target></yellow> only accepts invites from friends.</red>";
 
@@ -140,8 +140,8 @@ public final class GuildProxyConstants {
     public static final String UI_REQUESTS_INCOMING_EMPTY = "<yellow>You do not have any incoming guild invitations.</yellow>";
     public static final String UI_REQUESTS_OUTGOING_EMPTY = "<yellow>You do not have any outgoing guild invitations.</yellow>";
     public static final String UI_REQUESTS_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /guild requests <type> <page></gray>";
-    public static final String UI_REQUESTS_INCOMING_ENTRY = "<click:run_command:'/guild accept <guild_name>'><green>✔</green></click> <click:run_command:'/guild reject <guild_name>'><red>✘</red></click> <#2DA0ED><guild_name></#2DA0ED> <dark_gray>-</dark_gray> <white><timestamp></white>";
-    public static final String UI_REQUESTS_OUTGOING_ENTRY = "<click:run_command:'/guild uninvite <player>'><red>✘</red></click> <#2DA0ED><player></#2DA0ED> <dark_gray>-</dark_gray> <white><timestamp></white>";
+    public static final String UI_REQUESTS_INCOMING_ENTRY = "<click:run_command:'/guild accept <guild_name>'><green>✔</green></click> <click:run_command:'/guild reject <guild_name>'><red>✘</red></click> <#2DA0ED><guild_name></#2DA0ED> <dark_gray>—</dark_gray> <white><timestamp></white>";
+    public static final String UI_REQUESTS_OUTGOING_ENTRY = "<click:run_command:'/guild uninvite <player>'><red>✘</red></click> <#2DA0ED><player></#2DA0ED> <dark_gray>—</dark_gray> <white><timestamp></white>";
 
     // ========================================
     // NOTIFICATIONS
@@ -162,22 +162,22 @@ public final class GuildProxyConstants {
     // ========================================
 
     public static final List<String> HELP_COMMANDS = Arrays.asList(
-            "<click:suggest_command:'/guild help '><#2DA0ED>help [page]</#2DA0ED></click> <dark_gray>-</dark_gray> <white>Shows this help menu</white>",
-            "<click:suggest_command:'/guild create '><#2DA0ED>create <name> <tag></#2DA0ED></click> <dark_gray>-</dark_gray> <white>Creates a new guild</white>",
-            "<click:suggest_command:'/guild disband'><#2DA0ED>disband</#2DA0ED></click> <dark_gray>-</dark_gray> <white>Disbands your guild</white>",
-            "<click:suggest_command:'/guild invite '><#2DA0ED>invite <player></#2DA0ED></click> <dark_gray>-</dark_gray> <white>Sends a guild invitation</white>",
-            "<click:suggest_command:'/guild uninvite '><#2DA0ED>uninvite <player></#2DA0ED></click> <dark_gray>-</dark_gray> <white>Cancels a pending invitation</white>",
-            "<click:suggest_command:'/guild accept '><#2DA0ED>accept <guild></#2DA0ED></click> <dark_gray>-</dark_gray> <white>Accepts a guild invitation</white>",
-            "<click:suggest_command:'/guild reject '><#2DA0ED>reject <guild></#2DA0ED></click> <dark_gray>-</dark_gray> <white>Rejects a guild invitation</white>",
-            "<click:suggest_command:'/guild leave'><#2DA0ED>leave</#2DA0ED></click> <dark_gray>-</dark_gray> <white>Leaves your current guild</white>",
-            "<click:suggest_command:'/guild kick '><#2DA0ED>kick <member></#2DA0ED></click> <dark_gray>-</dark_gray> <white>Kicks a member</white>",
-            "<click:suggest_command:'/guild transfer '><#2DA0ED>transfer <member></#2DA0ED></click> <dark_gray>-</dark_gray> <white>Transfers leadership</white>",
-            "<click:suggest_command:'/guild rename '><#2DA0ED>rename <name></#2DA0ED></click> <dark_gray>-</dark_gray> <white>Renames the guild</white>",
-            "<click:suggest_command:'/guild list '><#2DA0ED>list [page]</#2DA0ED></click> <dark_gray>-</dark_gray> <white>Lists guild members</white>",
-            "<click:suggest_command:'/guild requests '><#2DA0ED>requests <direction> [page]</#2DA0ED></click> <dark_gray>-</dark_gray> <white>View guild invitations</white>",
-            "<click:suggest_command:'/guild chat '><#2DA0ED>chat <message></#2DA0ED></click> <dark_gray>-</dark_gray> <white>Chat with guild members</white>",
-            "<click:suggest_command:'/guild info'><#2DA0ED>info</#2DA0ED></click> <dark_gray>-</dark_gray> <white>View guild information</white>",
-            "<click:suggest_command:'/guild settings '><#2DA0ED>settings [<setting> <value>]</#2DA0ED></click> <dark_gray>-</dark_gray> <white>Manage guild preferences</white>"
+            "<click:suggest_command:'/guild help '><#2DA0ED>help [page]</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Shows this help menu</white>",
+            "<click:suggest_command:'/guild create '><#2DA0ED>create <name> <tag></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Creates a new guild</white>",
+            "<click:suggest_command:'/guild disband'><#2DA0ED>disband</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Disbands your guild</white>",
+            "<click:suggest_command:'/guild invite '><#2DA0ED>invite <player></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Sends a guild invitation</white>",
+            "<click:suggest_command:'/guild uninvite '><#2DA0ED>uninvite <player></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Cancels a pending invitation</white>",
+            "<click:suggest_command:'/guild accept '><#2DA0ED>accept <guild></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Accepts a guild invitation</white>",
+            "<click:suggest_command:'/guild reject '><#2DA0ED>reject <guild></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Rejects a guild invitation</white>",
+            "<click:suggest_command:'/guild leave'><#2DA0ED>leave</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Leaves your current guild</white>",
+            "<click:suggest_command:'/guild kick '><#2DA0ED>kick <member></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Kicks a member</white>",
+            "<click:suggest_command:'/guild transfer '><#2DA0ED>transfer <member></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Transfers leadership</white>",
+            "<click:suggest_command:'/guild rename '><#2DA0ED>rename <name></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Renames the guild</white>",
+            "<click:suggest_command:'/guild list '><#2DA0ED>list [page]</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Lists guild members</white>",
+            "<click:suggest_command:'/guild requests '><#2DA0ED>requests <direction> [page]</#2DA0ED></click> <dark_gray>—</dark_gray> <white>View guild invitations</white>",
+            "<click:suggest_command:'/guild chat '><#2DA0ED>chat <message></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Chat with guild members</white>",
+            "<click:suggest_command:'/guild info'><#2DA0ED>info</#2DA0ED></click> <dark_gray>—</dark_gray> <white>View guild information</white>",
+            "<click:suggest_command:'/guild settings '><#2DA0ED>settings [<setting> <value>]</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Manage guild preferences</white>"
     );
 
     private GuildProxyConstants() {

@@ -11,7 +11,7 @@ import org.slf4j.LoggerFactory;
 /**
  * Registrar for friend commands.
  */
-public class FriendCommandRegistrar {
+public final class FriendCommandRegistrar {
     private static final Logger LOGGER = LoggerFactory.getLogger(FriendCommandRegistrar.class);
 
     private final @NonNull FriendService friendService;
