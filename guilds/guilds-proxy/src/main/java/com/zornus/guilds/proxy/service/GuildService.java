@@ -654,9 +654,12 @@ public final class GuildService implements AutoCloseable {
                     }
                     ConfirmationOutcome.AlreadyExists alreadyExists = (ConfirmationOutcome.AlreadyExists) outcome;
                     PendingConfirmation existing = alreadyExists.existing();
-                    boolean newValueMismatch = (type == ConfirmationType.RENAME_GUILD && newValue != null &&
-                            !newValue.equalsIgnoreCase(existing.newValue() != null ? existing.newValue() : ""));
-                    if (existing.isExpired() || existing.type() != type || newValueMismatch) {
+                    boolean paramsMismatch =
+                            (targetId != null && !targetId.equals(existing.targetId())) ||
+                            (newValue != null && !newValue.equalsIgnoreCase(
+                                    existing.newValue() != null ? existing.newValue() : ""));
+                    if (existing.isExpired() || existing.type() != type || paramsMismatch) {
+                        // Replace: remove old, set new
                         return storage.removePendingConfirmation(playerId)
                                 .thenCompose(ignored -> storage.setPendingConfirmation(confirmation))
                                 .thenApply(retryOutcome -> {
@@ -666,11 +669,8 @@ public final class GuildService implements AutoCloseable {
                                     return GuildResult.NO_CONFIRMATION_PENDING;
                                 });
                     }
-                    if (existing.type() == type && (targetId == null || targetId.equals(existing.targetId())) &&
-                            (newValue == null || newValue.equalsIgnoreCase(existing.newValue() != null ? existing.newValue() : ""))) {
-                        return CompletableFuture.completedFuture(getRequiredResult(type));
-                    }
-                    return CompletableFuture.completedFuture(GuildResult.NO_CONFIRMATION_PENDING);
+                    // Exact match — confirm the action
+                    return CompletableFuture.completedFuture(getRequiredResult(type));
                 });
     }
 
