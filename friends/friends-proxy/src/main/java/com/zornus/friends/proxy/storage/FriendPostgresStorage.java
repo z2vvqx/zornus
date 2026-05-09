@@ -623,7 +623,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 } catch (SQLException exception) {
                     connection.rollback();
                     // Check for unique violation (already friends or request already exists)
-                    if ("23505".equals(exception.getSQLState())) {
+                    if ("23505".equals(exception.getSQLState()) || "40001".equals(exception.getSQLState())) {
                         // Could be either already friends or request already sent
                         // Check which one by querying
                         try {
