@@ -124,14 +124,10 @@ public final class GuildService implements AutoCloseable {
                     }
                     PlayerRecord targetRecord = targetOptional.get();
                     UUID targetId = targetRecord.playerUuid();
+                    String targetPlayerName = targetRecord.username();
 
                     if (senderId.equals(targetId)) {
                         return CompletableFuture.completedFuture(GuildResult.CANNOT_INVITE_SELF);
-                    }
-
-                    Optional<Player> targetPlayer = proxyServer.getPlayer(targetId);
-                    if (targetPlayer.isEmpty()) {
-                        return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_ONLINE);
                     }
 
                     return storage.getPlayerGuild(senderId)
@@ -143,33 +139,31 @@ public final class GuildService implements AutoCloseable {
                                 if (!guild.isLeader(senderId)) {
                                     return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
                                 }
-                                return executeSendInvitation(sender, targetPlayer.get(), guild);
+                                return executeSendInvitation(sender, targetId, targetPlayerName, guild);
                             });
                 });
     }
 
-    private @NonNull CompletableFuture<GuildResult> executeSendInvitation(@NonNull Player sender, @NonNull Player target, @NonNull Guild guild) {
+    private @NonNull CompletableFuture<GuildResult> executeSendInvitation(@NonNull Player sender, @NonNull UUID targetId, @NonNull String targetUsername, @NonNull Guild guild) {
         UUID senderId = sender.getUniqueId();
-        UUID targetId = target.getUniqueId();
 
         if (friendService != null) {
             return friendService.areFriends(senderId, targetId)
-                    .thenCompose(isFriend -> executeStorageSendInvitation(sender, target, guild, isFriend));
+                    .thenCompose(isFriend -> executeStorageSendInvitation(sender, targetId, targetUsername, guild, isFriend));
         } else {
             LOGGER.warn("FriendService unavailable; treating invite_privacy='friend' as 'all' for player {}", targetId);
-            return executeStorageSendInvitation(sender, target, guild, true);
+            return executeStorageSendInvitation(sender, targetId, targetUsername, guild, true);
         }
     }
 
-    private @NonNull CompletableFuture<GuildResult> executeStorageSendInvitation(@NonNull Player sender, @NonNull Player target, @NonNull Guild guild, boolean isPreCheckedFriend) {
+    private @NonNull CompletableFuture<GuildResult> executeStorageSendInvitation(@NonNull Player sender, @NonNull UUID targetId, @NonNull String targetUsername, @NonNull Guild guild, boolean isPreCheckedFriend) {
         UUID senderId = sender.getUniqueId();
-        UUID targetId = target.getUniqueId();
 
         return storage.trySendInvitation(guild.guildId(), senderId, targetId, isPreCheckedFriend)
                 .thenApply(outcome -> switch (outcome) {
                     case SendInvitationOutcome.Sent sent -> {
-                        notificationService.sendInviteReceived(target, sender, guild);
-                        notificationService.announceInviteSent(guild, sender, target);
+                        notificationService.sendInviteReceived(targetId, sender, guild);
+                        notificationService.announceInviteSent(guild, sender, targetUsername);
                         yield GuildResult.INVITATION_SENT;
                     }
                     case SendInvitationOutcome.TargetAlreadyInGuild targetAlreadyInGuild ->

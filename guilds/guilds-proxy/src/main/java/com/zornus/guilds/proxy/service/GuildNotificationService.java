@@ -77,19 +77,21 @@ public final class GuildNotificationService {
                 });
     }
 
-    public void sendInviteReceived(@NonNull Player target, @NonNull Player sender, @NonNull Guild guild) {
-        Component message = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_INVITE_RECEIVED,
-                TagResolver.resolver(
-                        Placeholder.unparsed("player", sender.getUsername()),
-                        Placeholder.unparsed("guild", guild.guildName())));
-        target.sendMessage(message);
+    public void sendInviteReceived(@NonNull UUID targetId, @NonNull Player sender, @NonNull Guild guild) {
+        proxyServer.getPlayer(targetId).ifPresent(target -> {
+            Component message = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_INVITE_RECEIVED,
+                    TagResolver.resolver(
+                            Placeholder.unparsed("player", sender.getUsername()),
+                            Placeholder.unparsed("guild", guild.guildName())));
+            target.sendMessage(message);
+        });
     }
 
-    public void announceInviteSent(@NonNull Guild guild, @NonNull Player sender, @NonNull Player target) {
+    public void announceInviteSent(@NonNull Guild guild, @NonNull Player sender, @NonNull String targetUsername) {
         Component message = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_INVITE_SENT_ANNOUNCEMENT,
                 TagResolver.resolver(
                         Placeholder.unparsed("sender", sender.getUsername()),
-                        Placeholder.unparsed("target", target.getUsername())));
+                        Placeholder.unparsed("target", targetUsername)));
         broadcastToGuild(guild, message, sender.getUniqueId());
     }
 
