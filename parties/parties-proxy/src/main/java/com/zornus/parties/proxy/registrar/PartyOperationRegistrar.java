@@ -6,11 +6,14 @@ import com.zornus.parties.proxy.PartyProxyConstants;
 import com.zornus.parties.proxy.operation.PartyExpirationOperation;
 import com.zornus.parties.proxy.service.PartyService;
 import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public final class PartyOperationRegistrar {
+    private static final Logger LOGGER = LoggerFactory.getLogger(PartyOperationRegistrar.class);
 
     private final @NonNull Object plugin;
     private final @NonNull PartyService service;
@@ -23,7 +26,12 @@ public final class PartyOperationRegistrar {
     }
 
     public void registerOperations(@NonNull Scheduler scheduler) {
-        registerPartyExpiration(scheduler);
+        try {
+            registerPartyExpiration(scheduler);
+        } catch (Exception exception) {
+            LOGGER.error("Error registering party operations", exception);
+            throw exception;
+        }
     }
 
     private void registerPartyExpiration(@NonNull Scheduler scheduler) {

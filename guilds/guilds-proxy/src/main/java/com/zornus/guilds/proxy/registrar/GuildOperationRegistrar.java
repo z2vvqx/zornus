@@ -6,11 +6,14 @@ import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.operation.GuildExpirationOperation;
 import com.zornus.guilds.proxy.service.GuildService;
 import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
 
 public final class GuildOperationRegistrar {
+    private static final Logger LOGGER = LoggerFactory.getLogger(GuildOperationRegistrar.class);
 
     private final @NonNull Object plugin;
     private final @NonNull GuildService service;
@@ -23,7 +26,12 @@ public final class GuildOperationRegistrar {
     }
 
     public void registerOperations(@NonNull Scheduler scheduler) {
-        registerGuildExpiration(scheduler);
+        try {
+            registerGuildExpiration(scheduler);
+        } catch (Exception exception) {
+            LOGGER.error("Error registering guild operations", exception);
+            throw exception;
+        }
     }
 
     private void registerGuildExpiration(@NonNull Scheduler scheduler) {
