@@ -5,7 +5,6 @@ import com.zaxxer.hikari.HikariDataSource;
 import com.zornus.shared.model.PlayerRecord;
 import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.model.*;
-import com.zornus.shared.utilities.CooldownKey;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 import org.postgresql.util.PSQLException;
@@ -137,10 +136,10 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             // STEP 7: Create guild_cooldowns
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS guild_cooldowns (
-                        player_a UUID NOT NULL,
-                        player_b UUID NOT NULL,
+                        sender_id UUID NOT NULL,
+                        receiver_id UUID NOT NULL,
                         timestamp TIMESTAMPTZ NOT NULL,
-                        PRIMARY KEY (player_a, player_b)
+                        PRIMARY KEY (sender_id, receiver_id)
                     )
                     """);
 
@@ -519,11 +518,10 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     }
 
                     // 5. Check invitation cooldown
-                    CooldownKey.CanonicalKey cooldownKey = CooldownKey.canonicalize(senderId, targetId);
-                    String checkCooldownSql = "SELECT timestamp FROM guild_cooldowns WHERE player_a = ? AND player_b = ?";
+                    String checkCooldownSql = "SELECT timestamp FROM guild_cooldowns WHERE sender_id = ? AND receiver_id = ?";
                     try (PreparedStatement statement = connection.prepareStatement(checkCooldownSql)) {
-                        statement.setObject(1, cooldownKey.smaller());
-                        statement.setObject(2, cooldownKey.larger());
+                        statement.setObject(1, senderId);
+                        statement.setObject(2, targetId);
                         try (ResultSet resultSet = statement.executeQuery()) {
                             if (resultSet.next()) {
                                 Timestamp lastTimestamp = resultSet.getTimestamp("timestamp");
@@ -601,15 +599,14 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     }
 
                     // 10. Record/refresh cooldown
-                    CooldownKey.CanonicalKey key = CooldownKey.canonicalize(senderId, targetId);
                     String upsertCooldownSql = """
-                        INSERT INTO guild_cooldowns (player_a, player_b, timestamp)
+                        INSERT INTO guild_cooldowns (sender_id, receiver_id, timestamp)
                         VALUES (?, ?, NOW())
-                        ON CONFLICT (player_a, player_b) DO UPDATE SET timestamp = EXCLUDED.timestamp
+                        ON CONFLICT (sender_id, receiver_id) DO UPDATE SET timestamp = EXCLUDED.timestamp
                         """;
                     try (PreparedStatement statement = connection.prepareStatement(upsertCooldownSql)) {
-                        statement.setObject(1, key.smaller());
-                        statement.setObject(2, key.larger());
+                        statement.setObject(1, senderId);
+                        statement.setObject(2, targetId);
                         statement.executeUpdate();
                     }
 
@@ -1250,13 +1247,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<Boolean> recordInvitationCooldown(@NonNull UUID playerA, @NonNull UUID playerB, @NonNull Instant now) {
+    public CompletableFuture<Boolean> recordInvitationCooldown(@NonNull UUID senderId, @NonNull UUID receiverId, @NonNull Instant now) {
         return CompletableFuture.supplyAsync(() -> {
-            CooldownKey.CanonicalKey key = CooldownKey.canonicalize(playerA, playerB);
-            String sql = "INSERT INTO guild_cooldowns (player_a, player_b, timestamp) VALUES (?, ?, ?) ON CONFLICT (player_a, player_b) DO UPDATE SET timestamp = EXCLUDED.timestamp";
+            String sql = "INSERT INTO guild_cooldowns (sender_id, receiver_id, timestamp) VALUES (?, ?, ?) ON CONFLICT (sender_id, receiver_id) DO UPDATE SET timestamp = EXCLUDED.timestamp";
             int rows = executeUpdate(sql, statement -> {
-                statement.setObject(1, key.smaller());
-                statement.setObject(2, key.larger());
+                statement.setObject(1, senderId);
+                statement.setObject(2, receiverId);
                 statement.setTimestamp(3, Timestamp.from(now));
             }, "record invitation cooldown");
             return rows > 0;
@@ -1264,13 +1260,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<Optional<Instant>> fetchInvitationCooldown(@NonNull UUID playerA, @NonNull UUID playerB) {
+    public CompletableFuture<Optional<Instant>> fetchInvitationCooldown(@NonNull UUID senderId, @NonNull UUID receiverId) {
         return CompletableFuture.supplyAsync(() -> {
-            CooldownKey.CanonicalKey key = CooldownKey.canonicalize(playerA, playerB);
-            String sql = "SELECT timestamp FROM guild_cooldowns WHERE player_a = ? AND player_b = ?";
+            String sql = "SELECT timestamp FROM guild_cooldowns WHERE sender_id = ? AND receiver_id = ?";
             return executeQuery(sql, statement -> {
-                statement.setObject(1, key.smaller());
-                statement.setObject(2, key.larger());
+                statement.setObject(1, senderId);
+                statement.setObject(2, receiverId);
             }, resultSet -> {
                 if (resultSet.next()) {
                     return Optional.of(resultSet.getTimestamp("timestamp").toInstant());

@@ -4,7 +4,6 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zornus.parties.proxy.PartyProxyConstants;
 import com.zornus.parties.proxy.model.*;
-import com.zornus.shared.utilities.CooldownKey;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -137,10 +136,10 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS party_cooldowns (
-                        player_a UUID NOT NULL,
-                        player_b UUID NOT NULL,
+                        sender_id UUID NOT NULL,
+                        receiver_id UUID NOT NULL,
                         timestamp TIMESTAMPTZ NOT NULL,
-                        PRIMARY KEY (player_a, player_b)
+                        PRIMARY KEY (sender_id, receiver_id)
                     )
                     """);
 
@@ -786,12 +785,11 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         return new SendInvitationOutcome.PartyFull();
                     }
 
-                    // 5. Check invitation cooldown using canonicalized keys
-                    CooldownKey.CanonicalKey cooldownKey = CooldownKey.canonicalize(senderId, targetId);
-                    String checkCooldownSql = "SELECT timestamp FROM party_cooldowns WHERE player_a = ? AND player_b = ?";
+                    // 5. Check invitation cooldown
+                    String checkCooldownSql = "SELECT timestamp FROM party_cooldowns WHERE sender_id = ? AND receiver_id = ?";
                     try (PreparedStatement statement = connection.prepareStatement(checkCooldownSql)) {
-                        statement.setObject(1, cooldownKey.smaller());
-                        statement.setObject(2, cooldownKey.larger());
+                        statement.setObject(1, senderId);
+                        statement.setObject(2, targetId);
                         try (ResultSet resultSet = statement.executeQuery()) {
                             if (resultSet.next()) {
                                 Timestamp lastTimestamp = resultSet.getTimestamp("timestamp");
@@ -868,16 +866,15 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         statement.executeUpdate();
                     }
 
-                    // 10. Record/refresh cooldown using canonicalized keys
-                    CooldownKey.CanonicalKey key = CooldownKey.canonicalize(senderId, targetId);
+                    // 10. Record/refresh cooldown
                     String upsertCooldownSql = """
-                        INSERT INTO party_cooldowns (player_a, player_b, timestamp)
+                        INSERT INTO party_cooldowns (sender_id, receiver_id, timestamp)
                         VALUES (?, ?, NOW())
-                        ON CONFLICT (player_a, player_b) DO UPDATE SET timestamp = EXCLUDED.timestamp
+                        ON CONFLICT (sender_id, receiver_id) DO UPDATE SET timestamp = EXCLUDED.timestamp
                         """;
                     try (PreparedStatement statement = connection.prepareStatement(upsertCooldownSql)) {
-                        statement.setObject(1, key.smaller());
-                        statement.setObject(2, key.larger());
+                        statement.setObject(1, senderId);
+                        statement.setObject(2, targetId);
                         statement.executeUpdate();
                     }
 
@@ -885,10 +882,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                     return new SendInvitationOutcome.Sent();
                 } catch (SQLException exception) {
                     connection.rollback();
-                    if ("23505".equals(exception.getSQLState())) {
-                        return new SendInvitationOutcome.AlreadyInvited();
-                    }
-                    if ("40001".equals(exception.getSQLState())) {
+                    if ("23505".equals(exception.getSQLState()) || "40001".equals(exception.getSQLState())) {
                         return new SendInvitationOutcome.AlreadyInvited();
                     }
                     throw new RuntimeException("Failed to send invitation", exception);
@@ -1269,13 +1263,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<Boolean> recordInvitationCooldown(@NonNull UUID playerA, @NonNull UUID playerB, @NonNull Instant now) {
+    public CompletableFuture<Boolean> recordInvitationCooldown(@NonNull UUID senderId, @NonNull UUID receiverId, @NonNull Instant now) {
         return CompletableFuture.supplyAsync(() -> {
-            CooldownKey.CanonicalKey key = CooldownKey.canonicalize(playerA, playerB);
-            String sql = "INSERT INTO party_cooldowns (player_a, player_b, timestamp) VALUES (?, ?, ?) ON CONFLICT (player_a, player_b) DO UPDATE SET timestamp = EXCLUDED.timestamp";
+            String sql = "INSERT INTO party_cooldowns (sender_id, receiver_id, timestamp) VALUES (?, ?, ?) ON CONFLICT (sender_id, receiver_id) DO UPDATE SET timestamp = EXCLUDED.timestamp";
             int rows = executeUpdate(sql, statement -> {
-                statement.setObject(1, key.smaller());
-                statement.setObject(2, key.larger());
+                statement.setObject(1, senderId);
+                statement.setObject(2, receiverId);
                 statement.setTimestamp(3, Timestamp.from(now));
             }, "record invitation cooldown");
             return rows > 0;
@@ -1283,13 +1276,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<Optional<Instant>> fetchInvitationCooldown(@NonNull UUID playerA, @NonNull UUID playerB) {
+    public CompletableFuture<Optional<Instant>> fetchInvitationCooldown(@NonNull UUID senderId, @NonNull UUID receiverId) {
         return CompletableFuture.supplyAsync(() -> {
-            CooldownKey.CanonicalKey key = CooldownKey.canonicalize(playerA, playerB);
-            String sql = "SELECT timestamp FROM party_cooldowns WHERE player_a = ? AND player_b = ?";
+            String sql = "SELECT timestamp FROM party_cooldowns WHERE sender_id = ? AND receiver_id = ?";
             return executeQuery(sql, statement -> {
-                statement.setObject(1, key.smaller());
-                statement.setObject(2, key.larger());
+                statement.setObject(1, senderId);
+                statement.setObject(2, receiverId);
             }, resultSet -> {
                 if (resultSet.next()) {
                     return Optional.of(resultSet.getTimestamp("timestamp").toInstant());
