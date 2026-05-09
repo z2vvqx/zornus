@@ -90,6 +90,11 @@ public final class PartyInviteCommand {
                                         Placeholder.unparsed("maximum_size", String.valueOf(PartyProxyConstants.MAX_PARTY_SIZE))));
                         case INVITATION_COOLDOWN_ACTIVE ->
                                 handleCooldownMessage(sender, target, targetName, partyService);
+                        case SENDER_INVITATION_LIMIT_REACHED ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_SENDER_INVITATION_LIMIT_REACHED));
+                        case RECEIVER_INVITATION_LIMIT_REACHED ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_RECEIVER_INVITATION_LIMIT_REACHED,
+                                        Placeholder.unparsed("target", targetName)));
                         case INVITES_DISABLED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.SETTINGS_ERROR_INVITES_DISABLED,
                                         Placeholder.unparsed("target", targetName)));

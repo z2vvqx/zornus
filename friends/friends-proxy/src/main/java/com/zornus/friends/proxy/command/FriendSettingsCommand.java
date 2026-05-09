@@ -81,8 +81,7 @@ public final class FriendSettingsCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        friendService.getSettings(sender.getUniqueId()).thenAccept(settingsOptional -> {
-            FriendSettings settings = settingsOptional.orElse(new FriendSettings(sender.getUniqueId()));
+        friendService.getSettings(sender.getUniqueId()).thenAccept(settings -> {
 
             ComponentBuilder<TextComponent, TextComponent.Builder> messageBuilder = Component.text().appendNewline();
 

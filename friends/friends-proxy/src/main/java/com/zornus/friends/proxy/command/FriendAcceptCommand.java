@@ -89,6 +89,14 @@ public final class FriendAcceptCommand {
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ERROR_NOT_FOUND, Placeholder.unparsed("target", targetName)));
                                     case REQUEST_ACCEPTED ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ACCEPT_SUCCESS, Placeholder.unparsed("target", targetName)));
+                                    case SENDER_FRIENDS_LIMIT_REACHED ->
+                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_SENDER_FRIENDS_LIMIT_REACHED));
+                                    case RECEIVER_FRIENDS_LIMIT_REACHED ->
+                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_RECEIVER_FRIENDS_LIMIT_REACHED,
+                                                    Placeholder.unparsed("target", targetName)));
+                                    case ALREADY_FRIENDS ->
+                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_ALREADY_FRIENDS,
+                                                    Placeholder.unparsed("target", targetName)));
                                     case ERROR_ALREADY_HANDLED -> {}
                                     default ->
                                             sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));

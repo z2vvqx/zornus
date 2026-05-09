@@ -62,11 +62,11 @@ public final class PartyListCommand {
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to get party members for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return new PartyMembersResult(PartyResult.ERROR_ALREADY_HANDLED, PaginationResult.invalidPage(1));
+                    return new PartyMembersResult(PartyResult.ERROR_ALREADY_HANDLED, PaginationResult.invalidPage(1), null);
                 })
                 .thenAccept(result -> {
                     switch (result.result()) {
-                        case SUCCESS -> handleDisplayPartyMembers(sender, result, partyService, proxyServer, page);
+                        case SUCCESS -> handleDisplayPartyMembers(sender, result, proxyServer, page);
                         case NOT_IN_PARTY ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.LIST_ERROR_NOT_IN_PARTY));
                         case INVALID_PAGE -> {
@@ -83,49 +83,45 @@ public final class PartyListCommand {
     }
 
     private static void handleDisplayPartyMembers(Player sender, @NonNull PartyMembersResult result,
-                                           PartyService partyService, ProxyServer proxyServer, int page) {
-        partyService.getPlayerParty(sender.getUniqueId())
-                .thenAccept(partyOptional -> {
-                    if (partyOptional.isEmpty()) {
-                        sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.LIST_ERROR_NOT_IN_PARTY));
-                        return;
-                    }
+                                           ProxyServer proxyServer, int page) {
+        Party party = result.party();
+        if (party == null) {
+            sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.LIST_ERROR_NOT_IN_PARTY));
+            return;
+        }
 
-                    Party party = partyOptional.get();
-                    TextComponent.Builder messageBuilder = Component.text().append(Component.newline());
+        TextComponent.Builder messageBuilder = Component.text().append(Component.newline());
 
-                    List<UUID> members = result.pagination().items();
-                    for (int i = 0; i < members.size(); i++) {
-                        UUID memberId = members.get(i);
+        List<UUID> members = result.pagination().items();
+        for (int i = 0; i < members.size(); i++) {
+            UUID memberId = members.get(i);
 
-                        // Get player name from proxy server if online, otherwise use "Unknown"
-                        String memberName = proxyServer.getPlayer(memberId)
-                                .map(Player::getUsername)
-                                .orElse("Unknown");
+            String memberName = proxyServer.getPlayer(memberId)
+                    .map(Player::getUsername)
+                    .orElse("Unknown");
 
-                        TagResolver memberResolver = Placeholder.unparsed("member", memberName);
-                        String format = party.isLeader(memberId)
-                                ? PartyProxyConstants.UI_LIST_MEMBER_LEADER
-                                : PartyProxyConstants.UI_LIST_MEMBER_NORMAL;
+            TagResolver memberResolver = Placeholder.unparsed("member", memberName);
+            String format = party.isLeader(memberId)
+                    ? PartyProxyConstants.UI_LIST_MEMBER_LEADER
+                    : PartyProxyConstants.UI_LIST_MEMBER_NORMAL;
 
-                        messageBuilder.append(StringUtils.deserialize(SharedConstants.BULLET_POINT + format, memberResolver));
-                        if (i < members.size() - 1) {
-                            messageBuilder.append(Component.newline());
-                        }
-                    }
+            messageBuilder.append(StringUtils.deserialize(SharedConstants.BULLET_POINT + format, memberResolver));
+            if (i < members.size() - 1) {
+                messageBuilder.append(Component.newline());
+            }
+        }
 
-                    messageBuilder.append(Component.newline());
+        messageBuilder.append(Component.newline());
 
-                    if (result.pagination().hasMultiplePages()) {
-                        TagResolver paginationResolver = TagResolver.resolver(
-                                Placeholder.unparsed("current_page", String.valueOf(page)),
-                                Placeholder.unparsed("maximum_pages", String.valueOf(result.pagination().maximumPages()))
-                        );
-                        messageBuilder.append(Component.newline())
-                                .append(StringUtils.deserialize(PartyProxyConstants.UI_LIST_PAGINATION, paginationResolver));
-                    }
+        if (result.pagination().hasMultiplePages()) {
+            TagResolver paginationResolver = TagResolver.resolver(
+                    Placeholder.unparsed("current_page", String.valueOf(page)),
+                    Placeholder.unparsed("maximum_pages", String.valueOf(result.pagination().maximumPages()))
+            );
+            messageBuilder.append(Component.newline())
+                    .append(StringUtils.deserialize(PartyProxyConstants.UI_LIST_PAGINATION, paginationResolver));
+        }
 
-                    sender.sendMessage(messageBuilder.build());
-                });
+        sender.sendMessage(messageBuilder.build());
     }
 }

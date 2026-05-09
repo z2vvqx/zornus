@@ -4,6 +4,7 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.*;
+import com.zornus.shared.utilities.CooldownKey;
 import com.zornus.shared.model.PlayerRecord;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
@@ -134,14 +135,6 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         }
     }
 
-    @Contract("_, _ -> new")
-    private @NonNull CanonicalUuidPair canonicalizePair(@NonNull UUID player1, @NonNull UUID player2) {
-        if (player1.toString().compareTo(player2.toString()) > 0) {
-            return new CanonicalUuidPair(player2, player1);
-        }
-        return new CanonicalUuidPair(player1, player2);
-    }
-
     private <T> T executeQuery(String sql, SQLParameterSetter parameterSetter, ResultSetMapper<T> resultMapper, String operationName) {
         try (Connection connection = dataSource.getConnection();
              PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -169,14 +162,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     }
 
     @Override
-    public CompletableFuture<Boolean> removeFriendRequest(UUID sender, UUID receiver) {
-        return CompletableFuture.supplyAsync(() -> {
+    public CompletableFuture<Void> removeFriendRequest(UUID sender, UUID receiver) {
+        return CompletableFuture.runAsync(() -> {
             String sql = "DELETE FROM requests WHERE sender = ? AND receiver = ?";
-            int rows = executeUpdate(sql, statement -> {
+            executeUpdate(sql, statement -> {
                 statement.setObject(1, sender);
                 statement.setObject(2, receiver);
             }, "remove friend request");
-            return rows > 0;
         }, databaseExecutor);
     }
 
@@ -225,11 +217,11 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     @Override
     public CompletableFuture<Boolean> removeFriendRelation(UUID player1, UUID player2) {
         return CompletableFuture.supplyAsync(() -> {
-            CanonicalUuidPair pair = canonicalizePair(player1, player2);
+            CooldownKey.CanonicalKey pair = CooldownKey.canonicalize(player1, player2);
             String sql = "DELETE FROM relations WHERE player1 = ? AND player2 = ?";
             int rows = executeUpdate(sql, statement -> {
-                statement.setObject(1, pair.firstPlayer());
-                statement.setObject(2, pair.secondPlayer());
+                statement.setObject(1, pair.smaller());
+                statement.setObject(2, pair.larger());
             }, "remove relation");
             return rows > 0;
         }, databaseExecutor);
@@ -238,11 +230,11 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     @Override
     public CompletableFuture<Boolean> hasFriendRelation(UUID player1, UUID player2) {
         return CompletableFuture.supplyAsync(() -> {
-            CanonicalUuidPair pair = canonicalizePair(player1, player2);
+            CooldownKey.CanonicalKey pair = CooldownKey.canonicalize(player1, player2);
             String sql = "SELECT 1 FROM relations WHERE player1 = ? AND player2 = ?";
             return executeQuery(sql, statement -> {
-                statement.setObject(1, pair.firstPlayer());
-                statement.setObject(2, pair.secondPlayer());
+                statement.setObject(1, pair.smaller());
+                statement.setObject(2, pair.larger());
             }, ResultSet::next, "check friend relation");
         }, databaseExecutor);
     }
@@ -464,6 +456,22 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         }, databaseExecutor);
     }
 
+    @Override
+    public CompletableFuture<Optional<Instant>> fetchFriendRequestCooldown(UUID senderId, UUID receiverId) {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "SELECT timestamp FROM request_cooldowns WHERE sender_id = ? AND receiver_id = ?";
+            return executeQuery(sql, statement -> {
+                statement.setObject(1, senderId);
+                statement.setObject(2, receiverId);
+            }, resultSet -> {
+                if (resultSet.next()) {
+                    return Optional.of(resultSet.getTimestamp("timestamp").toInstant());
+                }
+                return Optional.empty();
+            }, "get friend request cooldown");
+        }, databaseExecutor);
+    }
+
     // ==================== COMPOUND OPERATIONS ====================
 
     @Override
@@ -471,13 +479,14 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
+                connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
                 try {
                     // 1. Check if already friends
-                    CanonicalUuidPair pair = canonicalizePair(senderId, receiverId);
+                    CooldownKey.CanonicalKey pair = CooldownKey.canonicalize(senderId, receiverId);
                     String checkFriendsSql = "SELECT 1 FROM relations WHERE player1 = ? AND player2 = ?";
                     try (PreparedStatement statement = connection.prepareStatement(checkFriendsSql)) {
-                        statement.setObject(1, pair.firstPlayer());
-                        statement.setObject(2, pair.secondPlayer());
+                        statement.setObject(1, pair.smaller());
+                        statement.setObject(2, pair.larger());
                         try (ResultSet resultSet = statement.executeQuery()) {
                             if (resultSet.next()) {
                                 connection.rollback();
@@ -618,11 +627,11 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                         // Could be either already friends or request already sent
                         // Check which one by querying
                         try {
-                            CanonicalUuidPair pair = canonicalizePair(senderId, receiverId);
+                            CooldownKey.CanonicalKey pair = CooldownKey.canonicalize(senderId, receiverId);
                             String checkSql = "SELECT 1 FROM relations WHERE player1 = ? AND player2 = ?";
                             try (PreparedStatement checkStatement = connection.prepareStatement(checkSql)) {
-                                checkStatement.setObject(1, pair.firstPlayer());
-                                checkStatement.setObject(2, pair.secondPlayer());
+                                checkStatement.setObject(1, pair.smaller());
+                                checkStatement.setObject(2, pair.larger());
                                 try (ResultSet checkResultSet = checkStatement.executeQuery()) {
                                     if (checkResultSet.next()) {
                                         return new SendRequestOutcome.AlreadyFriends();
@@ -681,11 +690,11 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         }
 
         // Add friend relation
-        CanonicalUuidPair pair = canonicalizePair(senderId, receiverId);
+        CooldownKey.CanonicalKey pair = CooldownKey.canonicalize(senderId, receiverId);
         String insertRelationSql = "INSERT INTO relations (player1, player2, created_at) VALUES (?, ?, NOW())";
         try (PreparedStatement statement = connection.prepareStatement(insertRelationSql)) {
-            statement.setObject(1, pair.firstPlayer());
-            statement.setObject(2, pair.secondPlayer());
+            statement.setObject(1, pair.smaller());
+            statement.setObject(2, pair.larger());
             statement.executeUpdate();
         }
 
@@ -720,6 +729,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
+                connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
                 // Serialize accepts per player to prevent concurrent accepts exceeding MAX_FRIENDS
                 // Lock in canonical UUID order to prevent deadlocks
                 UUID smaller = accepterId.compareTo(requesterId) < 0 ? accepterId : requesterId;
@@ -748,11 +758,11 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                     }
 
                     // 2. Check if already friends
-                    CanonicalUuidPair pair = canonicalizePair(accepterId, requesterId);
+                    CooldownKey.CanonicalKey pair = CooldownKey.canonicalize(accepterId, requesterId);
                     String checkFriendsSql = "SELECT 1 FROM relations WHERE player1 = ? AND player2 = ?";
                     try (PreparedStatement statement = connection.prepareStatement(checkFriendsSql)) {
-                        statement.setObject(1, pair.firstPlayer());
-                        statement.setObject(2, pair.secondPlayer());
+                        statement.setObject(1, pair.smaller());
+                        statement.setObject(2, pair.larger());
                         try (ResultSet resultSet = statement.executeQuery()) {
                             if (resultSet.next()) {
                                 connection.rollback();
@@ -777,8 +787,8 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                     // 4. Insert friend relation
                     String insertRelationSql = "INSERT INTO relations (player1, player2, created_at) VALUES (?, ?, NOW())";
                     try (PreparedStatement statement = connection.prepareStatement(insertRelationSql)) {
-                        statement.setObject(1, pair.firstPlayer());
-                        statement.setObject(2, pair.secondPlayer());
+                        statement.setObject(1, pair.smaller());
+                        statement.setObject(2, pair.larger());
                         statement.executeUpdate();
                     }
 
@@ -876,6 +886,4 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         T map(ResultSet resultSet) throws SQLException;
     }
 
-    private record CanonicalUuidPair(UUID firstPlayer, UUID secondPlayer) {
-    }
 }

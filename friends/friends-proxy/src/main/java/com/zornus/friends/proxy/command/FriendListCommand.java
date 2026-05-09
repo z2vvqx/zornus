@@ -30,10 +30,10 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
+import java.util.Arrays;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ConcurrentLinkedQueue;
 
 /**
  * Command for listing friends with pagination.
@@ -55,8 +55,12 @@ public final class FriendListCommand {
                 );
     }
 
-    private static int handleListFriends(@NonNull CommandContext<CommandSource> context, @NonNull FriendService friendService, ProxyServer proxyServer, int page) {
-        Player sender = (Player) context.getSource();
+    private static int handleListFriends(@NonNull CommandContext<CommandSource> context, FriendService friendService, ProxyServer proxyServer, int page) {
+        CommandSource source = context.getSource();
+        if (!(source instanceof Player sender)) {
+            source.sendMessage(StringUtils.deserialize(SharedConstants.PLAYERS_ONLY));
+            return Command.SINGLE_SUCCESS;
+        }
 
         friendService.getFriendsList(sender.getUniqueId(), page)
                 .exceptionally(throwable -> {
@@ -84,29 +88,31 @@ public final class FriendListCommand {
     private static void handleDisplayList(Player sender, @NonNull FriendListResult result,
                                                 FriendService friendService, ProxyServer proxyServer, int currentPage) {
         TextComponent.Builder messageBuilder = Component.text().appendNewline();
-        ConcurrentLinkedQueue<Component> friendEntries = new ConcurrentLinkedQueue<>();
+        List<FriendRelation> items = result.paginationResult().items();
+        Component[] friendEntries = new Component[items.size()];
 
         List<CompletableFuture<Void>> friendDataFutures = new ArrayList<>();
 
-        for (FriendRelation relation : result.paginationResult().items()) {
+        int index = 0;
+        for (FriendRelation relation : items) {
+            final int currentIndex = index;
             UUID friendId = relation.getOtherPlayerUuid(sender.getUniqueId());
             String friendName = relation.getOtherPlayerUsername(sender.getUniqueId());
 
             boolean isActuallyOnline = proxyServer.getPlayer(friendId).isPresent();
 
-            CompletableFuture<Optional<FriendSettings>> settingsFuture = friendService.getSettings(friendId);
+            CompletableFuture<FriendSettings> settingsFuture = friendService.getSettings(friendId);
             CompletableFuture<Optional<Instant>> lastSeenFuture = friendService.fetchLastSeen(friendId);
 
             CompletableFuture<Void> entryFuture = settingsFuture
                     .exceptionally(throwable -> {
                         LOGGER.error("Failed to fetch settings for friend {}", friendId, throwable);
-                        return Optional.empty();
+                        return new FriendSettings(friendId);
                     })
                     .thenCombine(lastSeenFuture.exceptionally(throwable -> {
                         LOGGER.error("Failed to fetch last seen for friend {}", friendId, throwable);
                         return Optional.empty();
-                    }), (settingsOptional, lastSeenOptional) -> {
-                        FriendSettings settings = settingsOptional.orElse(new FriendSettings(friendId));
+                    }), (settings, lastSeenOptional) -> {
                         boolean friendAppearsOffline = settings.presenceState() == PresenceState.OFFLINE;
                         boolean friendShowsLastSeen = settings.showLastSeen();
                         boolean friendShowsLocation = settings.showLocation();
@@ -139,11 +145,12 @@ public final class FriendListCommand {
                                         Placeholder.unparsed("friend", friendName));
                             }
                         }
-                        friendEntries.add(entryComponent);
+                        friendEntries[currentIndex] = entryComponent;
                         return null;
                     });
 
             friendDataFutures.add(entryFuture);
+            index++;
         }
 
         CompletableFuture.allOf(friendDataFutures.toArray(new CompletableFuture[0]))
@@ -153,7 +160,7 @@ public final class FriendListCommand {
                     return null;
                 })
                 .thenAccept(ignored -> {
-                    messageBuilder.append(Component.join(JoinConfiguration.newlines(), friendEntries));
+                    messageBuilder.append(Component.join(JoinConfiguration.newlines(), Arrays.asList(friendEntries)));
                     messageBuilder.append(Component.newline());
 
                     if (result.paginationResult().hasMultiplePages()) {

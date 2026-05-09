@@ -37,8 +37,8 @@ public final class FriendPresenceCommand {
     private static int handleDisplayPresence(@NonNull CommandContext<CommandSource> context, FriendService friendService) {
         Player sender = (Player) context.getSource();
 
-        friendService.getSettings(sender.getUniqueId()).thenAccept(settingsOptional -> {
-            PresenceState presenceState = settingsOptional.map(settings -> settings.presenceState()).orElse(PresenceState.ONLINE);
+        friendService.getSettings(sender.getUniqueId()).thenAccept(settings -> {
+            PresenceState presenceState = settings.presenceState();
             String currentPresence = presenceState.name().toLowerCase();
 
             sender.sendMessage(StringUtils.deserialize(

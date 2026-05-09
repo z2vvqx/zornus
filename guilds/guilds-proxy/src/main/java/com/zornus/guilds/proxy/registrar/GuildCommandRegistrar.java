@@ -36,6 +36,8 @@ public final class GuildCommandRegistrar {
      */
     public void registerCommands(@NonNull CommandManager commandManager) {
         try {
+            // TODO: Implement guild commands following the parties pattern (create, invite, accept, leave, kick, etc.)
+            //       Deferred to keep this fix plan focused on the 25 identified issues.
             // Commands are implemented as follow-up task
             LOGGER.info("Guild commands will be registered in follow-up implementation");
         } catch (Exception exception) {

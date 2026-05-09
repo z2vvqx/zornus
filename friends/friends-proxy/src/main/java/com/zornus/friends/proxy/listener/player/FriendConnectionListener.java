@@ -25,7 +25,7 @@ public class FriendConnectionListener {
     @Subscribe
     public void onPostLogin(@NonNull PostLoginEvent event) {
         Player player = event.getPlayer();
-        friendService.handlePlayerConnect(player.getUniqueId(), player.getUsername())
+        friendService.handlePlayerJoin(player.getUniqueId(), player.getUsername())
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to handle player join for {} ({})",
                             player.getUsername(), player.getUniqueId(), throwable);

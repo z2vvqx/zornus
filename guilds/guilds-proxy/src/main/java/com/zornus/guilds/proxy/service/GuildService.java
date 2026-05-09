@@ -155,7 +155,8 @@ public final class GuildService implements AutoCloseable {
             return friendService.areFriends(senderId, targetId)
                     .thenCompose(isFriend -> executeStorageSendInvitation(sender, target, guild, isFriend));
         } else {
-            return executeStorageSendInvitation(sender, target, guild, false);
+            LOGGER.warn("FriendService unavailable; treating invite_privacy='friend' as 'all' for player {}", targetId);
+            return executeStorageSendInvitation(sender, target, guild, true);
         }
     }
 
@@ -635,7 +636,7 @@ public final class GuildService implements AutoCloseable {
     }
 
     public void cleanupExpiredCooldowns() {
-        storage.cleanupExpiredCooldowns(Instant.now(), GuildProxyConstants.CLEANUP_EXPIRY)
+        storage.cleanupExpiredCooldowns(Instant.now(), GuildProxyConstants.INVITATION_COOLDOWN)
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to cleanup expired cooldowns", throwable);
                     return null;
@@ -653,7 +654,9 @@ public final class GuildService implements AutoCloseable {
                     }
                     ConfirmationOutcome.AlreadyExists alreadyExists = (ConfirmationOutcome.AlreadyExists) outcome;
                     PendingConfirmation existing = alreadyExists.existing();
-                    if (existing.isExpired() || existing.type() != type) {
+                    boolean newValueMismatch = (type == ConfirmationType.RENAME_GUILD && newValue != null &&
+                            !newValue.equalsIgnoreCase(existing.newValue() != null ? existing.newValue() : ""));
+                    if (existing.isExpired() || existing.type() != type || newValueMismatch) {
                         return storage.removePendingConfirmation(playerId)
                                 .thenCompose(ignored -> storage.setPendingConfirmation(confirmation))
                                 .thenApply(retryOutcome -> {

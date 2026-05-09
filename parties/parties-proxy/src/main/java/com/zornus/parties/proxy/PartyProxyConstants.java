@@ -130,9 +130,11 @@ public final class PartyProxyConstants {
     public static final String JUMP_INFO_ALREADY_WITH_LEADER = "<yellow>You are already on the same server as your leader.</yellow>";
 
     public static final String WARP_SUCCESS = "<green>Warped all party members to your server!</green>";
-    public static final String WARP_ERROR_NOT_IN_PARTY = "<red>You must be in a party to warp members.</red>";
-    public static final String WARP_ERROR_ON_COOLDOWN = "<red>Party warp is on cooldown. Please wait before using it again.</red>";
-    public static final String WARP_ERROR_NO_INSTANCE = "<red>You must be on a valid server to warp party members.</red>";
+    public static final String WARP_ERROR_NOT_IN_PARTY = "<red>You are not in a party.</red>";
+    public static final String WARP_ERROR_ON_COOLDOWN = "<red>You must wait before warping the party again.</red>";
+    public static final String WARP_ERROR_NO_INSTANCE = "<red>You are not in a valid instance.</red>";
+    public static final String WARP_ERROR_FAILED = "<red>Failed to warp party members.</red>";
+    public static final String WARP_ERROR_PARTY_NOT_FOUND = "<red>Your party could not be found.</red>";
 
     // ========================================
     // UI & DISPLAY

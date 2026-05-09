@@ -50,8 +50,10 @@ public final class PartyWarpCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_NOT_LEADER));
                         case WARP_ON_COOLDOWN ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_ERROR_ON_COOLDOWN));
-                        case LEADER_NO_INSTANCE ->
-                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_ERROR_NO_INSTANCE));
+                        case WARP_FAILED ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_ERROR_FAILED));
+                        case PARTY_NOT_FOUND ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_ERROR_PARTY_NOT_FOUND));
                         case PARTY_WARPED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_SUCCESS));
                         case ERROR_ALREADY_HANDLED -> {}

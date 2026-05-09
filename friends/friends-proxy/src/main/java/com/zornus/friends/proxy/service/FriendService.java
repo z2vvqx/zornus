@@ -6,6 +6,7 @@ import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.*;
 import com.zornus.shared.model.PlayerRecord;
 import com.zornus.friends.proxy.model.result.FriendListResult;
+import com.zornus.friends.proxy.model.result.FriendReplyResult;
 import com.zornus.friends.proxy.model.result.FriendRequestListResult;
 import com.zornus.friends.proxy.model.result.FriendResult;
 import com.zornus.friends.proxy.storage.AcceptRequestOutcome;
@@ -15,13 +16,18 @@ import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.PaginationResult;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
+import java.time.Duration;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
 public final class FriendService implements AutoCloseable {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FriendService.class);
 
     private final @NonNull FriendStorage storage;
     private final @NonNull ProxyServer proxyServer;
@@ -92,12 +98,12 @@ public final class FriendService implements AutoCloseable {
 
     public @NonNull CompletableFuture<FriendResult> rejectFriendRequest(@NonNull UUID rejecterUuid, @NonNull UUID requesterUuid) {
         return storage.removeFriendRequest(requesterUuid, rejecterUuid)
-                .thenApply(removed -> removed ? FriendResult.REQUEST_REJECTED : FriendResult.NO_REQUEST_FOUND);
+                .thenApply(ignored -> FriendResult.REQUEST_REJECTED);
     }
 
     public @NonNull CompletableFuture<FriendResult> revokeFriendRequest(@NonNull UUID revokerUuid, @NonNull UUID targetUuid) {
         return storage.removeFriendRequest(revokerUuid, targetUuid)
-                .thenApply(removed -> removed ? FriendResult.REQUEST_REVOKED : FriendResult.NO_REQUEST_FOUND);
+                .thenApply(ignored -> FriendResult.REQUEST_REVOKED);
     }
 
     public @NonNull CompletableFuture<FriendRequestListResult> getIncomingRequestsList(@NonNull UUID playerUuid, int page) {
@@ -203,23 +209,56 @@ public final class FriendService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<FriendResult> sendFriendReply(@NonNull UUID senderUuid, @NonNull String message) {
+    public @NonNull CompletableFuture<FriendReplyResult> sendFriendReply(@NonNull UUID senderUuid, @NonNull String message) {
         if (message.length() > FriendProxyConstants.MAX_MESSAGE_LENGTH) {
-            return CompletableFuture.completedFuture(FriendResult.MESSAGE_TOO_LONG);
+            return CompletableFuture.completedFuture(new FriendReplyResult.MessageTooLong());
         }
 
         return storage.fetchLastMessageSender(senderUuid)
                 .thenCompose(lastSenderOpt -> {
                     if (lastSenderOpt.isEmpty()) {
-                        return CompletableFuture.completedFuture(FriendResult.NO_RECENT_MESSAGE);
+                        return CompletableFuture.completedFuture(new FriendReplyResult.NoRecentMessage());
                     }
                     UUID targetUuid = lastSenderOpt.get();
-                    Optional<Player> targetPlayer = proxyServer.getPlayer(targetUuid);
-                    if (targetPlayer.isEmpty()) {
-                        return CompletableFuture.completedFuture(FriendResult.FRIEND_NOT_ONLINE);
-                    }
+                    return resolvePlayerName(targetUuid)
+                            .thenCompose(targetName -> sendFriendMessageWithValidation(senderUuid, targetUuid, message, targetName));
+                });
+    }
 
-                    return sendFriendMessage(senderUuid, targetUuid, message);
+    private @NonNull CompletableFuture<String> resolvePlayerName(@NonNull UUID playerUuid) {
+        return CompletableFuture.completedFuture(
+                proxyServer.getPlayer(playerUuid)
+                        .map(Player::getUsername)
+                        .orElseGet(() -> {
+                            return storage.fetchPlayerByUuid(playerUuid)
+                                    .thenApply(recordOpt -> recordOpt.map(PlayerRecord::username).orElse("Unknown"))
+                                    .join();
+                        })
+        );
+    }
+
+    private @NonNull CompletableFuture<FriendReplyResult> sendFriendMessageWithValidation(@NonNull UUID senderUuid,
+                                                                                           @NonNull UUID targetUuid,
+                                                                                           @NonNull String message,
+                                                                                           @NonNull String targetName) {
+        return storage.hasFriendRelation(senderUuid, targetUuid)
+                .thenCompose(areFriends -> {
+                    if (!areFriends) {
+                        return CompletableFuture.completedFuture(new FriendReplyResult.NotFriends(targetName));
+                    }
+                    return storage.fetchSettings(targetUuid)
+                            .thenCompose(settingsOpt -> {
+                                FriendSettings settings = settingsOpt.orElse(new FriendSettings(targetUuid));
+                                if (!settings.allowMessages()) {
+                                    return CompletableFuture.completedFuture(new FriendReplyResult.PlayerNotAcceptingMessages(targetName));
+                                }
+                                Optional<Player> targetPlayer = proxyServer.getPlayer(targetUuid);
+                                if (targetPlayer.isEmpty()) {
+                                    return CompletableFuture.completedFuture(new FriendReplyResult.FriendNotOnline(targetName));
+                                }
+                                return deliverMessage(senderUuid, targetUuid, message, targetPlayer.get())
+                                        .thenApply(result -> new FriendReplyResult.Success());
+                            });
                 });
     }
 
@@ -282,9 +321,9 @@ public final class FriendService implements AutoCloseable {
                 .exceptionally(throwable -> FriendResult.JUMP_FAILED);
     }
 
-    public @NonNull CompletableFuture<Optional<FriendSettings>> getSettings(@NonNull UUID playerUuid) {
+    public @NonNull CompletableFuture<FriendSettings> getSettings(@NonNull UUID playerUuid) {
         return storage.fetchSettings(playerUuid)
-                .thenApply(settingsOpt -> settingsOpt.or(() -> Optional.of(new FriendSettings(playerUuid))));
+                .thenApply(settingsOpt -> settingsOpt.orElse(new FriendSettings(playerUuid)));
     }
 
     public @NonNull CompletableFuture<Optional<Instant>> fetchLastSeen(@NonNull UUID playerUuid) {
@@ -305,6 +344,19 @@ public final class FriendService implements AutoCloseable {
 
     public @NonNull CompletableFuture<Optional<UUID>> fetchLastMessageSender(@NonNull UUID playerUuid) {
         return storage.fetchLastMessageSender(playerUuid);
+    }
+
+    public @NonNull CompletableFuture<Duration> getRemainingRequestCooldown(@NonNull UUID senderId, @NonNull UUID receiverId) {
+        return storage.fetchFriendRequestCooldown(senderId, receiverId)
+                .thenApply(lastOptional -> {
+                    if (lastOptional.isEmpty()) {
+                        return Duration.ZERO;
+                    }
+                    Instant lastTimestamp = lastOptional.get();
+                    Instant expiryTime = lastTimestamp.plus(FriendProxyConstants.FRIEND_REQUEST_COOLDOWN);
+                    Duration remaining = Duration.between(Instant.now(), expiryTime);
+                    return remaining.isNegative() ? Duration.ZERO : remaining;
+                });
     }
 
     public @NonNull CompletableFuture<FriendResult> updateSetting(@NonNull UUID playerUuid, @NonNull String setting, boolean value) {
@@ -328,7 +380,7 @@ public final class FriendService implements AutoCloseable {
         };
     }
 
-    public @NonNull CompletableFuture<Void> handlePlayerConnect(@NonNull UUID playerUuid, @NonNull String username) {
+    public @NonNull CompletableFuture<Void> handlePlayerJoin(@NonNull UUID playerUuid, @NonNull String username) {
         return storage.upsertPlayer(playerUuid, username)
                 .thenCompose(ignored -> storage.fetchFriendRelations(playerUuid))
                 .thenAccept(friendRelations -> notificationService.notifyFriendsOfPlayerJoin(playerUuid, username, friendRelations));
@@ -340,20 +392,32 @@ public final class FriendService implements AutoCloseable {
                 .thenAccept(friendRelations -> notificationService.notifyFriendsOfPlayerLeave(playerUuid, username, friendRelations));
     }
 
-    public @NonNull CompletableFuture<Void> cleanupExpiredRequests() {
-        return storage.cleanupExpiredFriendRequests(Instant.now(), FriendProxyConstants.REQUEST_EXPIRY_DURATION);
+    public void cleanupExpiredRequests() {
+        storage.cleanupExpiredFriendRequests(Instant.now(), FriendProxyConstants.REQUEST_EXPIRY_DURATION)
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to cleanup expired friend requests", throwable);
+                    return null;
+                });
     }
 
     // ========================================
     // PLAYER LIFECYCLE
     // ========================================
 
-    public @NonNull CompletableFuture<Void> cleanupExpiredCooldowns() {
-        return storage.cleanupExpiredFriendRequestCooldowns(Instant.now(), FriendProxyConstants.COOLDOWN_EXPIRY_DURATION);
+    public void cleanupExpiredCooldowns() {
+        storage.cleanupExpiredFriendRequestCooldowns(Instant.now(), FriendProxyConstants.FRIEND_REQUEST_COOLDOWN)
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to cleanup expired friend request cooldowns", throwable);
+                    return null;
+                });
     }
 
-    public @NonNull CompletableFuture<Void> cleanupExpiredLastMessageSenders() {
-        return storage.cleanupExpiredLastMessageSenders(Instant.now(), FriendProxyConstants.LAST_MESSAGE_SENDER_RETENTION);
+    public void cleanupExpiredLastMessageSenders() {
+        storage.cleanupExpiredLastMessageSenders(Instant.now(), FriendProxyConstants.LAST_MESSAGE_SENDER_RETENTION)
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to cleanup expired last message senders", throwable);
+                    return null;
+                });
     }
 
     // ========================================

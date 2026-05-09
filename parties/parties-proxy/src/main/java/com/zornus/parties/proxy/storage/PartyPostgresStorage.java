@@ -4,9 +4,11 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zornus.parties.proxy.PartyProxyConstants;
 import com.zornus.parties.proxy.model.*;
-import com.zornus.parties.proxy.utilities.CooldownKey;
+import com.zornus.shared.utilities.CooldownKey;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.time.Duration;
@@ -18,6 +20,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PartyPostgresStorage.class);
 
     private final HikariDataSource dataSource;
     private final ExecutorService databaseExecutor;
@@ -55,7 +59,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 databaseExecutor.shutdownNow();
             }
         } catch (InterruptedException exception) {
-            databaseExecutor.shutdownNow();
+            LOGGER.error("Interrupted while shutting down database executor", exception);
             Thread.currentThread().interrupt();
         }
         dataSource.close();

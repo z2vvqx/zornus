@@ -14,7 +14,7 @@ public final class FriendProxyConstants {
     public static final String POSTGRESQL_PASSWORD = "postword";
     public static final int DATABASE_CONNECTION_POOL_SIZE = 10;
     public static final int DATABASE_EXECUTOR_POOL_SIZE = 10;
-    public static final int DATABASE_SHUTDOWN_TIMEOUT_SECONDS = 5;
+    public static final long DATABASE_SHUTDOWN_TIMEOUT_SECONDS = 5;
     public static final int MAX_FRIENDS = 50;
     public static final int MAX_FRIEND_REQUESTS = 50;
     public static final int MAX_MESSAGE_LENGTH = 256;
@@ -22,7 +22,6 @@ public final class FriendProxyConstants {
     public static final Duration COOLDOWN_EXPIRY_DURATION = Duration.ofDays(1);
     public static final Duration CLEANUP_TASK_INTERVAL = Duration.ofMinutes(30);
     public static final Duration FRIEND_REQUEST_COOLDOWN = Duration.ofMinutes(1);
-    public static final Duration LAST_SEEN_RETENTION = Duration.ofDays(30);
     public static final Duration LAST_MESSAGE_SENDER_RETENTION = Duration.ofDays(1);
 
     public static final String USAGE_ADD = "<red><click:suggest_command:'/friend add '>/friend add <player_name></click></red>";

@@ -1,4 +1,4 @@
-package com.zornus.parties.proxy.utilities;
+package com.zornus.shared.utilities;
 
 import java.util.UUID;
 

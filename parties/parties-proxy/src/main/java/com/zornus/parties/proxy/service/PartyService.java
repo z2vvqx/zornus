@@ -89,7 +89,9 @@ public final class PartyService implements AutoCloseable {
                     }
                     ConfirmationOutcome.AlreadyExists alreadyExists = (ConfirmationOutcome.AlreadyExists) outcome;
                     PendingConfirmation existing = alreadyExists.existing();
-                    if (existing.isExpired() || existing.type() != type) {
+                    boolean targetIdMismatch = (type == ConfirmationType.TRANSFER_LEADERSHIP && targetId != null &&
+                            !targetId.equals(existing.targetId()));
+                    if (existing.isExpired() || existing.type() != type || targetIdMismatch) {
                         return storage.removePendingConfirmation(playerId)
                                 .thenCompose(ignored -> storage.setPendingConfirmation(confirmation))
                                 .thenApply(retryOutcome -> {
@@ -177,7 +179,8 @@ public final class PartyService implements AutoCloseable {
             return friendService.areFriends(senderId, targetId)
                     .thenCompose(isFriend -> executeStorageSendInvitation(sender, target, party, isFriend));
         } else {
-            return executeStorageSendInvitation(sender, target, party, false);
+            LOGGER.warn("FriendService unavailable; treating invite_privacy='friend' as 'all' for player {}", targetId);
+            return executeStorageSendInvitation(sender, target, party, true);
         }
     }
 
@@ -392,7 +395,7 @@ public final class PartyService implements AutoCloseable {
         return storage.getPlayerParty(senderId)
                 .thenApply(partyOptional -> {
                     if (partyOptional.isEmpty()) {
-                        return new PartyMembersResult(PartyResult.NOT_IN_PARTY, PaginationResult.invalidPage(1));
+                        return new PartyMembersResult(PartyResult.NOT_IN_PARTY, PaginationResult.invalidPage(1), null);
                     }
                     Party party = partyOptional.get();
                     List<UUID> members = new ArrayList<>(party.getMemberIds());
@@ -404,14 +407,14 @@ public final class PartyService implements AutoCloseable {
                     });
 
                     if (members.isEmpty()) {
-                        return new PartyMembersResult(PartyResult.LIST_EMPTY, PaginationResult.invalidPage(1));
+                        return new PartyMembersResult(PartyResult.LIST_EMPTY, PaginationResult.invalidPage(1), party);
                     }
 
                     PaginationResult<UUID> pagination = PaginationResult.paginate(members, page, SharedConstants.ENTRIES_PER_PAGE);
                     if (!pagination.isValidPage()) {
-                        return new PartyMembersResult(PartyResult.INVALID_PAGE, pagination);
+                        return new PartyMembersResult(PartyResult.INVALID_PAGE, pagination, party);
                     }
-                    return new PartyMembersResult(PartyResult.SUCCESS, pagination);
+                    return new PartyMembersResult(PartyResult.SUCCESS, pagination, party);
                 });
     }
 
@@ -479,10 +482,8 @@ public final class PartyService implements AutoCloseable {
                 .thenApply(outcome -> switch (outcome) {
                     case RemoveMemberOutcome.MemberRemoved memberRemoved -> PartyResult.LEFT_PARTY;
                     case RemoveMemberOutcome.LeaderTransferred leaderTransferred -> {
-                        if (!isLeaving) {
-                            proxyServer.getPlayer(leaderTransferred.newLeaderId()).ifPresent(newLeader ->
-                                    notificationService.notifyLeadershipTransferred(party, memberName, newLeader));
-                        }
+                        proxyServer.getPlayer(leaderTransferred.newLeaderId()).ifPresent(newLeader ->
+                                notificationService.notifyLeadershipTransferred(party, memberName, newLeader));
                         yield PartyResult.LEFT_PARTY;
                     }
                     case RemoveMemberOutcome.PartyDisbanded partyDisbanded ->
@@ -713,15 +714,27 @@ public final class PartyService implements AutoCloseable {
                 });
     }
 
-    public CompletableFuture<Void> cleanupExpiredInvitations() {
-        return storage.cleanupExpiredInvitations(Instant.now(), PartyProxyConstants.INVITATION_EXPIRY);
+    public void cleanupExpiredInvitations() {
+        storage.cleanupExpiredInvitations(Instant.now(), PartyProxyConstants.INVITATION_EXPIRY)
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to cleanup expired party invitations", throwable);
+                    return null;
+                });
     }
 
-    public CompletableFuture<Void> cleanupExpiredConfirmations() {
-        return storage.cleanupExpiredConfirmations(Instant.now(), PartyProxyConstants.CONFIRMATION_EXPIRY);
+    public void cleanupExpiredConfirmations() {
+        storage.cleanupExpiredConfirmations(Instant.now(), PartyProxyConstants.CONFIRMATION_EXPIRY)
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to cleanup expired party confirmations", throwable);
+                    return null;
+                });
     }
 
-    public CompletableFuture<Void> cleanupExpiredCooldowns() {
-        return storage.cleanupExpiredCooldowns(Instant.now(), PartyProxyConstants.INVITATION_COOLDOWN);
+    public void cleanupExpiredCooldowns() {
+        storage.cleanupExpiredCooldowns(Instant.now(), PartyProxyConstants.INVITATION_COOLDOWN)
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to cleanup expired party cooldowns", throwable);
+                    return null;
+                });
     }
 }

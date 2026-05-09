@@ -5,7 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import com.zornus.shared.model.PlayerRecord;
 import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.model.*;
-import com.zornus.guilds.proxy.utilities.CooldownKey;
+import com.zornus.shared.utilities.CooldownKey;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 import org.postgresql.util.PSQLException;

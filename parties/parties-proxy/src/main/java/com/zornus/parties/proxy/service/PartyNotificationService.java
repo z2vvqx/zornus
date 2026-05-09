@@ -124,16 +124,21 @@ public final class PartyNotificationService {
         }
     }
 
-    private void broadcastToParty(@NonNull Party party, @NonNull Component message, @Nullable UUID... excludedMemberIds) {
-        Set<UUID> exclusions = excludedMemberIds == null || excludedMemberIds.length == 0
-                ? Collections.emptySet()
-                : new HashSet<>(Arrays.asList(excludedMemberIds));
-
+    private void broadcastToParty(@NonNull Party party, @NonNull Component message) {
         Set<UUID> memberIds = party.getMemberIds();
         if (memberIds.isEmpty()) return;
 
         for (UUID memberId : memberIds) {
-            if (!exclusions.contains(memberId)) {
+            proxyServer.getPlayer(memberId).ifPresent(member -> member.sendMessage(message));
+        }
+    }
+
+    private void broadcastToParty(@NonNull Party party, @NonNull Component message, @NonNull UUID excludedMemberId) {
+        Set<UUID> memberIds = party.getMemberIds();
+        if (memberIds.isEmpty()) return;
+
+        for (UUID memberId : memberIds) {
+            if (!memberId.equals(excludedMemberId)) {
                 proxyServer.getPlayer(memberId).ifPresent(member -> member.sendMessage(message));
             }
         }
