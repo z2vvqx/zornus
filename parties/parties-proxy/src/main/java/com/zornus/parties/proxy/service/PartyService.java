@@ -19,6 +19,7 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Supplier;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -89,9 +90,8 @@ public final class PartyService implements AutoCloseable {
                     }
                     ConfirmationOutcome.AlreadyExists alreadyExists = (ConfirmationOutcome.AlreadyExists) outcome;
                     PendingConfirmation existing = alreadyExists.existing();
-                    boolean targetIdMismatch = (type == ConfirmationType.TRANSFER_LEADERSHIP && targetId != null &&
-                            !targetId.equals(existing.targetId()));
-                    if (existing.isExpired() || existing.type() != type || targetIdMismatch) {
+                    boolean paramsMismatch = targetId != null && !targetId.equals(existing.targetId());
+                    if (existing.isExpired() || existing.type() != type || paramsMismatch) {
                         return storage.removePendingConfirmation(playerId)
                                 .thenCompose(ignored -> storage.setPendingConfirmation(confirmation))
                                 .thenApply(retryOutcome -> {
@@ -101,15 +101,13 @@ public final class PartyService implements AutoCloseable {
                                     return PartyResult.NO_CONFIRMATION_PENDING;
                                 });
                     }
-                    if (existing.type() == type && (targetId == null || targetId.equals(existing.targetId()))) {
-                        return CompletableFuture.completedFuture(getRequiredResult(type));
-                    }
-                    return CompletableFuture.completedFuture(PartyResult.NO_CONFIRMATION_PENDING);
+                    // Exact match — confirm the action
+                    return CompletableFuture.completedFuture(getRequiredResult(type));
                 });
     }
 
     private @NonNull CompletableFuture<PartyResult> confirmAndExecute(@NonNull UUID playerId, @NonNull ConfirmationType expectedType,
-                                                                       @Nullable UUID expectedTargetId, java.util.function.@NonNull Supplier<CompletableFuture<PartyResult>> onSuccess) {
+                                                                       @Nullable UUID expectedTargetId, @NonNull Supplier<CompletableFuture<PartyResult>> onSuccess) {
         return storage.fetchPendingConfirmation(playerId)
                 .thenCompose(existingOpt -> {
                     if (existingOpt.isEmpty()) {
@@ -123,7 +121,8 @@ public final class PartyService implements AutoCloseable {
                     if (expectedTargetId != null && !expectedTargetId.equals(existing.targetId())) {
                         return CompletableFuture.completedFuture(PartyResult.NO_CONFIRMATION_PENDING);
                     }
-                    return onSuccess.get();
+                    return storage.removePendingConfirmation(playerId)
+                            .thenCompose(ignored -> onSuccess.get());
                 });
     }
 
