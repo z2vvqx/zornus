@@ -125,6 +125,8 @@ public final class PartyProxyConstants {
     public static final String NOTIFICATION_MEMBER_LEFT = "<yellow><sender> left the party.</yellow>";
     public static final String NOTIFICATION_MEMBER_KICKED = "<red><member> was kicked from the party.</red>";
     public static final String NOTIFICATION_MEMBER_KICKED_WITH_REASON = "<red><member> was kicked from the party. Reason: <reason></red>";
+    public static final String NOTIFICATION_YOU_WERE_KICKED = "<red>You were kicked from the party.</red>";
+    public static final String NOTIFICATION_YOU_WERE_KICKED_WITH_REASON = "<red>You were kicked from the party. Reason: <reason></red>";
     public static final String NOTIFICATION_MEMBER_DISCONNECTED = "<yellow><player> disconnected from the party.</yellow>";
     public static final String NOTIFICATION_LEADER_DISCONNECTED = "<yellow><old_leader> disconnected. <new_leader> is now the party leader.</yellow>";
     public static final String NOTIFICATION_LEADERSHIP_TRANSFERRED = "<yellow><sender> transferred leadership to <member>.</yellow>";

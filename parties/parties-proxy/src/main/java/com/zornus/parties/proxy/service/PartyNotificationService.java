@@ -54,21 +54,30 @@ public final class PartyNotificationService {
     }
 
     public void notifyMemberKicked(@NonNull Party party, @NonNull Player member, @Nullable String reason) {
-        TagResolver resolver;
-        String messageConstant;
+        TagResolver broadcastResolver;
+        String broadcastMessageConstant;
+        String kickedPlayerMessageConstant;
 
         if (reason != null && !reason.trim().isEmpty()) {
-            resolver = TagResolver.resolver(
+            broadcastResolver = TagResolver.resolver(
                     Placeholder.unparsed("member", member.getUsername()),
                     Placeholder.unparsed("reason", reason));
-            messageConstant = PartyProxyConstants.NOTIFICATION_MEMBER_KICKED_WITH_REASON;
+            broadcastMessageConstant = PartyProxyConstants.NOTIFICATION_MEMBER_KICKED_WITH_REASON;
+            kickedPlayerMessageConstant = PartyProxyConstants.NOTIFICATION_YOU_WERE_KICKED_WITH_REASON;
         } else {
-            resolver = TagResolver.resolver(Placeholder.unparsed("member", member.getUsername()));
-            messageConstant = PartyProxyConstants.NOTIFICATION_MEMBER_KICKED;
+            broadcastResolver = TagResolver.resolver(Placeholder.unparsed("member", member.getUsername()));
+            broadcastMessageConstant = PartyProxyConstants.NOTIFICATION_MEMBER_KICKED;
+            kickedPlayerMessageConstant = PartyProxyConstants.NOTIFICATION_YOU_WERE_KICKED;
         }
 
-        Component message = StringUtils.deserialize(messageConstant, resolver);
-        broadcastToParty(party, message, member.getUniqueId());
+        Component broadcastMessage = StringUtils.deserialize(broadcastMessageConstant, broadcastResolver);
+        broadcastToParty(party, broadcastMessage, member.getUniqueId());
+
+        TagResolver kickedPlayerResolver = (reason != null && !reason.trim().isEmpty())
+                ? TagResolver.resolver(Placeholder.unparsed("reason", reason))
+                : TagResolver.empty();
+        Component kickedPlayerMessage = StringUtils.deserialize(kickedPlayerMessageConstant, kickedPlayerResolver);
+        member.sendMessage(kickedPlayerMessage);
     }
 
     public void sendInviteReceived(@NonNull Player target, @NonNull Player sender, @NonNull Party party) {
