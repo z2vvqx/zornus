@@ -128,7 +128,7 @@ public final class PartyProxyConstants {
     public static final String NOTIFICATION_MEMBER_DISCONNECTED = "<yellow><player> disconnected from the party.</yellow>";
     public static final String NOTIFICATION_LEADER_DISCONNECTED = "<yellow><old_leader> disconnected. <new_leader> is now the party leader.</yellow>";
     public static final String NOTIFICATION_LEADERSHIP_TRANSFERRED = "<yellow><sender> transferred leadership to <member>.</yellow>";
-    public static final String NOTIFICATION_INVITE_RECEIVED = "<green><player> invited you to join their party.</green>";
+    public static final String NOTIFICATION_INVITE_RECEIVED = "<green><player> invited you to join their party. <click:run_command:'/party accept <sender>'><green>✔</green></click> <click:run_command:'/party reject <sender>'><red>✘</red></click></green>";
     public static final String NOTIFICATION_INVITE_SENT_ANNOUNCEMENT = "<green><sender> invited <target> to the party.</green>";
     public static final String NOTIFICATION_MEMBER_WARPED = "<green>You were warped to <sender>'s server.</green>";
     public static final String NOTIFICATION_PARTY_DISBANDED = "<red>The party has been disbanded by <leader>.</red>";
