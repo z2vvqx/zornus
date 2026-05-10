@@ -22,7 +22,6 @@ import org.slf4j.LoggerFactory;
 
 import java.util.Optional;
 import java.util.UUID;
-import java.util.concurrent.CompletableFuture;
 
 /**
  * Command for teleporting to friends.

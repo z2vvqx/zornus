@@ -3,7 +3,6 @@ package com.zornus.shared;
 public final class SharedConstants {
 
     private SharedConstants() {
-        throw new UnsupportedOperationException("Constants class cannot be instantiated");
     }
 
     public static final String BULLET_POINT = " <dark_gray>•</dark_gray> ";
