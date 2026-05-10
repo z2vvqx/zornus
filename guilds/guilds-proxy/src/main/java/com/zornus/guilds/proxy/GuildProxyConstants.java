@@ -26,10 +26,6 @@ public final class GuildProxyConstants {
 
     public static final int MAX_MESSAGE_LENGTH = 256;
 
-    // ========================================
-    // COMMAND USAGE
-    // ========================================
-
     public static final String USAGE_ACCEPT = "<red><click:suggest_command:'/guild accept '>/guild accept <guild_name></click></red>";
     public static final String USAGE_CHAT = "<red><click:suggest_command:'/guild chat '>/guild chat <message_array></click></red>";
     public static final String USAGE_INVITE = "<red><click:suggest_command:'/guild invite '>/guild invite <player_name></click></red>";
@@ -42,10 +38,6 @@ public final class GuildProxyConstants {
     public static final String USAGE_CREATE = "<red><click:suggest_command:'/guild create '>/guild create <name> <tag></click></red>";
     public static final String USAGE_RENAME = "<red><click:suggest_command:'/guild rename '>/guild rename <new_name></click></red>";
 
-    // ========================================
-    // GENERIC VALIDATION & ERRORS
-    // ========================================
-
     public static final String ERROR_NOT_IN_GUILD = "<red>You are not in a guild.</red>";
     public static final String ERROR_ALREADY_IN_GUILD = "<red>You are already in a guild. Use <yellow>/guild leave</yellow> first.</red>";
     public static final String ERROR_NOT_LEADER = "<red>Only the guild leader can perform this action.</red>";
@@ -57,10 +49,6 @@ public final class GuildProxyConstants {
     public static final String ERROR_INVALID_GUILD_NAME = "<red>Guild name must be 3-24 characters and contain only letters, numbers, and underscores.</red>";
     public static final String ERROR_INVALID_GUILD_TAG = "<red>Guild tag must be 2-5 characters and contain only letters, numbers, and underscores.</red>";
 
-    // ========================================
-    // GUILD LIFECYCLE
-    // ========================================
-
     public static final String CREATE_SUCCESS = "<green>You have created the guild <yellow><guild_name></yellow> [<guild_tag>]!</green>";
     public static final String DISBAND_SUCCESS = "<green>Guild has been disbanded.</green>";
     public static final String DISBAND_CONFIRMATION_REQUIRED = "<yellow>Are you sure you want to disband the guild? Use <red>/guild disband confirm</red> to proceed.</yellow>";
@@ -69,10 +57,6 @@ public final class GuildProxyConstants {
     public static final String LEAVE_SUCCESS = "<green>You left the guild.</green>";
     public static final String LEAVE_ERROR_NOT_IN_GUILD = "<red>You are not in a guild to leave.</red>";
     public static final String LEAVE_SUCCESS_DISBANDED = "<green>You left the guild. The guild has been disbanded as it became empty.</green>";
-
-    // ========================================
-    // GUILD INVITATIONS
-    // ========================================
 
     public static final String INVITE_SUCCESS = "<green>Sent guild invitation to <yellow><target></yellow>!</green>";
     public static final String INVITE_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to send invitations.</red>";
@@ -94,10 +78,6 @@ public final class GuildProxyConstants {
     public static final String UNINVITE_ERROR_NO_INVITATION = "<red>No pending invitation found for <yellow><target></yellow>.</red>";
     public static final String UNINVITE_ERROR_NO_PERMISSION = "<red>You do not have permission to revoke that invitation.</red>";
 
-    // ========================================
-    // MEMBER MANAGEMENT
-    // ========================================
-
     public static final String KICK_SUCCESS = "<green>Kicked <yellow><target></yellow> from the guild.</green>";
     public static final String KICK_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to kick members.</red>";
     public static final String KICK_ERROR_PLAYER_NOT_IN_GUILD = "<red><yellow><target></yellow> is not in your guild.</red>";
@@ -117,19 +97,11 @@ public final class GuildProxyConstants {
     public static final String RENAME_CONFIRMATION_REQUIRED = "<yellow>Are you sure you want to rename the guild to <yellow><new_name></yellow>? Use <green>/guild rename <new_name> confirm</green> to proceed.</yellow>";
     public static final String RENAME_ERROR_NO_CONFIRMATION = "<red>No confirmation is pending. Use <yellow>/guild rename <name></yellow> first.</red>";
 
-    // ========================================
-    // SETTINGS
-    // ========================================
-
     public static final String SETTINGS_UPDATE_SUCCESS = "<green>Setting <yellow><setting></yellow> has been updated to <yellow><value></yellow>.</green>";
     public static final String SETTINGS_DISPLAY_INVITES = "<click:suggest_command:'/guild settings invites '><#2DA0ED>invites</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Who can invite you to guild: <value></white>";
     public static final String SETTINGS_DISPLAY_CHAT = "<click:suggest_command:'/guild settings chat '><#2DA0ED>chat</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Show guild chat messages: <value></white>";
     public static final String SETTINGS_ERROR_INVITES_DISABLED = "<red><yellow><target></yellow> is not accepting guild invites.</red>";
     public static final String SETTINGS_ERROR_INVITES_FRIENDS_ONLY = "<red><yellow><target></yellow> only accepts invites from friends.</red>";
-
-    // ========================================
-    // UI & DISPLAY
-    // ========================================
 
     public static final String LIST_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to view the member list.</red>";
 
@@ -143,10 +115,6 @@ public final class GuildProxyConstants {
     public static final String UI_REQUESTS_INCOMING_ENTRY = "<click:run_command:'/guild accept <guild_name>'><green>✔</green></click> <click:run_command:'/guild reject <guild_name>'><red>✘</red></click> <#2DA0ED><guild_name></#2DA0ED> <dark_gray>—</dark_gray> <white><timestamp></white>";
     public static final String UI_REQUESTS_OUTGOING_ENTRY = "<click:run_command:'/guild uninvite <player>'><red>✘</red></click> <#2DA0ED><player></#2DA0ED> <dark_gray>—</dark_gray> <white><timestamp></white>";
 
-    // ========================================
-    // NOTIFICATIONS
-    // ========================================
-
     public static final String NOTIFICATION_MEMBER_JOINED = "<green><sender> joined the guild.</green>";
     public static final String NOTIFICATION_MEMBER_LEFT = "<yellow><sender> left the guild.</yellow>";
     public static final String NOTIFICATION_MEMBER_KICKED = "<red><member> was kicked from the guild by <kicker>.</red>";
@@ -156,10 +124,6 @@ public final class GuildProxyConstants {
     public static final String NOTIFICATION_GUILD_DISBANDED = "<red>The guild has been disbanded by <leader>.</red>";
     public static final String NOTIFICATION_GUILD_RENAMED = "<yellow>The guild has been renamed from <old_name> to <new_name>.</yellow>";
     public static final String NOTIFICATION_CHAT_FORMAT = "<dark_aqua>[Guild] <sender>: <message></dark_aqua>";
-
-    // ========================================
-    // HELP SYSTEM
-    // ========================================
 
     public static final List<String> HELP_COMMANDS = Arrays.asList(
             "<click:suggest_command:'/guild help '><#2DA0ED>help [page]</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Shows this help menu</white>",

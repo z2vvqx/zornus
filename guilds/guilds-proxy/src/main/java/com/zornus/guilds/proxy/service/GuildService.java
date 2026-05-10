@@ -50,12 +50,10 @@ public final class GuildService implements AutoCloseable {
     public @NonNull CompletableFuture<GuildResult> createGuild(@NonNull Player sender, @NonNull String guildName, @NonNull String guildTag, @NonNull String guildColor) {
         UUID senderId = sender.getUniqueId();
 
-        // Validate guild name
         if (!isValidGuildName(guildName)) {
             return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_NAME);
         }
 
-        // Validate guild tag
         if (!isValidGuildTag(guildTag)) {
             return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_TAG);
         }
@@ -537,7 +535,6 @@ public final class GuildService implements AutoCloseable {
                         return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
                     }
 
-                    // Check if name is actually different
                     if (guild.guildName().equals(newName)) {
                         return CompletableFuture.completedFuture(GuildResult.NAME_ALREADY_EXISTS);
                     }
@@ -638,8 +635,6 @@ public final class GuildService implements AutoCloseable {
                 });
     }
 
-    // ==================== CONFIRMATION HELPERS ====================
-
     private @NonNull CompletableFuture<GuildResult> setupConfirmation(@NonNull UUID playerId, @NonNull ConfirmationType type, @Nullable UUID targetId, @Nullable String newValue) {
         PendingConfirmation confirmation = new PendingConfirmation(playerId, type, targetId, newValue);
         return storage.setPendingConfirmation(confirmation)
@@ -654,7 +649,6 @@ public final class GuildService implements AutoCloseable {
                             (newValue != null && !newValue.equalsIgnoreCase(
                                     existing.newValue() != null ? existing.newValue() : ""));
                     if (existing.isExpired() || existing.type() != type || paramsMismatch) {
-                        // Replace: remove old, set new
                         return storage.removePendingConfirmation(playerId)
                                 .thenCompose(ignored -> storage.setPendingConfirmation(confirmation))
                                 .thenApply(retryOutcome -> {

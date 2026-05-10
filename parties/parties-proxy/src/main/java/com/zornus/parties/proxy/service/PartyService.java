@@ -398,7 +398,7 @@ public final class PartyService implements AutoCloseable {
                     }
                     Party party = partyOptional.get();
                     List<UUID> members = new ArrayList<>(party.getMemberIds());
-                    // New sort: leader first, then UUID natural ordering
+                    // Sort: leader first, then UUID natural ordering
                     members.sort((a, b) -> {
                         if (party.isLeader(a)) return -1;
                         if (party.isLeader(b)) return 1;
@@ -655,12 +655,10 @@ public final class PartyService implements AutoCloseable {
     }
 
     public @NonNull CompletableFuture<PartyResult> updateBooleanSetting(@NonNull UUID playerId, @NonNull String settingName, boolean value) {
-        // Validate setting name first
         if (!settingName.equals("allow_chat") && !settingName.equals("allow_warp")) {
             return CompletableFuture.completedFuture(PartyResult.INVALID_SETTING);
         }
 
-        // Use atomic column-specific update to avoid read-modify-write race
         CompletableFuture<Void> updateFuture = switch (settingName) {
             case "allow_chat" -> storage.updateAllowChat(playerId, value);
             case "allow_warp" -> storage.updateAllowWarp(playerId, value);
@@ -673,12 +671,10 @@ public final class PartyService implements AutoCloseable {
     }
 
     public @NonNull CompletableFuture<PartyResult> updateInvitePrivacy(@NonNull UUID playerId, @NonNull String value) {
-        // Validate value first
         if (!value.equals("all") && !value.equals("friend") && !value.equals("none")) {
             return CompletableFuture.completedFuture(PartyResult.INVALID_SETTING);
         }
 
-        // Use atomic column-specific update to avoid read-modify-write race
         return storage.updateInvitePrivacy(playerId, value)
                 .thenApply(ignored -> PartyResult.SETTING_UPDATED)
                 .exceptionally(throwable -> PartyResult.INVALID_SETTING);

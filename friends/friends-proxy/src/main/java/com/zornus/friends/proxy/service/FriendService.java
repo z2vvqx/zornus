@@ -49,10 +49,6 @@ public final class FriendService implements AutoCloseable {
         return notificationService;
     }
 
-    // ========================================
-    // FRIEND REQUESTS
-    // ========================================
-
     public @NonNull CompletableFuture<FriendResult> sendFriendRequest(@NonNull UUID senderUuid, @NonNull UUID targetUuid) {
         if (senderUuid.equals(targetUuid)) {
             return CompletableFuture.completedFuture(FriendResult.CANNOT_ADD_SELF);
@@ -139,10 +135,6 @@ public final class FriendService implements AutoCloseable {
                 .thenApply(removed -> removed ? FriendResult.FRIEND_REMOVED : FriendResult.NOT_FRIENDS);
     }
 
-    // ========================================
-    // FRIEND RELATIONS
-    // ========================================
-
     public @NonNull CompletableFuture<Boolean> areFriends(@NonNull UUID player1Uuid, @NonNull UUID player2Uuid) {
         return storage.hasFriendRelation(player1Uuid, player2Uuid);
     }
@@ -176,10 +168,6 @@ public final class FriendService implements AutoCloseable {
                     return deliverMessage(senderUuid, targetUuid, message, validationResult.targetPlayer());
                 });
     }
-
-    // ========================================
-    // MESSAGING
-    // ========================================
 
     private @NonNull CompletableFuture<MessageValidationResult> validateMessagePreconditions(boolean areFriends, @NonNull UUID targetUuid) {
         if (!areFriends) {
@@ -310,10 +298,6 @@ public final class FriendService implements AutoCloseable {
                 });
     }
 
-    // ========================================
-    // JUMPING
-    // ========================================
-
     private @NonNull CompletableFuture<FriendResult> executeJump(@NonNull Player jumper, @NonNull Player target) {
         return jumper.createConnectionRequest(target.getCurrentServer().get().getServer())
                 .connect()
@@ -333,10 +317,6 @@ public final class FriendService implements AutoCloseable {
     public @NonNull CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUsername(@NonNull String username) {
         return storage.fetchPlayerByUsername(username);
     }
-
-    // ========================================
-    // SETTINGS
-    // ========================================
 
     public @NonNull CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUuid(@NonNull UUID playerUuid) {
         return storage.fetchPlayerByUuid(playerUuid);
@@ -400,10 +380,6 @@ public final class FriendService implements AutoCloseable {
                 });
     }
 
-    // ========================================
-    // PLAYER LIFECYCLE
-    // ========================================
-
     public void cleanupExpiredCooldowns() {
         storage.cleanupExpiredFriendRequestCooldowns(Instant.now(), FriendProxyConstants.FRIEND_REQUEST_COOLDOWN)
                 .exceptionally(throwable -> {
@@ -419,10 +395,6 @@ public final class FriendService implements AutoCloseable {
                     return null;
                 });
     }
-
-    // ========================================
-    // HELPERS
-    // ========================================
 
     private record MessageValidationResult(FriendResult result, Player targetPlayer) {
     }

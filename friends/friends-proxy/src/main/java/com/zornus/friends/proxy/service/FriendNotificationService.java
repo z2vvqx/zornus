@@ -28,10 +28,6 @@ public final class FriendNotificationService {
         this.proxyServer = proxyServer;
     }
 
-    // ========================================
-    // JOIN/LEAVE NOTIFICATIONS
-    // ========================================
-
     public void notifyFriendsOfPlayerJoin(@NonNull UUID joiningPlayerUuid, @NonNull String username,
                                           @NonNull List<FriendRelation> friendRelations) {
         storage.fetchSettings(joiningPlayerUuid).thenAccept(settingsOptional -> {
@@ -76,10 +72,6 @@ public final class FriendNotificationService {
         });
     }
 
-    // ========================================
-    // REQUEST NOTIFICATIONS
-    // ========================================
-
     public void notifyFriendRequestReceived(@NonNull UUID receiverUuid, @NonNull UUID senderUuid) {
         Optional<Player> receiver = proxyServer.getPlayer(receiverUuid);
         if (receiver.isEmpty()) {
@@ -110,10 +102,6 @@ public final class FriendNotificationService {
         targetPlayer.get().sendMessage(message);
     }
 
-    // ========================================
-    // MESSAGE NOTIFICATIONS
-    // ========================================
-
     public void notifyFriendMessageReceived(@NonNull Player receiver, @NonNull UUID senderUuid, @NonNull String message) {
         Optional<Player> sender = proxyServer.getPlayer(senderUuid);
         String senderName = sender.map(Player::getUsername).orElse("Unknown");
@@ -125,10 +113,6 @@ public final class FriendNotificationService {
         Component receivedMessage = StringUtils.deserialize(FriendProxyConstants.MESSAGE_RECEIVED_FORMAT, resolver);
         receiver.sendMessage(receivedMessage);
     }
-
-    // ========================================
-    // HELPER METHODS
-    // ========================================
 
     private @NonNull List<Player> collectOnlineFriends(@NonNull UUID playerId, @NonNull List<FriendRelation> friendRelations) {
         List<Player> onlineFriends = new ArrayList<>(friendRelations.size());

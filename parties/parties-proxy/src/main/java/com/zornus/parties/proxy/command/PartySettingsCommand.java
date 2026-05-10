@@ -59,17 +59,14 @@ public final class PartySettingsCommand {
             TextComponent.Builder messageBuilder = Component.text().appendNewline();
 
             List<Component> settingEntries = new ArrayList<>();
-            // Privacy/Security settings first
             settingEntries.add(StringUtils.deserialize(
                     SharedConstants.BULLET_POINT + PartyProxyConstants.SETTINGS_DISPLAY_INVITES,
                     Placeholder.unparsed("value", settings.invitePrivacy())
             ));
-            // Communication settings
             settingEntries.add(StringUtils.deserialize(
                     SharedConstants.BULLET_POINT + PartyProxyConstants.SETTINGS_DISPLAY_CHAT,
                     Placeholder.unparsed("value", String.valueOf(settings.allowChat()))
             ));
-            // Interaction settings
             settingEntries.add(StringUtils.deserialize(
                     SharedConstants.BULLET_POINT + PartyProxyConstants.SETTINGS_DISPLAY_WARP,
                     Placeholder.unparsed("value", String.valueOf(settings.allowWarp()))
