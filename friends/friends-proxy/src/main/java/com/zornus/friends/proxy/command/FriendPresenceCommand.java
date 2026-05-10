@@ -35,7 +35,9 @@ public final class FriendPresenceCommand {
     }
 
     private static int handleDisplayPresence(@NonNull CommandContext<CommandSource> context, FriendService friendService) {
-        Player sender = (Player) context.getSource();
+        if (!(context.getSource() instanceof Player sender)) {
+            return Command.SINGLE_SUCCESS;
+        }
 
         friendService.getSettings(sender.getUniqueId()).thenAccept(settings -> {
             PresenceState presenceState = settings.presenceState();
@@ -51,7 +53,9 @@ public final class FriendPresenceCommand {
     }
 
     private static int handleUpdatePresence(@NonNull CommandContext<CommandSource> context, @NonNull FriendService friendService, PresenceState presenceState) {
-        Player sender = (Player) context.getSource();
+        if (!(context.getSource() instanceof Player sender)) {
+            return Command.SINGLE_SUCCESS;
+        }
 
         friendService.setPresence(sender.getUniqueId(), presenceState).thenAccept(result -> {
             switch (result) {

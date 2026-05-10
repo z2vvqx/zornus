@@ -62,7 +62,9 @@ public final class FriendRequestsCommand {
 
     private static int handleListRequests(@NonNull CommandContext<CommandSource> context, FriendService friendService,
                                       @NonNull String type, int page) {
-        Player sender = (Player) context.getSource();
+        if (!(context.getSource() instanceof Player sender)) {
+            return Command.SINGLE_SUCCESS;
+        }
 
         CompletableFuture<FriendRequestListResult> future = type.equals("incoming")
                 ? friendService.getIncomingRequestsList(sender.getUniqueId(), page)
