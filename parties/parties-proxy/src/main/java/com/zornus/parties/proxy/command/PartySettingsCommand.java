@@ -55,28 +55,36 @@ public final class PartySettingsCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        partyService.getSettings(sender.getUniqueId()).thenAccept(settings -> {
-            TextComponent.Builder messageBuilder = Component.text().appendNewline();
+        partyService.getSettings(sender.getUniqueId())
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to get settings for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
+                })
+                .thenAccept(settings -> {
+                    if (settings == null) return;
 
-            List<Component> settingEntries = new ArrayList<>();
-            settingEntries.add(StringUtils.deserialize(
-                    SharedConstants.BULLET_POINT + PartyProxyConstants.SETTINGS_DISPLAY_INVITES,
-                    Placeholder.unparsed("value", settings.invitePrivacy())
-            ));
-            settingEntries.add(StringUtils.deserialize(
-                    SharedConstants.BULLET_POINT + PartyProxyConstants.SETTINGS_DISPLAY_CHAT,
-                    Placeholder.unparsed("value", String.valueOf(settings.allowChat()))
-            ));
-            settingEntries.add(StringUtils.deserialize(
-                    SharedConstants.BULLET_POINT + PartyProxyConstants.SETTINGS_DISPLAY_WARP,
-                    Placeholder.unparsed("value", String.valueOf(settings.allowWarp()))
-            ));
+                    TextComponent.Builder messageBuilder = Component.text().appendNewline();
 
-            messageBuilder.append(Component.join(JoinConfiguration.newlines(), settingEntries));
-            messageBuilder.appendNewline();
+                    List<Component> settingEntries = new ArrayList<>();
+                    settingEntries.add(StringUtils.deserialize(
+                            SharedConstants.BULLET_POINT + PartyProxyConstants.SETTINGS_DISPLAY_INVITES,
+                            Placeholder.unparsed("value", settings.invitePrivacy())
+                    ));
+                    settingEntries.add(StringUtils.deserialize(
+                            SharedConstants.BULLET_POINT + PartyProxyConstants.SETTINGS_DISPLAY_CHAT,
+                            Placeholder.unparsed("value", String.valueOf(settings.allowChat()))
+                    ));
+                    settingEntries.add(StringUtils.deserialize(
+                            SharedConstants.BULLET_POINT + PartyProxyConstants.SETTINGS_DISPLAY_WARP,
+                            Placeholder.unparsed("value", String.valueOf(settings.allowWarp()))
+                    ));
 
-            sender.sendMessage(messageBuilder.build());
-        });
+                    messageBuilder.append(Component.join(JoinConfiguration.newlines(), settingEntries));
+                    messageBuilder.appendNewline();
+
+                    sender.sendMessage(messageBuilder.build());
+                });
 
         return Command.SINGLE_SUCCESS;
     }

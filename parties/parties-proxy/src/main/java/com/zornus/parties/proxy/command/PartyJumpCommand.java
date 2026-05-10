@@ -56,6 +56,8 @@ public final class PartyJumpCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.JUMP_INFO_ALREADY_WITH_LEADER));
                         case JUMPED_TO_LEADER ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.JUMP_SUCCESS));
+                        case WARP_FAILED ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.JUMP_ERROR_FAILED));
                         case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));

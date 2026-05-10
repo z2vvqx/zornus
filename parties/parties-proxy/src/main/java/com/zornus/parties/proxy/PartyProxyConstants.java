@@ -84,8 +84,9 @@ public final class PartyProxyConstants {
     public static final String TRANSFER_ERROR_PLAYER_NOT_IN_PARTY = "<red><yellow><target></yellow> is not in your party.</red>";
     public static final String TRANSFER_ERROR_CANNOT_TRANSFER_SELF = "<red>You cannot transfer leadership to yourself.</red>";
     public static final String TRANSFER_CONFIRMATION_REQUIRED = "<yellow>Are you sure you want to transfer leadership to <yellow><target></yellow>? Use <green>/party transfer <target> confirm</green> to proceed.</yellow>";
-    public static final String TRANSFER_ERROR_FAILED = "<red>Failed to transfer leadership.</red>";
     public static final String TRANSFER_ERROR_NO_CONFIRMATION = "<red>No confirmation is pending. Use <yellow>/party transfer <target></yellow> first.</red>";
+
+    public static final String JUMP_ERROR_FAILED = "<red>Failed to jump to your party leader.</red>";
 
     public static final String SETTINGS_UPDATE_SUCCESS = "<green>Setting <yellow><setting></yellow> has been updated to <yellow><value></yellow>.</green>";
     public static final String SETTINGS_DISPLAY_WARP = "<click:suggest_command:'/party settings warp '><#2DA0ED>warp</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Allow party leader to warp you: <value></white>";

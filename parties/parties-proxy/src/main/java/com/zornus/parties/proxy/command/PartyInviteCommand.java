@@ -118,7 +118,13 @@ public final class PartyInviteCommand {
 
     private static void handleCooldownMessage(Player sender, Player target, String targetName, PartyService partyService) {
         partyService.getRemainingInvitationCooldown(sender.getUniqueId(), target.getUniqueId())
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to get invitation cooldown for {} to {}", sender.getUniqueId(), target.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
+                })
                 .thenAccept(remainingTime -> {
+                    if (remainingTime == null) return;
                     Component timeComponent = StringUtils.formatDuration(remainingTime);
                     TagResolver combinedResolver = TagResolver.resolver(
                             Placeholder.unparsed("target", targetName),

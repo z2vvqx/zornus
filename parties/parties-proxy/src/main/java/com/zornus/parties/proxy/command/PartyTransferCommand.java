@@ -96,8 +96,6 @@ public final class PartyTransferCommand {
                         case LEADERSHIP_TRANSFERRED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.TRANSFER_SUCCESS,
                                         Placeholder.unparsed("target", targetName)));
-                        case TRANSFER_FAILED ->
-                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.TRANSFER_ERROR_FAILED));
                         case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
