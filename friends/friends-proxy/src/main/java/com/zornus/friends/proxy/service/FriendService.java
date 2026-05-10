@@ -296,7 +296,12 @@ public final class FriendService implements AutoCloseable {
     }
 
     private @NonNull CompletableFuture<FriendResult> executeJump(@NonNull Player jumper, @NonNull Player target) {
-        return jumper.createConnectionRequest(target.getCurrentServer().get().getServer())
+        Optional<Player> currentTarget = proxyServer.getPlayer(target.getUniqueId());
+        if (currentTarget.isEmpty() || currentTarget.get().getCurrentServer().isEmpty()) {
+            return CompletableFuture.completedFuture(FriendResult.FRIEND_NOT_ONLINE);
+        }
+        Player actualTarget = currentTarget.get();
+        return jumper.createConnectionRequest(actualTarget.getCurrentServer().get().getServer())
                 .connect()
                 .thenApply(result -> FriendResult.JUMP_SUCCESSFUL)
                 .exceptionally(throwable -> FriendResult.JUMP_FAILED);
@@ -364,6 +369,9 @@ public final class FriendService implements AutoCloseable {
     }
 
     public @NonNull CompletableFuture<Void> handlePlayerDisconnect(@NonNull UUID playerUuid, @NonNull String username) {
+        if (proxyServer.getPlayer(playerUuid).isPresent()) {
+            return CompletableFuture.completedFuture(null);
+        }
         return storage.saveLastSeen(playerUuid, Instant.now())
                 .thenCompose(ignored -> storage.fetchFriendRelations(playerUuid))
                 .thenAccept(friendRelations -> notificationService.notifyFriendsOfPlayerLeave(playerUuid, username, friendRelations));

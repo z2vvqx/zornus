@@ -8,6 +8,8 @@ import com.zornus.shared.utilities.CooldownKey;
 import com.zornus.shared.model.PlayerRecord;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.sql.*;
 import java.time.Duration;
@@ -22,6 +24,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public final class FriendPostgresStorage implements FriendStorage, AutoCloseable {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FriendPostgresStorage.class);
 
     private final HikariDataSource dataSource;
     private final ExecutorService databaseExecutor;
@@ -482,6 +486,9 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 connection.setAutoCommit(false);
                 connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
                 try {
+                    // Serialize request and friend limit checks per player
+                    acquirePerPlayerLocks(connection, senderId, receiverId);
+
                     // 1. Check if already friends
                     CooldownKey.CanonicalKey pair = CooldownKey.canonicalize(senderId, receiverId);
                     String checkFriendsSql = "SELECT 1 FROM relations WHERE player1 = ? AND player2 = ?";
@@ -653,6 +660,9 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     }
 
     private SendRequestOutcome handleMutualAutoAccept(Connection connection, UUID senderId, UUID receiverId) throws SQLException {
+        // Serialize friend limit checks per player
+        acquirePerPlayerLocks(connection, senderId, receiverId);
+
         // Serialize accepts per player to prevent concurrent accepts exceeding MAX_FRIENDS
         // Lock in canonical UUID order to prevent deadlocks
         UUID smaller = senderId.compareTo(receiverId) < 0 ? senderId : receiverId;
@@ -725,12 +735,26 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         }
     }
 
+    private void acquirePerPlayerLocks(Connection connection, UUID player1, UUID player2) throws SQLException {
+        UUID smaller = player1.compareTo(player2) < 0 ? player1 : player2;
+        UUID larger = smaller.equals(player1) ? player2 : player1;
+        try (PreparedStatement lockStatement = connection.prepareStatement(
+                "SELECT pg_advisory_xact_lock(hashtextextended(?, 0)), pg_advisory_xact_lock(hashtextextended(?, 0))")) {
+            lockStatement.setString(1, smaller.toString());
+            lockStatement.setString(2, larger.toString());
+            lockStatement.executeQuery();
+        }
+    }
+
     @Override
     public CompletableFuture<AcceptRequestOutcome> acceptFriendRequest(UUID accepterId, UUID requesterId) {
         return CompletableFuture.supplyAsync(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
+                // Serialize friend limit checks per player
+                acquirePerPlayerLocks(connection, accepterId, requesterId);
+
                 // Serialize accepts per player to prevent concurrent accepts exceeding MAX_FRIENDS
                 // Lock in canonical UUID order to prevent deadlocks
                 UUID smaller = accepterId.compareTo(requesterId) < 0 ? accepterId : requesterId;
@@ -863,9 +887,15 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
 
     private @NonNull FriendSettings mapResultSetToFriendSettings(@NonNull ResultSet resultSet) throws SQLException {
         String presenceStateString = resultSet.getString("presence_state");
-        PresenceState presenceState = presenceStateString != null
-                ? PresenceState.valueOf(presenceStateString.toUpperCase())
-                : PresenceState.ONLINE;
+        PresenceState presenceState = PresenceState.ONLINE;
+        if (presenceStateString != null) {
+            try {
+                presenceState = PresenceState.valueOf(presenceStateString.toUpperCase());
+            } catch (IllegalArgumentException exception) {
+                LOGGER.warn("Unknown presence_state '{}' for player {}, defaulting to ONLINE",
+                        presenceStateString, resultSet.getObject("player_id"));
+            }
+        }
         return new FriendSettings(
                 (UUID) resultSet.getObject("player_id"),
                 presenceState,
