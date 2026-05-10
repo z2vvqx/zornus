@@ -652,7 +652,13 @@ public final class PartyService implements AutoCloseable {
                         return CompletableFuture.<PartyResult>completedFuture(PartyResult.ALREADY_WITH_LEADER);
                     }
 
-                    return sender.createConnectionRequest(leader.getCurrentServer().get().getServer())
+                    Optional<Player> currentLeader = proxyServer.getPlayer(leaderId);
+                    if (currentLeader.isEmpty() || currentLeader.get().getCurrentServer().isEmpty()) {
+                        return CompletableFuture.<PartyResult>completedFuture(PartyResult.LEADER_NOT_ONLINE);
+                    }
+                    Player actualLeader = currentLeader.get();
+
+                    return sender.createConnectionRequest(actualLeader.getCurrentServer().get().getServer())
                             .connect()
                             .thenApply(result -> PartyResult.JUMPED_TO_LEADER)
                             .exceptionally(throwable -> PartyResult.WARP_FAILED);
