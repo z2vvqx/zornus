@@ -859,7 +859,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
         }, databaseExecutor);
     }
 
-    // ==================== SINGLE-QUERY OPERATIONS ====================
+    // Single-query operations
 
     @Override
     public CompletableFuture<Optional<Guild>> fetchGuild(@NonNull UUID guildId) {
@@ -1299,7 +1299,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
         }, databaseExecutor);
     }
 
-    // ==================== HELPER METHODS ====================
+    // Helper methods
 
     private Optional<Guild> buildGuildFromResultSet(ResultSet resultSet) throws SQLException {
         UUID guildId = (UUID) resultSet.getObject("guild_id");

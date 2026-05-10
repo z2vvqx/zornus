@@ -16,13 +16,13 @@ import java.util.concurrent.CompletableFuture;
 
 public interface FriendStorage {
 
-    // ==================== COMPOUND OPERATIONS ====================
+    // Compound operations
 
     CompletableFuture<SendRequestOutcome> trySendFriendRequest(@NonNull UUID senderId, @NonNull UUID receiverId);
 
     CompletableFuture<AcceptRequestOutcome> acceptFriendRequest(@NonNull UUID accepterId, @NonNull UUID requesterId);
 
-    // ==================== SINGLE-QUERY OPERATIONS ====================
+    // Single-query operations
 
     CompletableFuture<Void> removeFriendRequest(@NonNull UUID sender, @NonNull UUID receiver);
     CompletableFuture<List<FriendRequest>> fetchIncomingFriendRequests(@NonNull UUID receiver);

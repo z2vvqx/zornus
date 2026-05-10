@@ -52,7 +52,6 @@ public interface PartyStorage {
 
     CompletableFuture<Optional<PartySettings>> fetchSettings(@NonNull UUID playerId);
 
-    // Atomic column-specific updates to avoid read-modify-write races
     CompletableFuture<Void> updateAllowChat(@NonNull UUID playerId, boolean allowChat);
     CompletableFuture<Void> updateAllowWarp(@NonNull UUID playerId, boolean allowWarp);
     CompletableFuture<Void> updateInvitePrivacy(@NonNull UUID playerId, @NonNull String invitePrivacy);

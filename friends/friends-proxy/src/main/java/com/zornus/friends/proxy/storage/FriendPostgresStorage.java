@@ -472,7 +472,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         }, databaseExecutor);
     }
 
-    // ==================== COMPOUND OPERATIONS ====================
+    // Compound operations
 
     @Override
     public CompletableFuture<SendRequestOutcome> trySendFriendRequest(UUID senderId, UUID receiverId) {

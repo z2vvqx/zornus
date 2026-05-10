@@ -174,7 +174,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
         }
     }
 
-    // ==================== COMPOUND OPERATIONS ====================
+    // Compound operations
 
     @Override
     public CompletableFuture<CreatePartyOutcome> createParty(@NonNull Party party) {
@@ -893,7 +893,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
         }, databaseExecutor);
     }
 
-    // ==================== SINGLE-QUERY OPERATIONS ====================
+    // Single-query operations
 
     @Override
     public CompletableFuture<Optional<Party>> fetchParty(@NonNull UUID partyId) {
