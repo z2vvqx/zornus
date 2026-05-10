@@ -25,16 +25,24 @@ public final class GuildProxyPlugin {
 
     @Subscribe
     public void onProxyInitialization(@NonNull ProxyInitializeEvent event) {
-        this.guildProxyModule = new GuildProxyModule(this, proxyServer);
-        guildProxyModule.initialize(proxyServer.getCommandManager(), proxyServer.getEventManager(), proxyServer.getScheduler());
-        logger.info("Guilds Proxy module initialized successfully");
+        try {
+            this.guildProxyModule = new GuildProxyModule(this, proxyServer);
+            guildProxyModule.initialize(proxyServer.getCommandManager(), proxyServer.getEventManager(), proxyServer.getScheduler());
+            logger.info("Guilds Proxy module initialized successfully");
+        } catch (Exception exception) {
+            logger.error("Failed to initialize Guilds plugin", exception);
+        }
     }
 
     @Subscribe
     public void onProxyShutdown(@NonNull ProxyShutdownEvent event) {
-        if (guildProxyModule != null) {
-            guildProxyModule.shutdown();
+        try {
+            if (guildProxyModule != null) {
+                guildProxyModule.shutdown();
+            }
+            logger.info("Guilds Proxy module shutdown complete");
+        } catch (Exception exception) {
+            logger.error("Error during Guilds plugin shutdown", exception);
         }
-        logger.info("Guilds Proxy module shutdown complete");
     }
 }

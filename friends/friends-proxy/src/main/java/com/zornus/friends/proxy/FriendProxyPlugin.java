@@ -46,7 +46,6 @@ public class FriendProxyPlugin {
             logger.info("Friends plugin initialized successfully");
         } catch (Exception exception) {
             logger.error("Failed to initialize Friends plugin", exception);
-            throw exception;
         }
     }
 

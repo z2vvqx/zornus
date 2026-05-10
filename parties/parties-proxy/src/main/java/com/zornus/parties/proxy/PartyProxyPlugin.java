@@ -25,17 +25,25 @@ public final class PartyProxyPlugin {
 
     @Subscribe
     public void onProxyInitialization(@NonNull ProxyInitializeEvent event) {
-        this.partyProxyModule = new PartyProxyModule(this, proxyServer);
-        partyProxyModule.initialize(proxyServer.getCommandManager(), proxyServer.getEventManager(), proxyServer.getScheduler());
-        logger.info("Parties Proxy module initialized successfully");
+        try {
+            this.partyProxyModule = new PartyProxyModule(this, proxyServer);
+            partyProxyModule.initialize(proxyServer.getCommandManager(), proxyServer.getEventManager(), proxyServer.getScheduler());
+            logger.info("Parties Proxy module initialized successfully");
+        } catch (Exception exception) {
+            logger.error("Failed to initialize Parties plugin", exception);
+        }
     }
 
     @Subscribe
     public void onProxyShutdown(@NonNull ProxyShutdownEvent event) {
-        if (partyProxyModule != null) {
-            partyProxyModule.shutdown();
+        try {
+            if (partyProxyModule != null) {
+                partyProxyModule.shutdown();
+            }
+            logger.info("Parties Proxy module shutdown complete");
+        } catch (Exception exception) {
+            logger.error("Error during Parties plugin shutdown", exception);
         }
-        logger.info("Parties Proxy module shutdown complete");
     }
 }
 
