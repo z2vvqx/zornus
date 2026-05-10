@@ -12,7 +12,6 @@ import com.zornus.parties.proxy.service.PartyService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.HelpUtils;
 import com.zornus.shared.utilities.StringUtils;
-import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 
 /**
@@ -33,7 +32,6 @@ public final class PartyHelpCommand {
                 );
     }
 
-    @Contract(pure = true)
     public static @NonNull Command<CommandSource> defaultExecutor(PartyService partyService) {
         return context -> handlePartyHelp(context, 1);
     }

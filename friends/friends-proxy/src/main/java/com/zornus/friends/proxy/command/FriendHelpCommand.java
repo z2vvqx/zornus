@@ -9,7 +9,6 @@ import com.velocitypowered.api.command.CommandSource;
 import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.utilities.HelpUtils;
-import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 
 /**
@@ -30,7 +29,6 @@ public final class FriendHelpCommand {
                 );
     }
 
-    @Contract(pure = true)
     public static @NonNull Command<CommandSource> defaultExecutor(FriendService friendService) {
         return context -> handleDisplayHelp(context, 1);
     }
