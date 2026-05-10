@@ -100,7 +100,11 @@ public final class GuildService implements AutoCloseable {
         return storage.tryDisbandGuild(guild.guildId(), leaderId)
                 .thenApply(outcome -> switch (outcome) {
                     case DisbandGuildOutcome.Disbanded disbanded -> {
-                        notificationService.notifyGuildDisbanded(guild, leaderId);
+                        notificationService.notifyGuildDisbanded(guild, leaderId)
+                                .exceptionally(throwable -> {
+                                    LOGGER.error("Failed to send guild disbanded notification", throwable);
+                                    return null;
+                                });
                         yield GuildResult.GUILD_DISBANDED;
                     }
                     case DisbandGuildOutcome.GuildNotFound guildNotFound -> GuildResult.GUILD_NOT_FOUND;
@@ -506,7 +510,11 @@ public final class GuildService implements AutoCloseable {
         return storage.tryTransferLeadership(guild.guildId(), targetId, senderId)
                 .thenApply(outcome -> switch (outcome) {
                     case TransferLeadershipOutcome.Transferred transferred -> {
-                        notificationService.notifyLeadershipTransferred(guild, senderId, targetId);
+                        notificationService.notifyLeadershipTransferred(guild, senderId, targetId)
+                                .exceptionally(throwable -> {
+                                    LOGGER.error("Failed to send leadership transferred notification", throwable);
+                                    return null;
+                                });
                         yield GuildResult.LEADERSHIP_TRANSFERRED;
                     }
                     case TransferLeadershipOutcome.GuildNotFound guildNotFound -> GuildResult.GUILD_NOT_FOUND;

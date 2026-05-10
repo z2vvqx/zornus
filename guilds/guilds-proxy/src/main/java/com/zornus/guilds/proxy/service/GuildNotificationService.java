@@ -55,11 +55,15 @@ public final class GuildNotificationService {
 
     public void notifyMemberKicked(@NonNull Guild guild, @NonNull UUID kickedMemberId,
                                    @NonNull String memberName, @NonNull String kickerName) {
-        Component message = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_MEMBER_KICKED,
+        Component broadcastMessage = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_MEMBER_KICKED,
                 TagResolver.resolver(
                         Placeholder.unparsed("member", memberName),
                         Placeholder.unparsed("kicker", kickerName)));
-        broadcastToGuild(guild, message, kickedMemberId);
+        broadcastToGuild(guild, broadcastMessage, kickedMemberId);
+
+        Component kickedPlayerMessage = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_YOU_WERE_KICKED,
+                TagResolver.resolver(Placeholder.unparsed("kicker", kickerName)));
+        proxyServer.getPlayer(kickedMemberId).ifPresent(kickedPlayer -> kickedPlayer.sendMessage(kickedPlayerMessage));
     }
 
     public CompletableFuture<Void> notifyLeadershipTransferred(@NonNull Guild guild,

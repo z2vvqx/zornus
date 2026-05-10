@@ -20,7 +20,6 @@ public final class GuildProxyConstants {
     public static final Duration INVITATION_COOLDOWN = Duration.ofMinutes(1);
     public static final Duration CONFIRMATION_EXPIRY = Duration.ofMinutes(1);
     public static final Duration INVITATION_EXPIRY = Duration.ofMinutes(5);
-    public static final Duration CLEANUP_EXPIRY = Duration.ofDays(1);
 
     public static final Duration CLEANUP_TASK_INTERVAL = Duration.ofMinutes(15);
 
@@ -118,6 +117,7 @@ public final class GuildProxyConstants {
     public static final String NOTIFICATION_MEMBER_JOINED = "<green><sender> joined the guild.</green>";
     public static final String NOTIFICATION_MEMBER_LEFT = "<yellow><sender> left the guild.</yellow>";
     public static final String NOTIFICATION_MEMBER_KICKED = "<red><member> was kicked from the guild by <kicker>.</red>";
+    public static final String NOTIFICATION_YOU_WERE_KICKED = "<red>You were kicked from the guild by <kicker>.</red>";
     public static final String NOTIFICATION_LEADERSHIP_TRANSFERRED = "<yellow><sender> transferred leadership to <member>.</yellow>";
     public static final String NOTIFICATION_INVITE_RECEIVED = "<green><player> invited you to join their guild <guild>.</green>";
     public static final String NOTIFICATION_INVITE_SENT_ANNOUNCEMENT = "<green><sender> invited <target> to the guild.</green>";
