@@ -340,11 +340,19 @@ public final class PartyService implements AutoCloseable {
                     }
                     Party party = partyOptional.get();
                     return removePlayerFromParty(senderId, sender.getUsername(), party, true)
-                            .thenApply(result -> {
-                                if (result == PartyResult.LEFT_PARTY || result == PartyResult.LEFT_PARTY_DISBANDED) {
+                            .thenCompose(result -> {
+                                if (result == PartyResult.LEADER_TRANSFERRED) {
+                                    return storage.fetchParty(party.partyId())
+                                            .thenApply(updatedPartyOptional -> {
+                                                updatedPartyOptional.ifPresent(updatedParty ->
+                                                        proxyServer.getPlayer(updatedParty.leaderId()).ifPresent(newLeader ->
+                                                                notificationService.notifyLeadershipTransferred(updatedParty, sender.getUsername(), newLeader)));
+                                                return PartyResult.LEFT_PARTY;
+                                            });
+                                } else if (result == PartyResult.LEFT_PARTY || result == PartyResult.LEFT_PARTY_DISBANDED) {
                                     notificationService.notifyMemberLeft(party, sender.getUsername(), senderId);
                                 }
-                                return result;
+                                return CompletableFuture.completedFuture(result);
                             });
                 });
     }
@@ -455,23 +463,22 @@ public final class PartyService implements AutoCloseable {
                     boolean wasLeader = party.isLeader(playerId);
                     return removePlayerFromParty(playerId, username, party, true)
                             .thenCompose(result -> {
-                                if (result != PartyResult.LEFT_PARTY && result != PartyResult.LEFT_PARTY_DISBANDED) {
-                                    return CompletableFuture.<Void>completedFuture(null);
+                                if (result == PartyResult.LEADER_TRANSFERRED) {
+                                    return storage.fetchParty(party.partyId())
+                                            .thenAccept(updatedPartyOptional -> {
+                                                updatedPartyOptional.ifPresent(updatedParty ->
+                                                        notificationService.notifyLeaderDisconnected(updatedParty, playerId, username));
+                                            });
+                                } else if (result == PartyResult.LEFT_PARTY || result == PartyResult.LEFT_PARTY_DISBANDED) {
+                                    if (result == PartyResult.LEFT_PARTY && !wasLeader) {
+                                        return storage.fetchParty(party.partyId())
+                                                .thenAccept(updatedPartyOptional -> {
+                                                    updatedPartyOptional.ifPresent(updatedParty ->
+                                                            notificationService.notifyMemberDisconnected(updatedParty, playerId, username));
+                                                });
+                                    }
                                 }
-                                // Fetch updated party to check if it still exists and get new leader
-                                return storage.fetchParty(party.partyId())
-                                        .thenAccept(updatedPartyOptional -> {
-                                            if (updatedPartyOptional.isEmpty()) {
-                                                // Party was disbanded
-                                                return;
-                                            }
-                                            Party updatedParty = updatedPartyOptional.get();
-                                            if (wasLeader) {
-                                                notificationService.notifyLeaderDisconnected(updatedParty, playerId, username);
-                                            } else {
-                                                notificationService.notifyMemberDisconnected(updatedParty, playerId, username);
-                                            }
-                                        });
+                                return CompletableFuture.<Void>completedFuture(null);
                             });
                 });
     }
@@ -480,11 +487,7 @@ public final class PartyService implements AutoCloseable {
         return storage.removeMember(party.partyId(), memberId)
                 .thenApply(outcome -> switch (outcome) {
                     case RemoveMemberOutcome.MemberRemoved memberRemoved -> PartyResult.LEFT_PARTY;
-                    case RemoveMemberOutcome.LeaderTransferred leaderTransferred -> {
-                        proxyServer.getPlayer(leaderTransferred.newLeaderId()).ifPresent(newLeader ->
-                                notificationService.notifyLeadershipTransferred(party, memberName, newLeader));
-                        yield PartyResult.LEFT_PARTY;
-                    }
+                    case RemoveMemberOutcome.LeaderTransferred leaderTransferred -> PartyResult.LEADER_TRANSFERRED;
                     case RemoveMemberOutcome.PartyDisbanded partyDisbanded ->
                             isLeaving ? PartyResult.LEFT_PARTY_DISBANDED : PartyResult.LEFT_PARTY;
                     case RemoveMemberOutcome.MemberNotFound memberNotFound -> PartyResult.PLAYER_NOT_IN_PARTY;
