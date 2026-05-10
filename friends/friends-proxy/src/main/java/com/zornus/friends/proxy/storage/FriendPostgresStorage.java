@@ -162,13 +162,14 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     }
 
     @Override
-    public CompletableFuture<Void> removeFriendRequest(UUID sender, UUID receiver) {
-        return CompletableFuture.runAsync(() -> {
+    public CompletableFuture<Boolean> removeFriendRequest(UUID sender, UUID receiver) {
+        return CompletableFuture.supplyAsync(() -> {
             String sql = "DELETE FROM requests WHERE sender = ? AND receiver = ?";
-            executeUpdate(sql, statement -> {
+            int rows = executeUpdate(sql, statement -> {
                 statement.setObject(1, sender);
                 statement.setObject(2, receiver);
             }, "remove friend request");
+            return rows > 0;
         }, databaseExecutor);
     }
 

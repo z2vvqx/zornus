@@ -94,12 +94,12 @@ public final class FriendService implements AutoCloseable {
 
     public @NonNull CompletableFuture<FriendResult> rejectFriendRequest(@NonNull UUID rejecterUuid, @NonNull UUID requesterUuid) {
         return storage.removeFriendRequest(requesterUuid, rejecterUuid)
-                .thenApply(ignored -> FriendResult.REQUEST_REJECTED);
+                .thenApply(removed -> removed ? FriendResult.REQUEST_REJECTED : FriendResult.NO_REQUEST_FOUND);
     }
 
     public @NonNull CompletableFuture<FriendResult> revokeFriendRequest(@NonNull UUID revokerUuid, @NonNull UUID targetUuid) {
         return storage.removeFriendRequest(revokerUuid, targetUuid)
-                .thenApply(ignored -> FriendResult.REQUEST_REVOKED);
+                .thenApply(removed -> removed ? FriendResult.REQUEST_REVOKED : FriendResult.NO_REQUEST_FOUND);
     }
 
     public @NonNull CompletableFuture<FriendRequestListResult> getIncomingRequestsList(@NonNull UUID playerUuid, int page) {
@@ -214,15 +214,12 @@ public final class FriendService implements AutoCloseable {
     }
 
     private @NonNull CompletableFuture<String> resolvePlayerName(@NonNull UUID playerUuid) {
-        return CompletableFuture.completedFuture(
-                proxyServer.getPlayer(playerUuid)
-                        .map(Player::getUsername)
-                        .orElseGet(() -> {
-                            return storage.fetchPlayerByUuid(playerUuid)
-                                    .thenApply(recordOpt -> recordOpt.map(PlayerRecord::username).orElse("Unknown"))
-                                    .join();
-                        })
-        );
+        return proxyServer.getPlayer(playerUuid)
+                .map(player -> CompletableFuture.completedFuture(player.getUsername()))
+                .orElseGet(() -> storage.fetchPlayerByUuid(playerUuid)
+                        .thenApply(recordOpt -> recordOpt
+                                .map(PlayerRecord::username)
+                                .orElse("Unknown")));
     }
 
     private @NonNull CompletableFuture<FriendReplyResult> sendFriendMessageWithValidation(@NonNull UUID senderUuid,

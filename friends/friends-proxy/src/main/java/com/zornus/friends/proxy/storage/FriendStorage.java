@@ -24,7 +24,7 @@ public interface FriendStorage {
 
     // Single-query operations
 
-    CompletableFuture<Void> removeFriendRequest(@NonNull UUID sender, @NonNull UUID receiver);
+    CompletableFuture<Boolean> removeFriendRequest(@NonNull UUID sender, @NonNull UUID receiver);
     CompletableFuture<List<FriendRequest>> fetchIncomingFriendRequests(@NonNull UUID receiver);
     CompletableFuture<List<FriendRequest>> fetchOutgoingFriendRequests(@NonNull UUID sender);
 

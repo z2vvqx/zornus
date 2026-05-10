@@ -16,7 +16,6 @@ public final class FriendProxyConstants {
     public static final int MAX_FRIEND_REQUESTS = 50;
     public static final int MAX_MESSAGE_LENGTH = 256;
     public static final Duration REQUEST_EXPIRY_DURATION = Duration.ofDays(7);
-    public static final Duration COOLDOWN_EXPIRY_DURATION = Duration.ofDays(1);
     public static final Duration CLEANUP_TASK_INTERVAL = Duration.ofMinutes(30);
     public static final Duration FRIEND_REQUEST_COOLDOWN = Duration.ofMinutes(1);
     public static final Duration LAST_MESSAGE_SENDER_RETENTION = Duration.ofDays(1);
