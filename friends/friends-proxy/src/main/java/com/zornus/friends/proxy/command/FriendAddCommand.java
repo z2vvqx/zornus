@@ -119,7 +119,13 @@ public final class FriendAddCommand {
 
     private static void handleCooldownMessage(Player sender, UUID targetUuid, String targetName, FriendService friendService) {
         friendService.getRemainingRequestCooldown(sender.getUniqueId(), targetUuid)
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to get request cooldown for {} to {}", sender.getUniqueId(), targetUuid, throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
+                })
                 .thenAccept(remainingTime -> {
+                    if (remainingTime == null) return;
                     Component timeComponent = StringUtils.formatDuration(remainingTime);
                     TagResolver combinedResolver = TagResolver.resolver(
                             Placeholder.unparsed("target", targetName),

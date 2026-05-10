@@ -12,6 +12,8 @@ import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -19,6 +21,8 @@ import java.util.Optional;
 import java.util.UUID;
 
 public final class FriendNotificationService {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FriendNotificationService.class);
 
     private final @NonNull FriendStorage storage;
     private final @NonNull ProxyServer proxyServer;
@@ -30,7 +34,12 @@ public final class FriendNotificationService {
 
     public void notifyFriendsOfPlayerJoin(@NonNull UUID joiningPlayerUuid, @NonNull String username,
                                           @NonNull List<FriendRelation> friendRelations) {
-        storage.fetchSettings(joiningPlayerUuid).thenAccept(settingsOptional -> {
+        storage.fetchSettings(joiningPlayerUuid)
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to fetch settings for player {}", joiningPlayerUuid, throwable);
+                    return Optional.empty();
+                })
+                .thenAccept(settingsOptional -> {
             FriendSettings settings = settingsOptional.orElse(new FriendSettings(joiningPlayerUuid));
             if (settings.presenceState() == PresenceState.OFFLINE) {
                 return;
@@ -52,7 +61,12 @@ public final class FriendNotificationService {
 
     public void notifyFriendsOfPlayerLeave(@NonNull UUID leavingPlayerUuid, @NonNull String username,
                                            @NonNull List<FriendRelation> friendRelations) {
-        storage.fetchSettings(leavingPlayerUuid).thenAccept(settingsOptional -> {
+        storage.fetchSettings(leavingPlayerUuid)
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to fetch settings for player {}", leavingPlayerUuid, throwable);
+                    return Optional.empty();
+                })
+                .thenAccept(settingsOptional -> {
             FriendSettings settings = settingsOptional.orElse(new FriendSettings(leavingPlayerUuid));
             if (settings.presenceState() == PresenceState.OFFLINE) {
                 return;

@@ -8,7 +8,7 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.zornus.friends.proxy.FriendProxyConstants;
-import com.zornus.friends.proxy.model.FriendSettings;
+import com.zornus.friends.proxy.model.result.FriendResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.StringUtils;
@@ -19,6 +19,8 @@ import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -27,6 +29,8 @@ import java.util.List;
  * Command for managing friend settings.
  */
 public final class FriendSettingsCommand {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(FriendSettingsCommand.class);
 
     public static LiteralArgumentBuilder<CommandSource> create(FriendService friendService) {
         return BrigadierCommand
@@ -57,7 +61,13 @@ public final class FriendSettingsCommand {
 
         boolean value = BoolArgumentType.getBool(context, "value");
 
-        friendService.updateSetting(sender.getUniqueId(), setting, value).thenAccept(result -> {
+        friendService.updateSetting(sender.getUniqueId(), setting, value)
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to update setting for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return FriendResult.ERROR_ALREADY_HANDLED;
+                })
+                .thenAccept(result -> {
             switch (result) {
                 case SETTING_UPDATED ->
                         sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.SETTINGS_UPDATE_SUCCESS,
@@ -67,6 +77,7 @@ public final class FriendSettingsCommand {
                                 )));
                 case INVALID_SETTING ->
                         sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_INVALID_SETTING, Placeholder.unparsed("setting", setting)));
+                case ERROR_ALREADY_HANDLED -> {}
                 default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
             }
         });
@@ -81,9 +92,16 @@ public final class FriendSettingsCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        friendService.getSettings(sender.getUniqueId()).thenAccept(settings -> {
+        friendService.getSettings(sender.getUniqueId())
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to get settings for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
+                })
+                .thenAccept(settings -> {
+                    if (settings == null) return;
 
-            ComponentBuilder<TextComponent, TextComponent.Builder> messageBuilder = Component.text().appendNewline();
+                    ComponentBuilder<TextComponent, TextComponent.Builder> messageBuilder = Component.text().appendNewline();
 
             List<Component> settingEntries = new ArrayList<>();
             settingEntries.add(StringUtils.deserialize(
