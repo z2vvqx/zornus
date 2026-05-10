@@ -344,9 +344,11 @@ public final class PartyService implements AutoCloseable {
                                 if (result == PartyResult.LEADER_TRANSFERRED) {
                                     return storage.fetchParty(party.partyId())
                                             .thenApply(updatedPartyOptional -> {
-                                                updatedPartyOptional.ifPresent(updatedParty ->
-                                                        proxyServer.getPlayer(updatedParty.leaderId()).ifPresent(newLeader ->
-                                                                notificationService.notifyLeadershipTransferred(updatedParty, sender.getUsername(), newLeader)));
+                                                updatedPartyOptional.ifPresent(updatedParty -> {
+                                                    notificationService.notifyMemberLeft(party, sender.getUsername(), senderId);
+                                                    proxyServer.getPlayer(updatedParty.leaderId()).ifPresent(newLeader ->
+                                                            notificationService.notifyLeadershipTransferred(updatedParty, sender.getUsername(), newLeader));
+                                                });
                                                 return PartyResult.LEFT_PARTY;
                                             });
                                 } else if (result == PartyResult.LEFT_PARTY || result == PartyResult.LEFT_PARTY_DISBANDED) {
