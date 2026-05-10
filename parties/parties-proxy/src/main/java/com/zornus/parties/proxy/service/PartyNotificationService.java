@@ -12,7 +12,9 @@ import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
 
-import java.util.*;
+import java.util.Map;
+import java.util.Set;
+import java.util.UUID;
 
 public final class PartyNotificationService {
 
@@ -72,7 +74,7 @@ public final class PartyNotificationService {
     public void sendInviteReceived(@NonNull Player target, @NonNull Player sender, @NonNull Party party) {
         Component message = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_INVITE_RECEIVED,
                 TagResolver.resolver(
-                        Placeholder.unparsed("player", sender.getUsername())));
+                        Placeholder.parsed("player", StringUtils.escapeTags(sender.getUsername()))));
         target.sendMessage(message);
     }
 
@@ -108,7 +110,7 @@ public final class PartyNotificationService {
     }
 
     public void sendPartyChatFiltered(@NonNull Party party, @NonNull Player sender, @NonNull String message,
-                                        @NonNull Map<UUID, PartySettings> settingsMap) {
+                                      @NonNull Map<UUID, PartySettings> settingsMap) {
         Component componentMessage = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_CHAT_FORMAT,
                 TagResolver.resolver(
                         Placeholder.unparsed("sender", sender.getUsername()),

@@ -28,6 +28,10 @@ public final class StringUtils {
         return MINI_MESSAGE.deserialize(input, resolver);
     }
 
+    public static String escapeTags(String input) {
+        return MINI_MESSAGE.escapeTags(input);
+    }
+
     public static Component formatRelativeTime(Instant timestamp) {
         Duration duration = Duration.between(Instant.now(), timestamp);
         boolean isPast = duration.isNegative();

@@ -81,7 +81,7 @@ public final class GuildNotificationService {
         proxyServer.getPlayer(targetId).ifPresent(target -> {
             Component message = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_INVITE_RECEIVED,
                     TagResolver.resolver(
-                            Placeholder.unparsed("player", sender.getUsername()),
+                            Placeholder.parsed("player", StringUtils.escapeTags(sender.getUsername())),
                             Placeholder.unparsed("guild", guild.guildName())));
             target.sendMessage(message);
         });

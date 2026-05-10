@@ -82,7 +82,7 @@ public final class FriendNotificationService {
                 .map(Player::getUsername)
                 .orElse("Unknown");
 
-        TagResolver resolver = TagResolver.resolver(Placeholder.unparsed("sender", senderUsername));
+        TagResolver resolver = TagResolver.resolver(Placeholder.parsed("sender", StringUtils.escapeTags(senderUsername)));
         Component message = StringUtils.deserialize(FriendProxyConstants.NOTIFICATION_REQUEST_RECEIVED, resolver);
         receiver.get().sendMessage(message);
     }

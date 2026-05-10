@@ -117,7 +117,7 @@ public final class PartyRequestsCommand {
             invitationEntries.add(StringUtils.deserialize(
                     SharedConstants.BULLET_POINT + entryFormat,
                     TagResolver.resolver(
-                            Placeholder.parsed("player", playerName),
+                            Placeholder.parsed("player", StringUtils.escapeTags(playerName)),
                             Placeholder.component("timestamp", timestampComponent)
                     )
             ));
