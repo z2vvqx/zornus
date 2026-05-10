@@ -534,6 +534,9 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         }
                     }
 
+                    // Serialize invitation limit checks per player
+                    acquirePerPlayerLocks(connection, senderId, targetId);
+
                     // 6. Check sender invitation limits
                     String countSenderInvitesSql = """
                         SELECT (SELECT COUNT(*) FROM guild_invitations WHERE sender_id = ?) +
@@ -1351,6 +1354,17 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 resultSet.getString("invite_privacy"),
                 resultSet.getBoolean("show_chat")
         );
+    }
+
+    private void acquirePerPlayerLocks(Connection connection, UUID player1, UUID player2) throws SQLException {
+        UUID smaller = player1.compareTo(player2) < 0 ? player1 : player2;
+        UUID larger = smaller.equals(player1) ? player2 : player1;
+        try (PreparedStatement lockStatement = connection.prepareStatement(
+                "SELECT pg_advisory_xact_lock(hashtextextended(?, 0)), pg_advisory_xact_lock(hashtextextended(?, 0))")) {
+            lockStatement.setString(1, smaller.toString());
+            lockStatement.setString(2, larger.toString());
+            lockStatement.executeQuery();
+        }
     }
 
     @FunctionalInterface
