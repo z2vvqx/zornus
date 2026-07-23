@@ -12,6 +12,7 @@ import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.result.FriendResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
+import com.zornus.shared.model.PlayerRecord;
 import com.zornus.shared.utilities.StringUtils;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
@@ -79,8 +80,8 @@ public final class FriendMessageCommand {
                         return;
                     }
 
-                    UUID targetUuid = targetOptional.get();
-                    processMessageSend(sender, targetUuid, targetName, message, friendService);
+                    PlayerRecord targetRecord = targetOptional.get();
+                    processMessageSend(sender, targetRecord.playerUuid(), targetRecord.username(), message, friendService);
                 });
 
         return Command.SINGLE_SUCCESS;

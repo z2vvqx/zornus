@@ -13,6 +13,7 @@ import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.result.FriendResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
+import com.zornus.shared.model.PlayerRecord;
 import com.zornus.shared.utilities.StringUtils;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 
@@ -71,7 +72,9 @@ public final class FriendRejectCommand {
                         return;
                     }
 
-                    UUID targetUuid = targetOptional.get();
+                    PlayerRecord targetRecord = targetOptional.get();
+                    UUID targetUuid = targetRecord.playerUuid();
+                    String targetUsername = targetRecord.username();
                     friendService.rejectFriendRequest(sender.getUniqueId(), targetUuid)
                             .exceptionally(throwable -> {
                                 LOGGER.error("Failed to reject friend request from {} to {}", sender.getUniqueId(), targetUuid, throwable);
@@ -83,9 +86,9 @@ public final class FriendRejectCommand {
                                     case PLAYER_NOT_FOUND ->
                                             sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
                                     case NO_REQUEST_FOUND ->
-                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ERROR_NOT_FOUND, Placeholder.unparsed("target", targetName)));
+                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ERROR_NOT_FOUND, Placeholder.unparsed("target", targetUsername)));
                                     case REQUEST_REJECTED ->
-                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_REJECT_SUCCESS, Placeholder.unparsed("target", targetName)));
+                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_REJECT_SUCCESS, Placeholder.unparsed("target", targetUsername)));
                                     case ERROR_ALREADY_HANDLED -> {}
                                     default ->
                                             sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));

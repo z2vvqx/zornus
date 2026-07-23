@@ -13,6 +13,7 @@ import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.result.FriendResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
+import com.zornus.shared.model.PlayerRecord;
 import com.zornus.shared.utilities.StringUtils;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import org.jspecify.annotations.NonNull;
@@ -70,7 +71,9 @@ public final class FriendJumpCommand {
                         return;
                     }
 
-                    UUID targetUuid = targetOptional.get();
+                    PlayerRecord targetRecord = targetOptional.get();
+                    UUID targetUuid = targetRecord.playerUuid();
+                    String targetUsername = targetRecord.username();
                     friendService.jumpToFriend(sender.getUniqueId(), targetUuid)
                             .exceptionally(throwable -> {
                                 LOGGER.error("Failed to jump to friend {} from {}", targetUuid, sender.getUniqueId(), throwable);
@@ -82,17 +85,17 @@ public final class FriendJumpCommand {
                                     case PLAYER_NOT_FOUND ->
                                             sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
                                     case NOT_FRIENDS ->
-                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_NOT_FRIENDS, Placeholder.unparsed("target", targetName)));
+                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_NOT_FRIENDS, Placeholder.unparsed("target", targetUsername)));
                                     case FRIEND_NOT_ONLINE ->
-                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_FRIEND_OFFLINE, Placeholder.unparsed("target", targetName)));
+                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_FRIEND_OFFLINE, Placeholder.unparsed("target", targetUsername)));
                                     case PLAYER_NOT_ALLOWING_JUMP ->
-                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_PLAYER_NOT_ALLOWING_JUMP, Placeholder.unparsed("target", targetName)));
+                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_PLAYER_NOT_ALLOWING_JUMP, Placeholder.unparsed("target", targetUsername)));
                                     case FRIEND_NO_INSTANCE ->
-                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.JUMP_ERROR_NO_INSTANCE, Placeholder.unparsed("target", targetName)));
+                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.JUMP_ERROR_NO_INSTANCE, Placeholder.unparsed("target", targetUsername)));
                                     case ALREADY_IN_SAME_INSTANCE ->
-                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.JUMP_INFO_SAME_INSTANCE, Placeholder.unparsed("target", targetName)));
+                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.JUMP_INFO_SAME_INSTANCE, Placeholder.unparsed("target", targetUsername)));
                                     case JUMP_SUCCESSFUL ->
-                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.JUMP_SUCCESS, Placeholder.unparsed("target", targetName)));
+                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.JUMP_SUCCESS, Placeholder.unparsed("target", targetUsername)));
                                     case ERROR_ALREADY_HANDLED -> {}
                                     default ->
                                             sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
