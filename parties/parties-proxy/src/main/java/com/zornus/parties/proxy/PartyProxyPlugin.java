@@ -24,11 +24,13 @@ public final class PartyProxyPlugin {
     }
 
     @Subscribe
-    public void onProxyInitialization(@NonNull ProxyInitializeEvent event) {
+    public void onProxyInitialize(@NonNull ProxyInitializeEvent event) {
         try {
+            logger.info("Initializing Parties plugin...");
+
             this.partyProxyModule = new PartyProxyModule(this, proxyServer);
             partyProxyModule.initialize(proxyServer.getCommandManager(), proxyServer.getEventManager(), proxyServer.getScheduler());
-            logger.info("Parties Proxy module initialized successfully");
+            logger.info("Parties plugin initialized successfully");
         } catch (Exception exception) {
             logger.error("Failed to initialize Parties plugin", exception);
         }
@@ -37,10 +39,13 @@ public final class PartyProxyPlugin {
     @Subscribe
     public void onProxyShutdown(@NonNull ProxyShutdownEvent event) {
         try {
+            logger.info("Shutting down Parties plugin...");
+
             if (partyProxyModule != null) {
                 partyProxyModule.shutdown();
             }
-            logger.info("Parties Proxy module shutdown complete");
+
+            logger.info("Parties plugin shut down successfully");
         } catch (Exception exception) {
             logger.error("Error during Parties plugin shutdown", exception);
         }
