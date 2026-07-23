@@ -49,6 +49,6 @@ public final class FriendCommandRegistrar {
      * @param commandManager The command manager for command registration
      */
     private void registerFriendCommand(@NonNull CommandManager commandManager) {
-        commandManager.register(commandManager.metaBuilder("friend").build(), FriendCommand.create(friendService, proxyServer));
+        commandManager.register(commandManager.metaBuilder("friend").aliases("f").build(), FriendCommand.create(friendService, proxyServer));
     }
 }
