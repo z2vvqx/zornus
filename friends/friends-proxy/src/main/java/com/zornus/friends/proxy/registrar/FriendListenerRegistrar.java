@@ -19,7 +19,7 @@ public final class FriendListenerRegistrar {
     /**
      * Creates a new listener registrar.
      *
-     * @param plugin The plugin instance for event registration
+     * @param plugin        The plugin instance for event registration
      * @param friendService The friend service for listener dependencies
      */
     public FriendListenerRegistrar(@NonNull Object plugin, @NonNull FriendService friendService) {
@@ -49,6 +49,5 @@ public final class FriendListenerRegistrar {
      */
     private void registerEventListeners(@NonNull EventManager eventManager) {
         eventManager.register(plugin, new FriendConnectionListener(friendService));
-        LOGGER.info("Registered FriendConnectionListener");
     }
 }
