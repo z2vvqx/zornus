@@ -549,31 +549,39 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                         }
                     }
 
-                    // 5. Check request limits
-                    String countSenderOutgoingSql = "SELECT COUNT(*) FROM requests WHERE sender = ?";
-                    int senderOutgoingCount;
-                    try (PreparedStatement statement = connection.prepareStatement(countSenderOutgoingSql)) {
+                    // 5. Check request limits (total sent + received per player)
+                    String countSenderTotalSql = """
+                        SELECT (SELECT COUNT(*) FROM requests WHERE sender = ?) +
+                               (SELECT COUNT(*) FROM requests WHERE receiver = ?)
+                        """;
+                    int senderTotal;
+                    try (PreparedStatement statement = connection.prepareStatement(countSenderTotalSql)) {
                         statement.setObject(1, senderId);
+                        statement.setObject(2, senderId);
                         try (ResultSet resultSet = statement.executeQuery()) {
                             resultSet.next();
-                            senderOutgoingCount = resultSet.getInt(1);
+                            senderTotal = resultSet.getInt(1);
                         }
                     }
-                    if (senderOutgoingCount >= FriendProxyConstants.MAX_FRIEND_REQUESTS) {
+                    if (senderTotal >= FriendProxyConstants.MAX_FRIEND_REQUESTS) {
                         connection.rollback();
                         return new SendRequestOutcome.SenderRequestLimitReached();
                     }
 
-                    String countReceiverIncomingSql = "SELECT COUNT(*) FROM requests WHERE receiver = ?";
-                    int receiverIncomingCount;
-                    try (PreparedStatement statement = connection.prepareStatement(countReceiverIncomingSql)) {
+                    String countReceiverTotalSql = """
+                        SELECT (SELECT COUNT(*) FROM requests WHERE sender = ?) +
+                               (SELECT COUNT(*) FROM requests WHERE receiver = ?)
+                        """;
+                    int receiverTotal;
+                    try (PreparedStatement statement = connection.prepareStatement(countReceiverTotalSql)) {
                         statement.setObject(1, receiverId);
+                        statement.setObject(2, receiverId);
                         try (ResultSet resultSet = statement.executeQuery()) {
                             resultSet.next();
-                            receiverIncomingCount = resultSet.getInt(1);
+                            receiverTotal = resultSet.getInt(1);
                         }
                     }
-                    if (receiverIncomingCount >= FriendProxyConstants.MAX_FRIEND_REQUESTS) {
+                    if (receiverTotal >= FriendProxyConstants.MAX_FRIEND_REQUESTS) {
                         connection.rollback();
                         return new SendRequestOutcome.ReceiverRequestLimitReached();
                     }
