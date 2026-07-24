@@ -31,11 +31,13 @@ public final class GuildProxyConstants {
     public static final String USAGE_KICK = "<red><click:suggest_command:'/guild kick '>/guild kick <member_name></click></red>";
     public static final String USAGE_REJECT = "<red><click:suggest_command:'/guild reject '>/guild reject <guild_name></click></red>";
     public static final String USAGE_TRANSFER = "<red><click:suggest_command:'/guild transfer '>/guild transfer <member_name></click></red>";
-    public static final String USAGE_UNINVITE = "<red><click:suggest_command:'/guild uninvite '>/guild uninvite <player_name></click></red>";
+    public static final String USAGE_UNINVITE = "<red><click:suggest_command:'/guild revoke '>/guild revoke <player_name></click></red>";
     public static final String USAGE_REQUESTS = "<red><click:suggest_command:'/guild requests '>/guild requests <requests_direction> [page]</click></red>";
     public static final String USAGE_SETTINGS = "<red><click:suggest_command:'/guild settings '>/guild settings [<setting> <value>]</click></red>";
     public static final String USAGE_CREATE = "<red><click:suggest_command:'/guild create '>/guild create <name> <tag></click></red>";
     public static final String USAGE_RENAME = "<red><click:suggest_command:'/guild rename '>/guild rename <new_name></click></red>";
+    public static final String USAGE_TAG = "<red><click:suggest_command:'/guild tag '>/guild tag <new_tag></click></red>";
+    public static final String USAGE_COLOR = "<red><click:suggest_command:'/guild color '>/guild color <color></click></red>";
 
     public static final String ERROR_NOT_IN_GUILD = "<red>You are not in a guild.</red>";
     public static final String ERROR_ALREADY_IN_GUILD = "<red>You are already in a guild. Use <yellow>/guild leave</yellow> first.</red>";
@@ -47,11 +49,12 @@ public final class GuildProxyConstants {
     public static final String ERROR_CHAT_DISABLED = "<red>You have disabled guild chat. Use <yellow>/guild settings chat true</yellow> to enable it.</red>";
     public static final String ERROR_INVALID_GUILD_NAME = "<red>Guild name must be 3-24 characters and contain only letters, numbers, and underscores.</red>";
     public static final String ERROR_INVALID_GUILD_TAG = "<red>Guild tag must be 2-5 characters and contain only letters, numbers, and underscores.</red>";
+    public static final String ERROR_INVALID_GUILD_COLOR = "<red>Unknown guild color.</red>";
 
     public static final String CREATE_SUCCESS = "<green>You have created the guild <yellow><guild_name></yellow> [<guild_tag>]!</green>";
     public static final String DISBAND_SUCCESS = "<green>Guild has been disbanded.</green>";
-    public static final String DISBAND_CONFIRMATION_REQUIRED = "<yellow>Are you sure you want to disband the guild? Use <red>/guild disband confirm</red> to proceed.</yellow>";
-    public static final String DISBAND_ERROR_NO_CONFIRMATION = "<red>No confirmation is pending. Use <yellow>/guild disband</yellow> first.</red>";
+    public static final String DISBAND_CONFIRMATION_REQUIRED = "<yellow>Are you sure you want to delete the guild? Use <red>/guild delete confirm</red> to proceed.</yellow>";
+    public static final String DISBAND_ERROR_NO_CONFIRMATION = "<red>No confirmation is pending. Use <yellow>/guild delete</yellow> first.</red>";
 
     public static final String LEAVE_SUCCESS = "<green>You left the guild.</green>";
     public static final String LEAVE_ERROR_NOT_IN_GUILD = "<red>You are not in a guild to leave.</red>";
@@ -95,6 +98,8 @@ public final class GuildProxyConstants {
     public static final String RENAME_ERROR_NAME_EXISTS = "<red>A guild with that name already exists.</red>";
     public static final String RENAME_CONFIRMATION_REQUIRED = "<yellow>Are you sure you want to rename the guild to <yellow><new_name></yellow>? Use <green>/guild rename <new_name> confirm</green> to proceed.</yellow>";
     public static final String RENAME_ERROR_NO_CONFIRMATION = "<red>No confirmation is pending. Use <yellow>/guild rename <name></yellow> first.</red>";
+    public static final String TAG_SUCCESS = "<green>Guild tag updated to <yellow><new_tag></yellow>.</green>";
+    public static final String COLOR_SUCCESS = "<green>Guild color updated to <colored_value>.</green>";
 
     public static final String SETTINGS_UPDATE_SUCCESS = "<green>Setting <yellow><setting></yellow> has been updated to <yellow><value></yellow>.</green>";
     public static final String SETTINGS_DISPLAY_INVITES = "<click:suggest_command:'/guild settings invites '><#2DA0ED>invites</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Who can invite you to guild: <value></white>";
@@ -107,12 +112,13 @@ public final class GuildProxyConstants {
     public static final String UI_LIST_MEMBER_LEADER = "<#2DA0ED><member></#2DA0ED> <#A78BFA>★</#A78BFA>";
     public static final String UI_LIST_MEMBER_NORMAL = "<#2DA0ED><member></#2DA0ED>";
     public static final String UI_LIST_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /guild list <page></gray>";
+    public static final String UI_INFO = "<#2DA0ED><guild_name></#2DA0ED> <guild_tag_display> <dark_gray>-</dark_gray> <white><member_count>/<maximum_size> members</white>";
     public static final String UI_HELP_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /guild help <page></gray>";
     public static final String UI_REQUESTS_INCOMING_EMPTY = "<yellow>You do not have any incoming guild invitations.</yellow>";
     public static final String UI_REQUESTS_OUTGOING_EMPTY = "<yellow>You do not have any outgoing guild invitations.</yellow>";
     public static final String UI_REQUESTS_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /guild requests <type> <page></gray>";
     public static final String UI_REQUESTS_INCOMING_ENTRY = "<click:run_command:'/guild accept <guild_name>'><green>✔</green></click> <click:run_command:'/guild reject <guild_name>'><red>✘</red></click> <#2DA0ED><guild_name></#2DA0ED> <dark_gray>—</dark_gray> <white><timestamp></white>";
-    public static final String UI_REQUESTS_OUTGOING_ENTRY = "<click:run_command:'/guild uninvite <player>'><red>✘</red></click> <#2DA0ED><player></#2DA0ED> <dark_gray>—</dark_gray> <white><timestamp></white>";
+    public static final String UI_REQUESTS_OUTGOING_ENTRY = "<click:run_command:'/guild revoke <player>'><red>✘</red></click> <#2DA0ED><player></#2DA0ED> <dark_gray>—</dark_gray> <white><timestamp></white>";
 
     public static final String NOTIFICATION_MEMBER_JOINED = "<green><sender> joined the guild.</green>";
     public static final String NOTIFICATION_MEMBER_LEFT = "<yellow><sender> left the guild.</yellow>";
@@ -128,15 +134,17 @@ public final class GuildProxyConstants {
     public static final List<String> HELP_COMMANDS = Arrays.asList(
             "<click:suggest_command:'/guild help '><#2DA0ED>help [page]</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Shows this help menu</white>",
             "<click:suggest_command:'/guild create '><#2DA0ED>create <name> <tag></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Creates a new guild</white>",
-            "<click:suggest_command:'/guild disband'><#2DA0ED>disband</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Disbands your guild</white>",
+            "<click:suggest_command:'/guild delete'><#2DA0ED>delete</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Deletes your guild</white>",
             "<click:suggest_command:'/guild invite '><#2DA0ED>invite <player></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Sends a guild invitation</white>",
-            "<click:suggest_command:'/guild uninvite '><#2DA0ED>uninvite <player></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Cancels a pending invitation</white>",
+            "<click:suggest_command:'/guild revoke '><#2DA0ED>revoke <player></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Cancels a pending invitation</white>",
             "<click:suggest_command:'/guild accept '><#2DA0ED>accept <guild></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Accepts a guild invitation</white>",
             "<click:suggest_command:'/guild reject '><#2DA0ED>reject <guild></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Rejects a guild invitation</white>",
             "<click:suggest_command:'/guild leave'><#2DA0ED>leave</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Leaves your current guild</white>",
             "<click:suggest_command:'/guild kick '><#2DA0ED>kick <member></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Kicks a member</white>",
             "<click:suggest_command:'/guild transfer '><#2DA0ED>transfer <member></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Transfers leadership</white>",
             "<click:suggest_command:'/guild rename '><#2DA0ED>rename <name></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Renames the guild</white>",
+            "<click:suggest_command:'/guild tag '><#2DA0ED>tag <tag></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Changes the guild tag</white>",
+            "<click:suggest_command:'/guild color '><#2DA0ED>color <color></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Changes the guild color</white>",
             "<click:suggest_command:'/guild list '><#2DA0ED>list [page]</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Lists guild members</white>",
             "<click:suggest_command:'/guild requests '><#2DA0ED>requests <direction> [page]</#2DA0ED></click> <dark_gray>—</dark_gray> <white>View guild invitations</white>",
             "<click:suggest_command:'/guild chat '><#2DA0ED>chat <message></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Chat with guild members</white>",

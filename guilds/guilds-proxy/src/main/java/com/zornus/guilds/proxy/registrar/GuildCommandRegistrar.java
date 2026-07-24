@@ -2,6 +2,7 @@ package com.zornus.guilds.proxy.registrar;
 
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.zornus.guilds.proxy.command.GuildCommand;
 import com.zornus.guilds.proxy.service.GuildService;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -21,7 +22,6 @@ public final class GuildCommandRegistrar {
      * Creates a new command registrar.
      *
      * @param guildService Service for guild operations
-     * @param proxyServer  Proxy server for player lookups
      */
     public GuildCommandRegistrar(@NonNull GuildService guildService, @NonNull ProxyServer proxyServer) {
         this.guildService = guildService;
@@ -36,10 +36,10 @@ public final class GuildCommandRegistrar {
      */
     public void registerCommands(@NonNull CommandManager commandManager) {
         try {
-            // TODO: Implement guild commands following the parties pattern (create, invite, accept, leave, kick, etc.)
-            //       Deferred to keep this fix plan focused on the 25 identified issues.
-            // Commands are implemented as follow-up task
-            LOGGER.info("Guild commands will be registered in follow-up implementation");
+            commandManager.register(
+                    commandManager.metaBuilder("guild").aliases("g").build(),
+                    GuildCommand.create(guildService, proxyServer)
+            );
         } catch (Exception exception) {
             LOGGER.error("Error registering guild commands", exception);
             throw exception;

@@ -20,11 +20,17 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
+import java.util.function.Function;
 import java.util.function.Supplier;
 
 public final class GuildService implements AutoCloseable {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GuildService.class);
+    private static final Set<String> ALLOWED_GUILD_COLORS = Set.of(
+            "black", "dark_blue", "dark_green", "dark_aqua", "dark_red", "dark_purple",
+            "gold", "gray", "dark_gray", "blue", "green", "aqua", "red", "light_purple",
+            "yellow", "white"
+    );
 
     private final @NonNull GuildStorage storage;
     private final @NonNull ProxyServer proxyServer;
@@ -586,6 +592,48 @@ public final class GuildService implements AutoCloseable {
         };
     }
 
+    public @NonNull CompletableFuture<GuildSettings> getSettings(@NonNull UUID playerId) {
+        return storage.fetchSettings(playerId)
+                .thenApply(settings -> settings.orElseGet(() -> new GuildSettings(playerId)));
+    }
+
+    public @NonNull CompletableFuture<GuildResult> updateGuildTag(@NonNull Player sender, @Nullable String guildTag) {
+        if (!isValidGuildTag(guildTag)) {
+            return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_TAG);
+        }
+        return updateGuildAppearance(sender, guild -> storage.updateGuildTag(
+                        guild.guildId(), sender.getUniqueId(), guildTag))
+                .thenApply(result -> result == GuildResult.SUCCESS ? GuildResult.GUILD_TAG_UPDATED : result);
+    }
+
+    public @NonNull CompletableFuture<GuildResult> updateGuildColor(@NonNull Player sender, @Nullable String guildColor) {
+        if (guildColor == null || !ALLOWED_GUILD_COLORS.contains(guildColor.toLowerCase())) {
+            return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_COLOR);
+        }
+        String formattedColor = "<" + guildColor.toLowerCase() + ">";
+        return updateGuildAppearance(sender, guild -> storage.updateGuildColor(
+                        guild.guildId(), sender.getUniqueId(), formattedColor))
+                .thenApply(result -> result == GuildResult.SUCCESS ? GuildResult.GUILD_COLOR_UPDATED : result);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> updateGuildAppearance(
+            @NonNull Player sender,
+            @NonNull Function<Guild, CompletableFuture<Boolean>> updateOperation) {
+        UUID senderId = sender.getUniqueId();
+        return storage.getPlayerGuild(senderId)
+                .thenCompose(guildOptional -> {
+                    if (guildOptional.isEmpty()) {
+                        return CompletableFuture.completedFuture(GuildResult.NOT_IN_GUILD);
+                    }
+                    Guild guild = guildOptional.get();
+                    if (!guild.isLeader(senderId)) {
+                        return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
+                    }
+                    return updateOperation.apply(guild)
+                            .thenApply(updated -> updated ? GuildResult.SUCCESS : GuildResult.GUILD_NOT_FOUND);
+                });
+    }
+
     private @NonNull CompletableFuture<GuildResult> updateInvitePrivacy(@NonNull UUID playerId, @NonNull String value) {
         if (!List.of("all", "friend", "none").contains(value.toLowerCase())) {
             return CompletableFuture.completedFuture(GuildResult.INVALID_SETTING);
@@ -613,6 +661,15 @@ public final class GuildService implements AutoCloseable {
                 .thenApply(guildOptional -> guildOptional
                         .map(guild -> new GuildInfoResult(GuildResult.SUCCESS, Optional.of(guild)))
                         .orElseGet(() -> new GuildInfoResult(GuildResult.GUILD_NOT_FOUND, Optional.empty())));
+    }
+
+    public @NonNull CompletableFuture<Optional<Guild>> fetchGuild(@NonNull UUID guildId) {
+        return storage.fetchGuild(guildId);
+    }
+
+    public @NonNull CompletableFuture<Map<UUID, PlayerRecord>> fetchPlayersByUuids(
+            @NonNull Collection<UUID> playerIds) {
+        return storage.fetchPlayersByUuids(playerIds);
     }
 
     public @NonNull CompletableFuture<Void> handlePlayerJoin(@NonNull UUID playerId, @NonNull String username) {

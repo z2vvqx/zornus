@@ -44,6 +44,8 @@ public interface GuildStorage {
     CompletableFuture<Map<UUID, GuildSettings>> fetchSettingsForMembers(@NonNull Collection<UUID> memberIds);
     CompletableFuture<Void> updateInvitePrivacy(@NonNull UUID playerId, @NonNull String value);
     CompletableFuture<Void> updateShowChat(@NonNull UUID playerId, boolean value);
+    CompletableFuture<Boolean> updateGuildTag(@NonNull UUID guildId, @NonNull UUID leaderId, @NonNull String guildTag);
+    CompletableFuture<Boolean> updateGuildColor(@NonNull UUID guildId, @NonNull UUID leaderId, @NonNull String guildColor);
 
     CompletableFuture<Void> upsertPlayer(@NonNull UUID playerId, @NonNull String username);
     CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUsername(@NonNull String username);

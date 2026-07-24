@@ -1097,6 +1097,32 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
     }
 
     @Override
+    public CompletableFuture<Boolean> updateGuildTag(@NonNull UUID guildId, @NonNull UUID leaderId,
+                                                      @NonNull String guildTag) {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "UPDATE guilds SET guild_tag = ? WHERE guild_id = ? AND leader_id = ?";
+            return executeUpdate(sql, statement -> {
+                statement.setString(1, guildTag);
+                statement.setObject(2, guildId);
+                statement.setObject(3, leaderId);
+            }, "update guild tag") == 1;
+        }, databaseExecutor);
+    }
+
+    @Override
+    public CompletableFuture<Boolean> updateGuildColor(@NonNull UUID guildId, @NonNull UUID leaderId,
+                                                        @NonNull String guildColor) {
+        return CompletableFuture.supplyAsync(() -> {
+            String sql = "UPDATE guilds SET guild_color = ? WHERE guild_id = ? AND leader_id = ?";
+            return executeUpdate(sql, statement -> {
+                statement.setString(1, guildColor);
+                statement.setObject(2, guildId);
+                statement.setObject(3, leaderId);
+            }, "update guild color") == 1;
+        }, databaseExecutor);
+    }
+
+    @Override
     public CompletableFuture<Void> upsertPlayer(@NonNull UUID playerId, @NonNull String username) {
         return CompletableFuture.runAsync(() -> {
             String sql = """
