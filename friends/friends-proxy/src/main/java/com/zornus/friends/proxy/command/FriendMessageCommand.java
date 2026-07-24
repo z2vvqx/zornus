@@ -7,7 +7,6 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
-import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.result.FriendResult;
 import com.zornus.friends.proxy.service.FriendService;
@@ -36,7 +35,7 @@ public final class FriendMessageCommand {
         return builder.buildFuture();
     };
 
-    public static LiteralArgumentBuilder<CommandSource> create(FriendService friendService, ProxyServer proxyServer) {
+    public static LiteralArgumentBuilder<CommandSource> create(FriendService friendService) {
         return BrigadierCommand
                 .literalArgumentBuilder("message")
                 .executes(context -> {
@@ -60,15 +59,15 @@ public final class FriendMessageCommand {
                                     }
                                     String targetName = StringArgumentType.getString(context, "friend_name");
                                     String message = StringArgumentType.getString(context, "message_array");
-                                    return handleSendMessage(sender, targetName, message, friendService, proxyServer);
+                                    return handleSendMessage(sender, targetName, message, friendService);
                                 })
                         )
                 );
     }
 
     private static int handleSendMessage(Player sender, String targetName, String message,
-                                           FriendService friendService, ProxyServer proxyServer) {
-        FriendCommandUtils.resolveTargetPlayer(targetName, proxyServer, friendService)
+                                           FriendService friendService) {
+        friendService.resolveTargetPlayer(targetName)
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to resolve player by username: {}", targetName, throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));

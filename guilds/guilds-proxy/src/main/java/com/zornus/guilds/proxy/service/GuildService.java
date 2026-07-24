@@ -119,7 +119,7 @@ public final class GuildService implements AutoCloseable {
 
         UUID senderId = sender.getUniqueId();
 
-        return storage.fetchPlayerByUsername(targetUsername)
+        return resolveTargetPlayer(targetUsername)
                 .thenCompose(targetOptional -> {
                     if (targetOptional.isEmpty()) {
                         return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
@@ -274,7 +274,7 @@ public final class GuildService implements AutoCloseable {
     }
 
     private @NonNull CompletableFuture<GuildResult> findAndRevokeInvitation(@NonNull String targetUsername, @NonNull UUID guildId) {
-        return storage.fetchPlayerByUsername(targetUsername)
+        return resolveTargetPlayer(targetUsername)
                 .thenCompose(targetOptional -> {
                     if (targetOptional.isEmpty()) {
                         return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
@@ -362,7 +362,7 @@ public final class GuildService implements AutoCloseable {
     }
 
     private @NonNull CompletableFuture<GuildResult> findAndKickMember(@NonNull String targetUsername, @NonNull Guild guild, @NonNull String kickerName) {
-        return storage.fetchPlayerByUsername(targetUsername)
+        return resolveTargetPlayer(targetUsername)
                 .thenCompose(targetOptional -> {
                     if (targetOptional.isEmpty()) {
                         return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
@@ -479,7 +479,7 @@ public final class GuildService implements AutoCloseable {
                         return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
                     }
 
-                    return storage.fetchPlayerByUsername(targetUsername)
+                    return resolveTargetPlayer(targetUsername)
                             .thenCompose(targetOptional -> {
                                 if (targetOptional.isEmpty()) {
                                     return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
@@ -617,6 +617,16 @@ public final class GuildService implements AutoCloseable {
 
     public @NonNull CompletableFuture<Void> handlePlayerJoin(@NonNull UUID playerId, @NonNull String username) {
         return storage.upsertPlayer(playerId, username);
+    }
+
+    private @NonNull CompletableFuture<Optional<PlayerRecord>> resolveTargetPlayer(@NonNull String username) {
+        Optional<Player> onlinePlayer = proxyServer.getPlayer(username);
+        if (onlinePlayer.isPresent()) {
+            Player player = onlinePlayer.get();
+            return CompletableFuture.completedFuture(
+                    Optional.of(new PlayerRecord(player.getUniqueId(), player.getUsername())));
+        }
+        return storage.fetchPlayerByUsername(username);
     }
 
     public void cleanupExpiredInvitations() {

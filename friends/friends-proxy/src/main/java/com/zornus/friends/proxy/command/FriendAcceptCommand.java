@@ -8,7 +8,6 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
-import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.result.FriendResult;
 import com.zornus.friends.proxy.service.FriendService;
@@ -25,8 +24,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 
-import static com.zornus.friends.proxy.command.FriendCommandUtils.resolveTargetPlayer;
-
 /**
  * Command for accepting friend requests.
  */
@@ -39,7 +36,7 @@ public final class FriendAcceptCommand {
         return builder.buildFuture();
     };
 
-    public static LiteralArgumentBuilder<CommandSource> create(FriendService friendService, ProxyServer proxyServer) {
+    public static LiteralArgumentBuilder<CommandSource> create(FriendService friendService) {
         return BrigadierCommand
                 .literalArgumentBuilder("accept")
                 .executes(context -> {
@@ -49,12 +46,11 @@ public final class FriendAcceptCommand {
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("player_name", StringArgumentType.word())
                         .suggests(PLAYER_SUGGESTIONS)
-                        .executes(context -> handleAcceptRequest(context, friendService, proxyServer))
+                        .executes(context -> handleAcceptRequest(context, friendService))
                 );
     }
 
-    private static int handleAcceptRequest(@NonNull CommandContext<CommandSource> context, FriendService friendService,
-                                          ProxyServer proxyServer) {
+    private static int handleAcceptRequest(@NonNull CommandContext<CommandSource> context, FriendService friendService) {
         CommandSource source = context.getSource();
         if (!(source instanceof Player sender)) {
             source.sendMessage(StringUtils.deserialize(SharedConstants.PLAYERS_ONLY));
@@ -63,7 +59,7 @@ public final class FriendAcceptCommand {
 
         String targetName = StringArgumentType.getString(context, "player_name");
 
-        FriendCommandUtils.resolveTargetPlayer(targetName, proxyServer, friendService)
+        friendService.resolveTargetPlayer(targetName)
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to resolve player by username: {}", targetName, throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));

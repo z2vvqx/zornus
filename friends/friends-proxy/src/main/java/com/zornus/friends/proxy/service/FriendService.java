@@ -320,6 +320,16 @@ public final class FriendService implements AutoCloseable {
         return storage.fetchPlayerByUsername(username);
     }
 
+    public @NonNull CompletableFuture<Optional<PlayerRecord>> resolveTargetPlayer(@NonNull String username) {
+        Optional<Player> onlinePlayer = proxyServer.getPlayer(username);
+        if (onlinePlayer.isPresent()) {
+            Player player = onlinePlayer.get();
+            return CompletableFuture.completedFuture(
+                    Optional.of(new PlayerRecord(player.getUniqueId(), player.getUsername())));
+        }
+        return storage.fetchPlayerByUsername(username);
+    }
+
     public @NonNull CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUuid(@NonNull UUID playerUuid) {
         return storage.fetchPlayerByUuid(playerUuid);
     }

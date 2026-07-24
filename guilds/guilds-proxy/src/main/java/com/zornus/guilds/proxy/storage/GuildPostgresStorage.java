@@ -71,6 +71,11 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         last_joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
                     """);
+            // UUID is the stable identity. Usernames can change and later be reused by a
+            // different account, so keep last-known names non-unique and resolve them by
+            // the most recent join.
+            statement.execute("DROP INDEX IF EXISTS idx_guild_players_username");
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_guild_players_username_lower ON guild_players (LOWER(username))");
 
             // STEP 2: Create guild_members WITHOUT FK to guilds (avoids circular dependency)
             statement.execute("""
@@ -1109,7 +1114,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
     @Override
     public CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUsername(@NonNull String username) {
         return CompletableFuture.supplyAsync(() -> {
-            String sql = "SELECT player_id, username FROM guild_players WHERE LOWER(username) = LOWER(?)";
+            String sql = """
+                    SELECT player_id, username FROM guild_players
+                    WHERE LOWER(username) = LOWER(?)
+                    ORDER BY last_joined_at DESC
+                    LIMIT 1
+                    """;
             try (Connection connection = dataSource.getConnection();
                  PreparedStatement statement = connection.prepareStatement(sql)) {
                 statement.setString(1, username);
