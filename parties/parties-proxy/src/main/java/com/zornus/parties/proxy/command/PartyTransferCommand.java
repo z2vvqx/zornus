@@ -20,6 +20,7 @@ import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Locale;
 import java.util.Optional;
 
 /**
@@ -29,9 +30,20 @@ public final class PartyTransferCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PartyTransferCommand.class);
 
-    private static final SuggestionProvider<CommandSource> PLAYER_SUGGESTIONS = (context, builder) -> {
-        return builder.buildFuture();
-    };
+    private static SuggestionProvider<CommandSource> onlinePlayerSuggestions(ProxyServer proxyServer) {
+        return (context, builder) -> {
+            String remainingInput = builder.getRemainingLowerCase();
+            if (remainingInput.isEmpty()) {
+                return builder.buildFuture();
+            }
+            proxyServer.getAllPlayers().stream()
+                    .map(Player::getUsername)
+                    .filter(username -> username.toLowerCase(Locale.ROOT).startsWith(remainingInput))
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .forEach(builder::suggest);
+            return builder.buildFuture();
+        };
+    }
 
     public static LiteralArgumentBuilder<CommandSource> create(PartyService partyService, ProxyServer proxyServer) {
         return BrigadierCommand
@@ -42,7 +54,7 @@ public final class PartyTransferCommand {
                 })
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("member_name", StringArgumentType.word())
-                        .suggests(PLAYER_SUGGESTIONS)
+                        .suggests(onlinePlayerSuggestions(proxyServer))
                         .executes(context -> handleTransferLeadership(context, partyService, proxyServer, false))
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("confirmation", StringArgumentType.word())

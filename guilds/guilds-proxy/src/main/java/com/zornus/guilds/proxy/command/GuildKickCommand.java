@@ -4,9 +4,11 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.model.GuildResult;
 import com.zornus.guilds.proxy.service.GuildService;
@@ -17,11 +19,28 @@ import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Locale;
+
 public final class GuildKickCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GuildKickCommand.class);
 
-    public static LiteralArgumentBuilder<CommandSource> create(GuildService guildService) {
+    private static SuggestionProvider<CommandSource> onlinePlayerSuggestions(ProxyServer proxyServer) {
+        return (context, builder) -> {
+            String remainingInput = builder.getRemainingLowerCase();
+            if (remainingInput.isEmpty()) {
+                return builder.buildFuture();
+            }
+            proxyServer.getAllPlayers().stream()
+                    .map(Player::getUsername)
+                    .filter(username -> username.toLowerCase(Locale.ROOT).startsWith(remainingInput))
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .forEach(builder::suggest);
+            return builder.buildFuture();
+        };
+    }
+
+    public static LiteralArgumentBuilder<CommandSource> create(GuildService guildService, ProxyServer proxyServer) {
         return BrigadierCommand
                 .literalArgumentBuilder("kick")
                 .executes(context -> {
@@ -30,6 +49,7 @@ public final class GuildKickCommand {
                 })
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("member_name", StringArgumentType.word())
+                        .suggests(onlinePlayerSuggestions(proxyServer))
                         .executes(context -> handleKickMember(context, guildService))
                 );
     }

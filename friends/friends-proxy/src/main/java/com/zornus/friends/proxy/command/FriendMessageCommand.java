@@ -7,6 +7,7 @@ import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
+import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.result.FriendResult;
 import com.zornus.friends.proxy.service.FriendService;
@@ -20,6 +21,7 @@ import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.Locale;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
@@ -31,11 +33,22 @@ public final class FriendMessageCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(FriendMessageCommand.class);
 
-    private static final SuggestionProvider<CommandSource> FRIEND_SUGGESTIONS = (context, builder) -> {
-        return builder.buildFuture();
-    };
+    private static SuggestionProvider<CommandSource> onlinePlayerSuggestions(ProxyServer proxyServer) {
+        return (context, builder) -> {
+            String remainingInput = builder.getRemainingLowerCase();
+            if (remainingInput.isEmpty()) {
+                return builder.buildFuture();
+            }
+            proxyServer.getAllPlayers().stream()
+                    .map(Player::getUsername)
+                    .filter(username -> username.toLowerCase(Locale.ROOT).startsWith(remainingInput))
+                    .sorted(String.CASE_INSENSITIVE_ORDER)
+                    .forEach(builder::suggest);
+            return builder.buildFuture();
+        };
+    }
 
-    public static LiteralArgumentBuilder<CommandSource> create(FriendService friendService) {
+    public static LiteralArgumentBuilder<CommandSource> create(FriendService friendService, ProxyServer proxyServer) {
         return BrigadierCommand
                 .literalArgumentBuilder("message")
                 .executes(context -> {
@@ -44,7 +57,7 @@ public final class FriendMessageCommand {
                 })
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("friend_name", StringArgumentType.word())
-                        .suggests(FRIEND_SUGGESTIONS)
+                        .suggests(onlinePlayerSuggestions(proxyServer))
                         .executes(context -> {
                             context.getSource().sendMessage(StringUtils.deserialize(FriendProxyConstants.USAGE_MESSAGE));
                             return Command.SINGLE_SUCCESS;
