@@ -210,9 +210,7 @@ public final class PunishmentService {
             @NonNull String reason
     ) {
         UUID revokingPlayerId = source instanceof Player player ? player.getUniqueId() : null;
-        return storage.expirePunishments(Instant.now())
-                .thenCompose(ignored -> storage.revokeByIdentifier(
-                        identifier, revokingPlayerId, reason, Instant.now()))
+        return storage.revokeByIdentifier(identifier, revokingPlayerId, reason, Instant.now())
                 .thenApply(punishment -> punishment
                         .<PunishmentRevokeResult>map(PunishmentRevokeResult.Revoked::new)
                         .orElseGet(PunishmentRevokeResult.PunishmentNotFound::new));
@@ -225,9 +223,8 @@ public final class PunishmentService {
             @NonNull String reason
     ) {
         UUID revokingPlayerId = source instanceof Player player ? player.getUniqueId() : null;
-        return storage.expirePunishments(Instant.now())
-                .thenCompose(ignored -> storage.revokeActive(
-                        target.playerUuid(), type, revokingPlayerId, reason, Instant.now()))
+        return storage.revokeActive(
+                        target.playerUuid(), type, revokingPlayerId, reason, Instant.now())
                 .thenApply(punishment -> punishment
                         .<PunishmentRevokeResult>map(PunishmentRevokeResult.Revoked::new)
                         .orElseGet(() -> type == PunishmentType.BAN
@@ -237,8 +234,7 @@ public final class PunishmentService {
 
     public CompletableFuture<PunishmentCheckResult> check(
             @NonNull UUID playerId, @NonNull PunishmentType type) {
-        return storage.expirePunishments(Instant.now())
-                .thenCompose(ignored -> storage.fetchActive(playerId, type))
+        return storage.fetchActive(playerId, type)
                 .thenApply(punishment -> punishment
                         .<PunishmentCheckResult>map(PunishmentCheckResult.Found::new)
                         .orElseGet(() -> type == PunishmentType.BAN
@@ -248,18 +244,15 @@ public final class PunishmentService {
 
     public CompletableFuture<Optional<Punishment>> fetchActive(
             @NonNull UUID playerId, @NonNull PunishmentType type) {
-        return storage.expirePunishments(Instant.now())
-                .thenCompose(ignored -> storage.fetchActive(playerId, type));
+        return storage.fetchActive(playerId, type);
     }
 
     public CompletableFuture<Optional<Punishment>> fetchByIdentifier(@NonNull String identifier) {
-        return storage.expirePunishments(Instant.now())
-                .thenCompose(ignored -> storage.fetchByIdentifier(identifier));
+        return storage.fetchByIdentifier(identifier);
     }
 
     public CompletableFuture<PunishmentHistoryResult> fetchHistory(@NonNull UUID playerId) {
-        return storage.expirePunishments(Instant.now())
-                .thenCompose(ignored -> storage.fetchHistory(playerId))
+        return storage.fetchHistory(playerId)
                 .thenApply(punishments -> punishments.isEmpty()
                         ? new PunishmentHistoryResult.Empty()
                         : new PunishmentHistoryResult.Found(punishments));

@@ -5,6 +5,8 @@ import com.zaxxer.hikari.HikariDataSource;
 import com.zornus.punishments.proxy.PunishmentProxyConstants;
 import com.zornus.punishments.proxy.model.Punishment;
 import com.zornus.punishments.proxy.model.PunishmentType;
+import com.zornus.shared.database.DatabaseDefaults;
+import com.zornus.shared.database.DatabaseExecutorFactory;
 import com.zornus.shared.model.PlayerRecord;
 import org.jspecify.annotations.NonNull;
 
@@ -21,7 +23,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public final class PunishmentPostgresStorage implements PunishmentStorage {
@@ -41,8 +42,20 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
         configuration.setPassword(password);
         configuration.setMaximumPoolSize(PunishmentProxyConstants.DATABASE_CONNECTION_POOL_SIZE);
         configuration.setDriverClassName("org.postgresql.Driver");
+        configuration.setConnectionTimeout(DatabaseDefaults.CONNECTION_ACQUISITION_TIMEOUT_MILLISECONDS);
+        configuration.setValidationTimeout(DatabaseDefaults.CONNECTION_VALIDATION_TIMEOUT_MILLISECONDS);
+        configuration.addDataSourceProperty(
+                "connectTimeout", DatabaseDefaults.CONNECTION_ESTABLISHMENT_TIMEOUT_SECONDS);
+        configuration.addDataSourceProperty(
+                "socketTimeout", DatabaseDefaults.SOCKET_READ_TIMEOUT_SECONDS);
+        configuration.addDataSourceProperty(
+                "cancelSignalTimeout", DatabaseDefaults.CANCEL_SIGNAL_TIMEOUT_SECONDS);
+        configuration.addDataSourceProperty("options", DatabaseDefaults.POSTGRESQL_SESSION_OPTIONS);
         this.dataSource = new HikariDataSource(configuration);
-        this.databaseExecutor = Executors.newFixedThreadPool(PunishmentProxyConstants.DATABASE_EXECUTOR_POOL_SIZE);
+        this.databaseExecutor = DatabaseExecutorFactory.createBoundedExecutor(
+                "punishments-database-",
+                PunishmentProxyConstants.DATABASE_EXECUTOR_POOL_SIZE
+        );
         try {
             initializeSchema();
         } catch (RuntimeException exception) {
@@ -168,7 +181,8 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
-                    expirePunishments(connection, punishment.createdAt());
+                    expirePunishmentsForPlayer(
+                            connection, punishment.punishedPlayerId(), punishment.createdAt());
                     String insertSql = """
                             INSERT INTO punishments (
                                 identifier, punishment_type, punished_player_id, imposing_player_id,
@@ -199,10 +213,10 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
                 } catch (SQLException exception) {
                     connection.rollback();
                     if ("23505".equals(exception.getSQLState())) {
-                        if (identifierExists(punishment.identifier())) {
+                        if (identifierExists(connection, punishment.identifier())) {
                             return new CreatePunishmentOutcome.IdentifierCollision();
                         }
-                        if (presetApplicationExists(punishment)) {
+                        if (presetApplicationExists(connection, punishment)) {
                             return new CreatePunishmentOutcome.PresetProgressionConflict();
                         }
                         return new CreatePunishmentOutcome.AlreadyActive();
@@ -224,12 +238,14 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
                 UPDATE punishments
                 SET active = FALSE, revoked_at = ?, revoking_player_id = ?, revocation_reason = ?
                 WHERE identifier = ? AND active
+                  AND (expires_at IS NULL OR expires_at > ?)
                 """ + RETURNING_COLUMNS;
         return updateReturning(sql, statement -> {
             statement.setTimestamp(1, Timestamp.from(revokedAt));
             statement.setObject(2, revokerId);
             statement.setString(3, reason);
             statement.setString(4, identifier.toUpperCase());
+            statement.setTimestamp(5, Timestamp.from(revokedAt));
         }, "revoke punishment by identifier");
     }
 
@@ -243,6 +259,7 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
                 WHERE identifier = (
                     SELECT identifier FROM punishments
                     WHERE punished_player_id = ? AND punishment_type = ? AND active
+                      AND (expires_at IS NULL OR expires_at > ?)
                     ORDER BY created_at DESC LIMIT 1
                 )
                 """ + RETURNING_COLUMNS;
@@ -252,6 +269,7 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
             statement.setString(3, reason);
             statement.setObject(4, playerId);
             statement.setString(5, type.name());
+            statement.setTimestamp(6, Timestamp.from(revokedAt));
         }, "revoke active punishment");
     }
 
@@ -259,7 +277,9 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
     public CompletableFuture<Optional<Punishment>> fetchByIdentifier(@NonNull String identifier) {
         String sql = """
                 SELECT identifier, punishment_type, punished_player_id, imposing_player_id, reason,
-                       created_at, expires_at, active, revoked_at, revoking_player_id,
+                       created_at, expires_at,
+                       active AND (expires_at IS NULL OR expires_at > NOW()) AS active,
+                       revoked_at, revoking_player_id,
                        revocation_reason, victim_notified, preset_name, preset_application_number
                 FROM punishments WHERE identifier = ?
                 """;
@@ -290,7 +310,9 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
         return CompletableFuture.supplyAsync(() -> {
             String sql = """
                     SELECT identifier, punishment_type, punished_player_id, imposing_player_id, reason,
-                           created_at, expires_at, active, revoked_at, revoking_player_id,
+                           created_at, expires_at,
+                           active AND (expires_at IS NULL OR expires_at > NOW()) AS active,
+                           revoked_at, revoking_player_id,
                            revocation_reason, victim_notified, preset_name, preset_application_number
                     FROM punishments WHERE punished_player_id = ? ORDER BY created_at DESC
                     """;
@@ -410,6 +432,29 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
         }
     }
 
+    private void expirePunishmentsForPlayer(
+            Connection connection,
+            UUID playerId,
+            Instant now
+    ) throws SQLException {
+        String sql = """
+                UPDATE punishments
+                SET active = FALSE, revoked_at = ?, revocation_reason = ?
+                WHERE punished_player_id = ?
+                  AND active
+                  AND expires_at IS NOT NULL
+                  AND expires_at <= ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            Timestamp timestamp = Timestamp.from(now);
+            statement.setTimestamp(1, timestamp);
+            statement.setString(2, PunishmentProxyConstants.EXPIRED_REASON);
+            statement.setObject(3, playerId);
+            statement.setTimestamp(4, timestamp);
+            statement.executeUpdate();
+        }
+    }
+
     @Override
     public CompletableFuture<Void> upsertPlayer(@NonNull UUID playerId, @NonNull String username) {
         return CompletableFuture.runAsync(() -> {
@@ -498,9 +543,8 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
         return queryOptional(sql, setter, operationName);
     }
 
-    private boolean identifierExists(String identifier) throws SQLException {
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(
+    private boolean identifierExists(Connection connection, String identifier) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
                      "SELECT EXISTS (SELECT 1 FROM punishments WHERE identifier = ?)")) {
             statement.setString(1, identifier.toUpperCase());
             try (ResultSet resultSet = statement.executeQuery()) {
@@ -510,7 +554,10 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
         }
     }
 
-    private boolean presetApplicationExists(Punishment punishment) throws SQLException {
+    private boolean presetApplicationExists(
+            Connection connection,
+            Punishment punishment
+    ) throws SQLException {
         if (punishment.presetName() == null || punishment.presetApplicationNumber() == null) {
             return false;
         }
@@ -523,8 +570,7 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
                       AND preset_application_number = ?
                 )
                 """;
-        try (Connection connection = dataSource.getConnection();
-             PreparedStatement statement = connection.prepareStatement(sql)) {
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
             statement.setObject(1, punishment.punishedPlayerId());
             statement.setString(2, punishment.presetName());
             statement.setInt(3, punishment.presetApplicationNumber());

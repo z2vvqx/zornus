@@ -7,6 +7,8 @@ import com.zornus.friends.proxy.model.FriendRelation;
 import com.zornus.friends.proxy.model.FriendRequest;
 import com.zornus.friends.proxy.model.FriendSettings;
 import com.zornus.friends.proxy.model.PresenceState;
+import com.zornus.shared.database.DatabaseDefaults;
+import com.zornus.shared.database.DatabaseExecutorFactory;
 import com.zornus.shared.model.PlayerRecord;
 import com.zornus.shared.utilities.CooldownKey;
 import org.jetbrains.annotations.Contract;
@@ -23,7 +25,6 @@ import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public final class FriendPostgresStorage implements FriendStorage, AutoCloseable {
@@ -40,8 +41,19 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         config.setPassword(password);
         config.setMaximumPoolSize(FriendProxyConstants.DATABASE_CONNECTION_POOL_SIZE);
         config.setDriverClassName("org.postgresql.Driver");
+        config.setConnectionTimeout(DatabaseDefaults.CONNECTION_ACQUISITION_TIMEOUT_MILLISECONDS);
+        config.setValidationTimeout(DatabaseDefaults.CONNECTION_VALIDATION_TIMEOUT_MILLISECONDS);
+        config.addDataSourceProperty(
+                "connectTimeout", DatabaseDefaults.CONNECTION_ESTABLISHMENT_TIMEOUT_SECONDS);
+        config.addDataSourceProperty("socketTimeout", DatabaseDefaults.SOCKET_READ_TIMEOUT_SECONDS);
+        config.addDataSourceProperty(
+                "cancelSignalTimeout", DatabaseDefaults.CANCEL_SIGNAL_TIMEOUT_SECONDS);
+        config.addDataSourceProperty("options", DatabaseDefaults.POSTGRESQL_SESSION_OPTIONS);
         this.dataSource = new HikariDataSource(config);
-        this.databaseExecutor = Executors.newFixedThreadPool(FriendProxyConstants.DATABASE_EXECUTOR_POOL_SIZE);
+        this.databaseExecutor = DatabaseExecutorFactory.createBoundedExecutor(
+                "friends-database-",
+                FriendProxyConstants.DATABASE_EXECUTOR_POOL_SIZE
+        );
         try {
             initializeSchema();
         } catch (RuntimeException exception) {
@@ -113,6 +125,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
             statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_sender ON requests(sender)");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_receiver_created ON requests(receiver, created_at DESC)");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_sender_created ON requests(sender, created_at DESC)");
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_created ON requests(created_at)");
 
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS settings (
@@ -133,6 +146,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                         timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
                     """);
+            statement.execute("CREATE INDEX IF NOT EXISTS idx_last_message_timestamp ON last_message(timestamp)");
 
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS request_cooldowns (
@@ -141,6 +155,10 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                         timestamp TIMESTAMPTZ NOT NULL,
                         PRIMARY KEY (sender_id, receiver_id)
                     )
+                    """);
+            statement.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_request_cooldowns_timestamp
+                    ON request_cooldowns(timestamp)
                     """);
 
         } catch (SQLException exception) {

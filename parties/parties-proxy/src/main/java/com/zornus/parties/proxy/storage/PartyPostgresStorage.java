@@ -4,6 +4,8 @@ import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
 import com.zornus.parties.proxy.PartyProxyConstants;
 import com.zornus.parties.proxy.model.*;
+import com.zornus.shared.database.DatabaseDefaults;
+import com.zornus.shared.database.DatabaseExecutorFactory;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -15,7 +17,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
@@ -32,8 +33,19 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
         config.setPassword(password);
         config.setMaximumPoolSize(PartyProxyConstants.DATABASE_CONNECTION_POOL_SIZE);
         config.setDriverClassName("org.postgresql.Driver");
+        config.setConnectionTimeout(DatabaseDefaults.CONNECTION_ACQUISITION_TIMEOUT_MILLISECONDS);
+        config.setValidationTimeout(DatabaseDefaults.CONNECTION_VALIDATION_TIMEOUT_MILLISECONDS);
+        config.addDataSourceProperty(
+                "connectTimeout", DatabaseDefaults.CONNECTION_ESTABLISHMENT_TIMEOUT_SECONDS);
+        config.addDataSourceProperty("socketTimeout", DatabaseDefaults.SOCKET_READ_TIMEOUT_SECONDS);
+        config.addDataSourceProperty(
+                "cancelSignalTimeout", DatabaseDefaults.CANCEL_SIGNAL_TIMEOUT_SECONDS);
+        config.addDataSourceProperty("options", DatabaseDefaults.POSTGRESQL_SESSION_OPTIONS);
         this.dataSource = new HikariDataSource(config);
-        this.databaseExecutor = Executors.newFixedThreadPool(PartyProxyConstants.DATABASE_EXECUTOR_POOL_SIZE);
+        this.databaseExecutor = DatabaseExecutorFactory.createBoundedExecutor(
+                "parties-database-",
+                PartyProxyConstants.DATABASE_EXECUTOR_POOL_SIZE
+        );
         try {
             initializeSchema();
         } catch (RuntimeException exception) {
@@ -133,6 +145,10 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
                     """);
+            statement.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_party_confirmations_created
+                    ON party_confirmations(created_at)
+                    """);
 
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS party_cooldowns (
@@ -141,6 +157,10 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         timestamp TIMESTAMPTZ NOT NULL,
                         PRIMARY KEY (sender_id, receiver_id)
                     )
+                    """);
+            statement.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_party_cooldowns_timestamp
+                    ON party_cooldowns(timestamp)
                     """);
 
         } catch (SQLException exception) {

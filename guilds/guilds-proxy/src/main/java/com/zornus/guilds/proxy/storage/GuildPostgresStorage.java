@@ -5,6 +5,8 @@ import com.zaxxer.hikari.HikariDataSource;
 import com.zornus.shared.model.PlayerRecord;
 import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.model.*;
+import com.zornus.shared.database.DatabaseDefaults;
+import com.zornus.shared.database.DatabaseExecutorFactory;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 import org.postgresql.util.PSQLException;
@@ -15,7 +17,6 @@ import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.ExecutorService;
-import java.util.concurrent.Executors;
 import java.util.concurrent.TimeUnit;
 
 public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
@@ -30,8 +31,19 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
         config.setPassword(password);
         config.setMaximumPoolSize(GuildProxyConstants.DATABASE_CONNECTION_POOL_SIZE);
         config.setDriverClassName("org.postgresql.Driver");
+        config.setConnectionTimeout(DatabaseDefaults.CONNECTION_ACQUISITION_TIMEOUT_MILLISECONDS);
+        config.setValidationTimeout(DatabaseDefaults.CONNECTION_VALIDATION_TIMEOUT_MILLISECONDS);
+        config.addDataSourceProperty(
+                "connectTimeout", DatabaseDefaults.CONNECTION_ESTABLISHMENT_TIMEOUT_SECONDS);
+        config.addDataSourceProperty("socketTimeout", DatabaseDefaults.SOCKET_READ_TIMEOUT_SECONDS);
+        config.addDataSourceProperty(
+                "cancelSignalTimeout", DatabaseDefaults.CANCEL_SIGNAL_TIMEOUT_SECONDS);
+        config.addDataSourceProperty("options", DatabaseDefaults.POSTGRESQL_SESSION_OPTIONS);
         this.dataSource = new HikariDataSource(config);
-        this.databaseExecutor = Executors.newFixedThreadPool(GuildProxyConstants.DATABASE_EXECUTOR_POOL_SIZE);
+        this.databaseExecutor = DatabaseExecutorFactory.createBoundedExecutor(
+                "guilds-database-",
+                GuildProxyConstants.DATABASE_EXECUTOR_POOL_SIZE
+        );
         try {
             initializeSchema();
         } catch (RuntimeException exception) {
@@ -147,6 +159,10 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         PRIMARY KEY (sender_id, receiver_id)
                     )
                     """);
+            statement.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_guild_cooldowns_timestamp
+                    ON guild_cooldowns(timestamp)
+                    """);
 
             // STEP 8: Create guild_confirmations
             statement.execute("""
@@ -157,6 +173,10 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         new_value VARCHAR(64),
                         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
+                    """);
+            statement.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_guild_confirmations_created
+                    ON guild_confirmations(created_at)
                     """);
 
         } catch (SQLException exception) {
