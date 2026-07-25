@@ -6,7 +6,7 @@ import com.zornus.punishments.proxy.PunishmentProxyConstants;
 import com.zornus.punishments.proxy.model.Punishment;
 import com.zornus.punishments.proxy.model.PunishmentType;
 import com.zornus.shared.database.DatabaseDefaults;
-import com.zornus.shared.database.DatabaseExecutorFactory;
+import com.zornus.shared.database.DatabaseExecutor;
 import com.zornus.shared.model.PlayerRecord;
 import org.jspecify.annotations.NonNull;
 
@@ -22,7 +22,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public final class PunishmentPostgresStorage implements PunishmentStorage {
@@ -33,7 +32,7 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
             """;
 
     private final HikariDataSource dataSource;
-    private final ExecutorService databaseExecutor;
+    private final DatabaseExecutor databaseExecutor;
 
     public PunishmentPostgresStorage(String jdbcUrl, String username, String password) {
         HikariConfig configuration = new HikariConfig();
@@ -52,7 +51,7 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
                 "cancelSignalTimeout", DatabaseDefaults.CANCEL_SIGNAL_TIMEOUT_SECONDS);
         configuration.addDataSourceProperty("options", DatabaseDefaults.POSTGRESQL_SESSION_OPTIONS);
         this.dataSource = new HikariDataSource(configuration);
-        this.databaseExecutor = DatabaseExecutorFactory.createBoundedExecutor(
+        this.databaseExecutor = new DatabaseExecutor(
                 "punishments-database-",
                 PunishmentProxyConstants.DATABASE_EXECUTOR_POOL_SIZE
         );
@@ -149,7 +148,7 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
 
     @Override
     public CompletableFuture<CreatePunishmentOutcome> createPunishment(@NonNull Punishment punishment) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -200,7 +199,7 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to create punishment", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
@@ -279,7 +278,7 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
 
     @Override
     public CompletableFuture<List<Punishment>> fetchHistory(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = """
                     SELECT identifier, punishment_type, punished_player_id, imposing_player_id, reason,
                            created_at, expires_at,
@@ -301,7 +300,7 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to fetch punishment history", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
@@ -309,7 +308,7 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
             @NonNull UUID playerId,
             @NonNull String presetName
     ) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = """
                     SELECT COALESCE(MAX(preset_application_number)::BIGINT, 0) + 1
                     FROM punishments
@@ -331,13 +330,13 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to fetch next punishment preset application", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<List<Punishment>> claimPendingNotifications(@NonNull UUID playerId,
                                                                          @NonNull Instant now) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = """
                     UPDATE punishments
                     SET victim_notified = TRUE
@@ -361,12 +360,12 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to claim pending punishment notifications", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> markNotificationDelivered(@NonNull String identifier) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             try (Connection connection = dataSource.getConnection();
                  PreparedStatement statement = connection.prepareStatement(
                          "UPDATE punishments SET victim_notified = TRUE WHERE identifier = ?")) {
@@ -375,18 +374,18 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to mark punishment notification delivered", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> expirePunishments(@NonNull Instant now) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 expirePunishments(connection, now);
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to expire punishments", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     private void expirePunishments(Connection connection, Instant now) throws SQLException {
@@ -429,7 +428,7 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
 
     @Override
     public CompletableFuture<Void> upsertPlayer(@NonNull UUID playerId, @NonNull String username) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO punishment_players (player_id, username, last_joined_at)
                     VALUES (?, ?, NOW())
@@ -444,12 +443,12 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to upsert punishment player", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<PlayerRecord>> fetchPlayer(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT player_id, username FROM punishment_players WHERE player_id = ?";
             try (Connection connection = dataSource.getConnection();
                  PreparedStatement statement = connection.prepareStatement(sql)) {
@@ -465,12 +464,12 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to fetch punishment player", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUsername(@NonNull String username) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = """
                     SELECT player_id, username
                     FROM punishment_players
@@ -492,12 +491,12 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to fetch punishment player by username", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     private CompletableFuture<Optional<Punishment>> queryOptional(String sql, StatementSetter setter,
                                                                    String operationName) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection();
                  PreparedStatement statement = connection.prepareStatement(sql)) {
                 setter.set(statement);
@@ -507,7 +506,7 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to " + operationName, exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     private CompletableFuture<Optional<Punishment>> updateReturning(String sql, StatementSetter setter,

@@ -5,7 +5,7 @@ import com.zaxxer.hikari.HikariDataSource;
 import com.zornus.parties.proxy.PartyProxyConstants;
 import com.zornus.parties.proxy.model.*;
 import com.zornus.shared.database.DatabaseDefaults;
-import com.zornus.shared.database.DatabaseExecutorFactory;
+import com.zornus.shared.database.DatabaseExecutor;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -16,7 +16,6 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
@@ -24,7 +23,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     private static final Logger LOGGER = LoggerFactory.getLogger(PartyPostgresStorage.class);
 
     private final HikariDataSource dataSource;
-    private final ExecutorService databaseExecutor;
+    private final DatabaseExecutor databaseExecutor;
 
     public PartyPostgresStorage(String jdbcUrl, String username, String password) {
         HikariConfig config = new HikariConfig();
@@ -42,7 +41,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 "cancelSignalTimeout", DatabaseDefaults.CANCEL_SIGNAL_TIMEOUT_SECONDS);
         config.addDataSourceProperty("options", DatabaseDefaults.POSTGRESQL_SESSION_OPTIONS);
         this.dataSource = new HikariDataSource(config);
-        this.databaseExecutor = DatabaseExecutorFactory.createBoundedExecutor(
+        this.databaseExecutor = new DatabaseExecutor(
                 "parties-database-",
                 PartyProxyConstants.DATABASE_EXECUTOR_POOL_SIZE
         );
@@ -212,7 +211,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
     @Override
     public CompletableFuture<CreatePartyOutcome> createParty(@NonNull Party party) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -256,12 +255,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to create party", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<DisbandPartyOutcome> disbandParty(@NonNull UUID partyId, @NonNull UUID leaderId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -345,12 +344,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to disband party", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<RemoveMemberOutcome> removeMember(@NonNull UUID partyId, @NonNull UUID memberId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -456,12 +455,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to remove member", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<JoinOutcome> acceptInvitationAndJoin(@NonNull UUID partyId, @NonNull UUID playerId, @NonNull UUID invitationSenderId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 // Serialize joins per party to prevent concurrent accepts exceeding MAX_PARTY_SIZE
@@ -580,12 +579,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to accept invitation and join", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<TransferLeadershipOutcome> transferLeadership(@NonNull UUID partyId, @NonNull UUID newLeaderId, @NonNull UUID confirmedByPlayerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -646,13 +645,13 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to transfer leadership", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<WarpOutcome> checkAndUpdateLastWarpTime(@NonNull UUID partyId, @NonNull Instant now,
                                                                       @NonNull Duration cooldown) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -698,12 +697,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to check and update warp time", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Map<UUID, PartySettings>> fetchSettingsForMembers(@NonNull Collection<UUID> memberIds) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             if (memberIds.isEmpty()) {
                 return Map.of();
             }
@@ -728,12 +727,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to fetch settings for members", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<SendInvitationOutcome> trySendInvitation(@NonNull UUID partyId, @NonNull UUID senderId, @NonNull UUID targetId, boolean isFriend) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
@@ -927,14 +926,14 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to send invitation", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     // Single-query operations
 
     @Override
     public CompletableFuture<Optional<Party>> fetchParty(@NonNull UUID partyId) {
-        return CompletableFuture.supplyAsync(() -> fetchPartySync(partyId), databaseExecutor);
+        return databaseExecutor.supply(() -> fetchPartySync(partyId));
     }
 
     private Optional<Party> fetchPartySync(@NonNull UUID partyId) {
@@ -978,15 +977,15 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
     @Override
     public CompletableFuture<Boolean> isInParty(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT 1 FROM party_members WHERE player_id = ?";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), ResultSet::next, "check player in party");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<Party>> getPlayerParty(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> fetchPartyByPlayerSync(playerId), databaseExecutor);
+        return databaseExecutor.supply(() -> fetchPartyByPlayerSync(playerId));
     }
 
     private Optional<Party> fetchPartyByPlayerSync(@NonNull UUID playerId) {
@@ -1014,7 +1013,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
     @Override
     public CompletableFuture<Boolean> removePendingInvitation(@NonNull UUID partyId, @NonNull UUID senderId, @NonNull UUID targetId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "DELETE FROM party_invitations WHERE party_id = ? AND sender_id = ? AND target_id = ?";
             int rows = executeUpdate(sql, statement -> {
                 statement.setObject(1, partyId);
@@ -1022,12 +1021,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 statement.setObject(3, targetId);
             }, "remove pending invitation");
             return rows > 0;
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<PartyInvitation>> fetchInvitation(@NonNull UUID partyId, @NonNull UUID senderId, @NonNull UUID targetId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT party_id, sender_id, target_id, created_at FROM party_invitations WHERE party_id = ? AND sender_id = ? AND target_id = ?";
             return executeQuery(sql, statement -> {
                 statement.setObject(1, partyId);
@@ -1039,12 +1038,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 }
                 return Optional.empty();
             }, "fetch invitation");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<List<PartyInvitation>> fetchIncomingInvitations(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT party_id, sender_id, target_id, created_at FROM party_invitations WHERE target_id = ? ORDER BY created_at DESC";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 List<PartyInvitation> invitations = new ArrayList<>();
@@ -1053,12 +1052,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 }
                 return invitations;
             }, "fetch incoming invitations");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<List<PartyInvitation>> fetchOutgoingInvitations(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT party_id, sender_id, target_id, created_at FROM party_invitations WHERE sender_id = ? ORDER BY created_at DESC";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 List<PartyInvitation> invitations = new ArrayList<>();
@@ -1067,12 +1066,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 }
                 return invitations;
             }, "fetch outgoing invitations");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<List<PartyInvitation>> fetchPartyOutgoingInvitations(@NonNull UUID partyId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT party_id, sender_id, target_id, created_at FROM party_invitations WHERE party_id = ? ORDER BY created_at DESC";
             return executeQuery(sql, statement -> statement.setObject(1, partyId), resultSet -> {
                 List<PartyInvitation> invitations = new ArrayList<>();
@@ -1081,12 +1080,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 }
                 return invitations;
             }, "fetch party outgoing invitations");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<PartyInvitation>> findInvitationFromLeader(@NonNull UUID inviteeId, @NonNull UUID leaderId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT party_id, sender_id, target_id, created_at FROM party_invitations WHERE target_id = ? AND sender_id = ? ORDER BY created_at DESC LIMIT 1";
             return executeQuery(sql, statement -> {
                 statement.setObject(1, inviteeId);
@@ -1097,12 +1096,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 }
                 return Optional.empty();
             }, "find invitation from leader");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<PartyInvitation>> findInvitationForParty(@NonNull UUID inviteeId, @NonNull UUID partyId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT party_id, sender_id, target_id, created_at FROM party_invitations WHERE target_id = ? AND party_id = ? ORDER BY created_at DESC LIMIT 1";
             return executeQuery(sql, statement -> {
                 statement.setObject(1, inviteeId);
@@ -1113,45 +1112,45 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 }
                 return Optional.empty();
             }, "find invitation for party");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Boolean> hasInvitation(@NonNull UUID inviteeId, @NonNull UUID partyId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT 1 FROM party_invitations WHERE target_id = ? AND party_id = ?";
             return executeQuery(sql, statement -> {
                 statement.setObject(1, inviteeId);
                 statement.setObject(2, partyId);
             }, ResultSet::next, "check has invitation");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Integer> countIncomingInvitations(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT COUNT(*) FROM party_invitations WHERE target_id = ?";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 resultSet.next();
                 return resultSet.getInt(1);
             }, "count incoming invitations");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Integer> countOutgoingInvitations(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT COUNT(*) FROM party_invitations WHERE sender_id = ?";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 resultSet.next();
                 return resultSet.getInt(1);
             }, "count outgoing invitations");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<ConfirmationOutcome> setPendingConfirmation(@NonNull PendingConfirmation confirmation) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -1217,20 +1216,20 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to set pending confirmation", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> removePendingConfirmation(@NonNull UUID playerId) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = "DELETE FROM party_confirmations WHERE player_id = ?";
             executeUpdate(sql, statement -> statement.setObject(1, playerId), "remove pending confirmation");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<PendingConfirmation>> fetchPendingConfirmation(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT player_id, confirmation_type, target_id, created_at FROM party_confirmations WHERE player_id = ?";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 if (resultSet.next()) {
@@ -1238,12 +1237,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 }
                 return Optional.empty();
             }, "fetch pending confirmation");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<PartySettings>> fetchSettings(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT player_id, allow_chat, allow_warp, invite_privacy FROM party_settings WHERE player_id = ?";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 if (resultSet.next()) {
@@ -1251,12 +1250,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 }
                 return Optional.empty();
             }, "fetch settings");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> updateAllowChat(@NonNull UUID playerId, boolean allowChat) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO party_settings (player_id, allow_chat, allow_warp, invite_privacy)
                     VALUES (?, ?, TRUE, 'all')
@@ -1266,12 +1265,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 statement.setObject(1, playerId);
                 statement.setBoolean(2, allowChat);
             }, "update allow_chat");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> updateAllowWarp(@NonNull UUID playerId, boolean allowWarp) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO party_settings (player_id, allow_chat, allow_warp, invite_privacy)
                     VALUES (?, TRUE, ?, 'all')
@@ -1281,12 +1280,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 statement.setObject(1, playerId);
                 statement.setBoolean(2, allowWarp);
             }, "update allow_warp");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> updateInvitePrivacy(@NonNull UUID playerId, @NonNull String invitePrivacy) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO party_settings (player_id, allow_chat, allow_warp, invite_privacy)
                     VALUES (?, TRUE, TRUE, ?)
@@ -1296,12 +1295,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 statement.setObject(1, playerId);
                 statement.setString(2, invitePrivacy);
             }, "update invite_privacy");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Boolean> recordInvitationCooldown(@NonNull UUID senderId, @NonNull UUID receiverId, @NonNull Instant now) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "INSERT INTO party_cooldowns (sender_id, receiver_id, timestamp) VALUES (?, ?, ?) ON CONFLICT (sender_id, receiver_id) DO UPDATE SET timestamp = EXCLUDED.timestamp";
             int rows = executeUpdate(sql, statement -> {
                 statement.setObject(1, senderId);
@@ -1309,12 +1308,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 statement.setTimestamp(3, Timestamp.from(now));
             }, "record invitation cooldown");
             return rows > 0;
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<Instant>> fetchInvitationCooldown(@NonNull UUID senderId, @NonNull UUID receiverId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT timestamp FROM party_cooldowns WHERE sender_id = ? AND receiver_id = ?";
             return executeQuery(sql, statement -> {
                 statement.setObject(1, senderId);
@@ -1325,31 +1324,31 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 }
                 return Optional.empty();
             }, "fetch invitation cooldown");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> cleanupExpiredInvitations(@NonNull Instant now, @NonNull Duration expiry) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = "DELETE FROM party_invitations WHERE created_at < ?";
             executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired invitations");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> cleanupExpiredConfirmations(@NonNull Instant now, @NonNull Duration expiry) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = "DELETE FROM party_confirmations WHERE created_at < ?";
             executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired confirmations");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> cleanupExpiredCooldowns(@NonNull Instant now, @NonNull Duration expiry) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = "DELETE FROM party_cooldowns WHERE timestamp < ?";
             executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired cooldowns");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_ -> new")

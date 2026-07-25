@@ -8,7 +8,7 @@ import com.zornus.friends.proxy.model.FriendRequest;
 import com.zornus.friends.proxy.model.FriendSettings;
 import com.zornus.friends.proxy.model.PresenceState;
 import com.zornus.shared.database.DatabaseDefaults;
-import com.zornus.shared.database.DatabaseExecutorFactory;
+import com.zornus.shared.database.DatabaseExecutor;
 import com.zornus.shared.model.PlayerRecord;
 import com.zornus.shared.utilities.CooldownKey;
 import org.jetbrains.annotations.Contract;
@@ -24,7 +24,6 @@ import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public final class FriendPostgresStorage implements FriendStorage, AutoCloseable {
@@ -32,7 +31,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     private static final Logger LOGGER = LoggerFactory.getLogger(FriendPostgresStorage.class);
 
     private final HikariDataSource dataSource;
-    private final ExecutorService databaseExecutor;
+    private final DatabaseExecutor databaseExecutor;
 
     public FriendPostgresStorage(String jdbcUrl, String username, String password) {
         HikariConfig config = new HikariConfig();
@@ -50,7 +49,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 "cancelSignalTimeout", DatabaseDefaults.CANCEL_SIGNAL_TIMEOUT_SECONDS);
         config.addDataSourceProperty("options", DatabaseDefaults.POSTGRESQL_SESSION_OPTIONS);
         this.dataSource = new HikariDataSource(config);
-        this.databaseExecutor = DatabaseExecutorFactory.createBoundedExecutor(
+        this.databaseExecutor = new DatabaseExecutor(
                 "friends-database-",
                 FriendProxyConstants.DATABASE_EXECUTOR_POOL_SIZE
         );
@@ -208,20 +207,20 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Boolean> removeFriendRequest(UUID sender, UUID receiver) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "DELETE FROM requests WHERE sender = ? AND receiver = ?";
             int rows = executeUpdate(sql, statement -> {
                 statement.setObject(1, sender);
                 statement.setObject(2, receiver);
             }, "remove friend request");
             return rows > 0;
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_ -> new")
     @Override
     public @NonNull CompletableFuture<List<FriendRequest>> fetchIncomingFriendRequests(UUID receiver) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = """
                     SELECT r.sender, r.receiver, r.created_at,
                            p1.username AS sender_username, p2.username AS receiver_username
@@ -237,13 +236,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 }
                 return requests;
             }, "get incoming requests");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_ -> new")
     @Override
     public @NonNull CompletableFuture<List<FriendRequest>> fetchOutgoingFriendRequests(UUID sender) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = """
                     SELECT r.sender, r.receiver, r.created_at,
                            p1.username AS sender_username, p2.username AS receiver_username
@@ -259,13 +258,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 }
                 return requests;
             }, "get outgoing requests");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Boolean> removeFriendRelation(UUID player1, UUID player2) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             CooldownKey.CanonicalKey pair = CooldownKey.canonicalize(player1, player2);
             String sql = "DELETE FROM relations WHERE player1 = ? AND player2 = ?";
             int rows = executeUpdate(sql, statement -> {
@@ -273,26 +272,26 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 statement.setObject(2, pair.larger());
             }, "remove relation");
             return rows > 0;
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Boolean> hasFriendRelation(UUID player1, UUID player2) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             CooldownKey.CanonicalKey pair = CooldownKey.canonicalize(player1, player2);
             String sql = "SELECT 1 FROM relations WHERE player1 = ? AND player2 = ?";
             return executeQuery(sql, statement -> {
                 statement.setObject(1, pair.smaller());
                 statement.setObject(2, pair.larger());
             }, ResultSet::next, "check friend relation");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_ -> new")
     @Override
     public @NonNull CompletableFuture<List<FriendRelation>> fetchFriendRelations(UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = """
                     SELECT r.player1, r.player2, r.created_at,
                            p1.username AS player1_username, p2.username AS player2_username
@@ -311,13 +310,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 }
                 return relations;
             }, "get relations");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_ -> new")
     @Override
     public @NonNull CompletableFuture<Optional<FriendSettings>> fetchSettings(UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT player_id, presence_state, allow_messages, allow_jump, show_last_seen, show_location, accept_requests FROM settings WHERE player_id = ?";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 if (resultSet.next()) {
@@ -325,13 +324,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 }
                 return Optional.empty();
             }, "get settings");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Void> updateAllowMessages(UUID playerId, boolean value) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO settings (player_id, allow_messages) VALUES (?, ?)
                     ON CONFLICT (player_id) DO UPDATE SET allow_messages = EXCLUDED.allow_messages
@@ -340,13 +339,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 statement.setObject(1, playerId);
                 statement.setBoolean(2, value);
             }, "update allow_messages");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Void> updateAllowJump(UUID playerId, boolean value) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO settings (player_id, allow_jump) VALUES (?, ?)
                     ON CONFLICT (player_id) DO UPDATE SET allow_jump = EXCLUDED.allow_jump
@@ -355,13 +354,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 statement.setObject(1, playerId);
                 statement.setBoolean(2, value);
             }, "update allow_jump");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Void> updateShowLastSeen(UUID playerId, boolean value) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO settings (player_id, show_last_seen) VALUES (?, ?)
                     ON CONFLICT (player_id) DO UPDATE SET show_last_seen = EXCLUDED.show_last_seen
@@ -370,13 +369,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 statement.setObject(1, playerId);
                 statement.setBoolean(2, value);
             }, "update show_last_seen");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Void> updateShowLocation(UUID playerId, boolean value) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO settings (player_id, show_location) VALUES (?, ?)
                     ON CONFLICT (player_id) DO UPDATE SET show_location = EXCLUDED.show_location
@@ -385,13 +384,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 statement.setObject(1, playerId);
                 statement.setBoolean(2, value);
             }, "update show_location");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Void> updateAllowRequests(UUID playerId, boolean value) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO settings (player_id, accept_requests) VALUES (?, ?)
                     ON CONFLICT (player_id) DO UPDATE SET accept_requests = EXCLUDED.accept_requests
@@ -400,13 +399,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 statement.setObject(1, playerId);
                 statement.setBoolean(2, value);
             }, "update accept_requests");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Void> updatePresenceState(UUID playerId, PresenceState value) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO settings (player_id, presence_state) VALUES (?, ?)
                     ON CONFLICT (player_id) DO UPDATE SET presence_state = EXCLUDED.presence_state
@@ -415,13 +414,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 statement.setObject(1, playerId);
                 statement.setString(2, value.name().toLowerCase());
             }, "update presence_state");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Void> upsertPlayer(UUID playerId, String username) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO players (player_id, username, last_joined_at)
                     VALUES (?, ?, NOW())
@@ -433,13 +432,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 statement.setObject(1, playerId);
                 statement.setString(2, username);
             }, "upsert player");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_ -> new")
     @Override
     public @NonNull CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUsername(String username) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             // Case-insensitive match; if a name was recycled between accounts, the most
             // recently-joined owner is the correct match. The returned "username" column is
             // the stored value, not the input, so callers get the correct current casing.
@@ -457,13 +456,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 }
                 return Optional.empty();
             }, "get player by username");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_ -> new")
     @Override
     public @NonNull CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUuid(UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT player_id, username FROM players WHERE player_id = ?";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 if (resultSet.next()) {
@@ -473,25 +472,25 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 }
                 return Optional.empty();
             }, "get player by uuid");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Void> saveLastSeen(UUID playerId, Instant timestamp) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = "UPDATE players SET last_seen_at = ? WHERE player_id = ?";
             executeUpdate(sql, statement -> {
                 statement.setTimestamp(1, Timestamp.from(timestamp));
                 statement.setObject(2, playerId);
             }, "record last seen");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_ -> new")
     @Override
     public @NonNull CompletableFuture<Optional<Instant>> fetchLastSeen(UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT last_seen_at FROM players WHERE player_id = ?";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 if (resultSet.next()) {
@@ -500,25 +499,25 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 }
                 return Optional.empty();
             }, "get last seen");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Void> saveLastMessageSender(UUID playerId, UUID senderId) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = "INSERT INTO last_message (player_id, sender_id, timestamp) VALUES (?, ?, NOW()) ON CONFLICT (player_id) DO UPDATE SET sender_id = EXCLUDED.sender_id, timestamp = EXCLUDED.timestamp";
             executeUpdate(sql, statement -> {
                 statement.setObject(1, playerId);
                 statement.setObject(2, senderId);
             }, "record last message sender");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_ -> new")
     @Override
     public @NonNull CompletableFuture<Optional<UUID>> fetchLastMessageSender(UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT sender_id FROM last_message WHERE player_id = ?";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 if (resultSet.next()) {
@@ -526,13 +525,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 }
                 return Optional.empty();
             }, "get last message sender");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Optional<Instant>> fetchFriendRequestCooldown(UUID senderId, UUID receiverId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT timestamp FROM request_cooldowns WHERE sender_id = ? AND receiver_id = ?";
             return executeQuery(sql, statement -> {
                 statement.setObject(1, senderId);
@@ -543,7 +542,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 }
                 return Optional.empty();
             }, "get friend request cooldown");
-        }, databaseExecutor);
+        });
     }
 
     // Compound operations
@@ -551,7 +550,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<SendRequestOutcome> trySendFriendRequest(UUID senderId, UUID receiverId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
@@ -736,7 +735,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to send friend request", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _, _ -> new")
@@ -830,7 +829,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<AcceptRequestOutcome> acceptFriendRequest(UUID accepterId, UUID requesterId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
@@ -920,34 +919,34 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to accept friend request", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Void> cleanupExpiredFriendRequests(Instant now, Duration expiry) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = "DELETE FROM requests WHERE created_at < ?";
             executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired requests");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Void> cleanupExpiredFriendRequestCooldowns(Instant now, Duration expiry) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = "DELETE FROM request_cooldowns WHERE timestamp < ?";
             executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired cooldowns");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_, _ -> new")
     @Override
     public @NonNull CompletableFuture<Void> cleanupExpiredLastMessageSenders(Instant now, Duration expiry) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = "DELETE FROM last_message WHERE timestamp < ?";
             executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired last message senders");
-        }, databaseExecutor);
+        });
     }
 
     @Contract("_ -> new")

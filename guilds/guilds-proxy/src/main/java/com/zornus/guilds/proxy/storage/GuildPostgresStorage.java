@@ -6,7 +6,7 @@ import com.zornus.shared.model.PlayerRecord;
 import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.model.*;
 import com.zornus.shared.database.DatabaseDefaults;
-import com.zornus.shared.database.DatabaseExecutorFactory;
+import com.zornus.shared.database.DatabaseExecutor;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 import org.postgresql.util.PSQLException;
@@ -16,13 +16,12 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.concurrent.ExecutorService;
 import java.util.concurrent.TimeUnit;
 
 public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
 
     private final HikariDataSource dataSource;
-    private final ExecutorService databaseExecutor;
+    private final DatabaseExecutor databaseExecutor;
 
     public GuildPostgresStorage(String jdbcUrl, String username, String password) {
         HikariConfig config = new HikariConfig();
@@ -40,7 +39,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 "cancelSignalTimeout", DatabaseDefaults.CANCEL_SIGNAL_TIMEOUT_SECONDS);
         config.addDataSourceProperty("options", DatabaseDefaults.POSTGRESQL_SESSION_OPTIONS);
         this.dataSource = new HikariDataSource(config);
-        this.databaseExecutor = DatabaseExecutorFactory.createBoundedExecutor(
+        this.databaseExecutor = new DatabaseExecutor(
                 "guilds-database-",
                 GuildProxyConstants.DATABASE_EXECUTOR_POOL_SIZE
         );
@@ -225,7 +224,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
 
     @Override
     public CompletableFuture<CreateGuildOutcome> tryCreateGuild(@NonNull UUID leaderId, @NonNull String guildName, @NonNull String guildTag, @NonNull String guildColor) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -278,12 +277,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to create guild", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<DisbandGuildOutcome> tryDisbandGuild(@NonNull UUID guildId, @NonNull UUID leaderId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -365,12 +364,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to disband guild", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<RemoveMemberOutcome> tryRemoveMember(@NonNull UUID guildId, @NonNull UUID memberId, @NonNull UUID requesterId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -464,12 +463,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to remove member", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<SendInvitationOutcome> trySendInvitation(@NonNull UUID guildId, @NonNull UUID senderId, @NonNull UUID targetId, boolean isFriend) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
@@ -663,12 +662,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to send invitation", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<AcceptInvitationOutcome> tryAcceptInvitation(@NonNull UUID guildId, @NonNull UUID senderId, @NonNull UUID targetId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try (PreparedStatement lockStatement = connection.prepareStatement(
@@ -754,12 +753,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to accept invitation", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<TransferLeadershipOutcome> tryTransferLeadership(@NonNull UUID guildId, @NonNull UUID newLeaderId, @NonNull UUID oldLeaderId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -820,12 +819,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to transfer leadership", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<RenameGuildOutcome> tryRenameGuild(@NonNull UUID guildId, @NonNull UUID leaderId, @NonNull String newName) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -897,14 +896,14 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to rename guild", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     // Single-query operations
 
     @Override
     public CompletableFuture<Optional<Guild>> fetchGuild(@NonNull UUID guildId) {
-        return CompletableFuture.supplyAsync(() -> fetchGuildSync(guildId), databaseExecutor);
+        return databaseExecutor.supply(() -> fetchGuildSync(guildId));
     }
 
     private Optional<Guild> fetchGuildSync(@NonNull UUID guildId) {
@@ -931,7 +930,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
 
     @Override
     public CompletableFuture<Optional<Guild>> fetchGuildByName(@NonNull String name) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = """
                     SELECT g.guild_id, g.guild_name, g.guild_tag, g.guild_color, g.leader_id, g.created_at,
                            gm.player_id
@@ -951,12 +950,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to fetch guild by name", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<Guild>> getPlayerGuild(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> fetchGuildByPlayerSync(playerId), databaseExecutor);
+        return databaseExecutor.supply(() -> fetchGuildByPlayerSync(playerId));
     }
 
     private Optional<Guild> fetchGuildByPlayerSync(@NonNull UUID playerId) {
@@ -984,15 +983,15 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
 
     @Override
     public CompletableFuture<Boolean> isInGuild(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT 1 FROM guild_members WHERE player_id = ?";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), ResultSet::next, "check player in guild");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<List<GuildInvitation>> fetchIncomingInvitations(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT guild_id, sender_id, target_id, created_at FROM guild_invitations WHERE target_id = ? ORDER BY created_at DESC";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 List<GuildInvitation> invitations = new ArrayList<>();
@@ -1001,12 +1000,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 }
                 return invitations;
             }, "fetch incoming invitations");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<List<GuildInvitation>> fetchOutgoingInvitations(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT guild_id, sender_id, target_id, created_at FROM guild_invitations WHERE sender_id = ? ORDER BY created_at DESC";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 List<GuildInvitation> invitations = new ArrayList<>();
@@ -1015,12 +1014,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 }
                 return invitations;
             }, "fetch outgoing invitations");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<GuildInvitation>> findInvitationByGuildName(@NonNull UUID inviteeId, @NonNull String guildName) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = """
                     SELECT gi.guild_id, gi.sender_id, gi.target_id, gi.created_at
                     FROM guild_invitations gi
@@ -1041,12 +1040,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to find invitation by guild name", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Boolean> removePendingInvitation(@NonNull UUID guildId, @NonNull UUID senderId, @NonNull UUID targetId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "DELETE FROM guild_invitations WHERE guild_id = ? AND sender_id = ? AND target_id = ?";
             int rows = executeUpdate(sql, statement -> {
                 statement.setObject(1, guildId);
@@ -1054,12 +1053,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 statement.setObject(3, targetId);
             }, "remove pending invitation");
             return rows > 0;
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<GuildSettings>> fetchSettings(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT player_id, invite_privacy, show_chat FROM guild_settings WHERE player_id = ?";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 if (resultSet.next()) {
@@ -1067,12 +1066,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 }
                 return Optional.empty();
             }, "fetch settings");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Map<UUID, GuildSettings>> fetchSettingsForMembers(@NonNull Collection<UUID> memberIds) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             if (memberIds.isEmpty()) {
                 return Map.of();
             }
@@ -1096,12 +1095,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to fetch settings for members", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> updateInvitePrivacy(@NonNull UUID playerId, @NonNull String value) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO guild_settings (player_id, invite_privacy, show_chat)
                     VALUES (?, ?, TRUE)
@@ -1111,12 +1110,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 statement.setObject(1, playerId);
                 statement.setString(2, value);
             }, "update invite privacy");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> updateShowChat(@NonNull UUID playerId, boolean value) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO guild_settings (player_id, invite_privacy, show_chat)
                     VALUES (?, 'all', ?)
@@ -1126,38 +1125,38 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 statement.setObject(1, playerId);
                 statement.setBoolean(2, value);
             }, "update show chat");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Boolean> updateGuildTag(@NonNull UUID guildId, @NonNull UUID leaderId,
                                                       @NonNull String guildTag) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "UPDATE guilds SET guild_tag = ? WHERE guild_id = ? AND leader_id = ?";
             return executeUpdate(sql, statement -> {
                 statement.setString(1, guildTag);
                 statement.setObject(2, guildId);
                 statement.setObject(3, leaderId);
             }, "update guild tag") == 1;
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Boolean> updateGuildColor(@NonNull UUID guildId, @NonNull UUID leaderId,
                                                         @NonNull String guildColor) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "UPDATE guilds SET guild_color = ? WHERE guild_id = ? AND leader_id = ?";
             return executeUpdate(sql, statement -> {
                 statement.setString(1, guildColor);
                 statement.setObject(2, guildId);
                 statement.setObject(3, leaderId);
             }, "update guild color") == 1;
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> upsertPlayer(@NonNull UUID playerId, @NonNull String username) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = """
                     INSERT INTO guild_players (player_id, username, last_joined_at)
                     VALUES (?, ?, NOW())
@@ -1167,12 +1166,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 statement.setObject(1, playerId);
                 statement.setString(2, username);
             }, "upsert player");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUsername(@NonNull String username) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = """
                     SELECT player_id, username FROM guild_players
                     WHERE LOWER(username) = LOWER(?)
@@ -1194,12 +1193,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to fetch player by username", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Map<UUID, PlayerRecord>> fetchPlayersByUuids(@NonNull Collection<UUID> playerIds) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             if (playerIds.isEmpty()) {
                 return Map.of();
             }
@@ -1224,12 +1223,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to fetch players by UUIDs", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<ConfirmationOutcome> setPendingConfirmation(@NonNull PendingConfirmation confirmation) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
@@ -1294,20 +1293,20 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to set pending confirmation", exception);
             }
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> removePendingConfirmation(@NonNull UUID playerId) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = "DELETE FROM guild_confirmations WHERE player_id = ?";
             executeUpdate(sql, statement -> statement.setObject(1, playerId), "remove pending confirmation");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<PendingConfirmation>> fetchPendingConfirmation(@NonNull UUID playerId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT player_id, confirmation_type, target_id, new_value, created_at FROM guild_confirmations WHERE player_id = ?";
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 if (resultSet.next()) {
@@ -1315,12 +1314,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 }
                 return Optional.empty();
             }, "fetch pending confirmation");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Boolean> recordInvitationCooldown(@NonNull UUID senderId, @NonNull UUID receiverId, @NonNull Instant now) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "INSERT INTO guild_cooldowns (sender_id, receiver_id, timestamp) VALUES (?, ?, ?) ON CONFLICT (sender_id, receiver_id) DO UPDATE SET timestamp = EXCLUDED.timestamp";
             int rows = executeUpdate(sql, statement -> {
                 statement.setObject(1, senderId);
@@ -1328,12 +1327,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 statement.setTimestamp(3, Timestamp.from(now));
             }, "record invitation cooldown");
             return rows > 0;
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Optional<Instant>> fetchInvitationCooldown(@NonNull UUID senderId, @NonNull UUID receiverId) {
-        return CompletableFuture.supplyAsync(() -> {
+        return databaseExecutor.supply(() -> {
             String sql = "SELECT timestamp FROM guild_cooldowns WHERE sender_id = ? AND receiver_id = ?";
             return executeQuery(sql, statement -> {
                 statement.setObject(1, senderId);
@@ -1344,31 +1343,31 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 }
                 return Optional.empty();
             }, "fetch invitation cooldown");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> cleanupExpiredInvitations(@NonNull Instant now, @NonNull Duration expiry) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = "DELETE FROM guild_invitations WHERE created_at < ?";
             executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired invitations");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> cleanupExpiredConfirmations(@NonNull Instant now, @NonNull Duration expiry) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = "DELETE FROM guild_confirmations WHERE created_at < ?";
             executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired confirmations");
-        }, databaseExecutor);
+        });
     }
 
     @Override
     public CompletableFuture<Void> cleanupExpiredCooldowns(@NonNull Instant now, @NonNull Duration expiry) {
-        return CompletableFuture.runAsync(() -> {
+        return databaseExecutor.run(() -> {
             String sql = "DELETE FROM guild_cooldowns WHERE timestamp < ?";
             executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired cooldowns");
-        }, databaseExecutor);
+        });
     }
 
     // Helper methods
