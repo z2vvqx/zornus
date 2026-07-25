@@ -1,0 +1,67 @@
+package net.valoury.parties.proxy.command;
+
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import com.velocitypowered.api.command.BrigadierCommand;
+import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.proxy.Player;
+import net.valoury.parties.proxy.PartyProxyConstants;
+import net.valoury.parties.proxy.model.PartyResult;
+import net.valoury.parties.proxy.service.PartyService;
+import net.valoury.shared.SharedConstants;
+import net.valoury.shared.utilities.StringUtils;
+import org.jspecify.annotations.NonNull;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Command for jumping to the party leader.
+ */
+public final class PartyJumpCommand {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PartyJumpCommand.class);
+
+    public static LiteralArgumentBuilder<CommandSource> create(PartyService partyService) {
+        return BrigadierCommand
+                .literalArgumentBuilder("jump")
+                .executes(context -> handleJumpToLeader(context, partyService));
+    }
+
+    private static int handleJumpToLeader(@NonNull CommandContext<CommandSource> context, PartyService partyService) {
+        CommandSource source = context.getSource();
+        if (!(source instanceof Player sender)) {
+            source.sendMessage(StringUtils.deserialize(SharedConstants.PLAYERS_ONLY));
+            return Command.SINGLE_SUCCESS;
+        }
+
+        partyService.jumpToLeader(sender)
+                .thenAccept(result -> {
+                    switch (result.legacy()) {
+                        case NOT_IN_PARTY ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.JUMP_ERROR_NOT_IN_PARTY));
+                        case CANNOT_JUMP_AS_LEADER ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.JUMP_ERROR_CANNOT_JUMP_AS_LEADER));
+                        case LEADER_NOT_ONLINE ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.JUMP_ERROR_LEADER_NOT_ONLINE));
+                        case LEADER_NO_INSTANCE ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.JUMP_ERROR_LEADER_NO_INSTANCE));
+                        case ALREADY_WITH_LEADER ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.JUMP_INFO_ALREADY_WITH_LEADER));
+                        case JUMPED_TO_LEADER ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.JUMP_SUCCESS));
+                        case WARP_FAILED ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.JUMP_ERROR_FAILED));
+                        default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to jump to leader for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
+                });
+
+        return Command.SINGLE_SUCCESS;
+    }
+}

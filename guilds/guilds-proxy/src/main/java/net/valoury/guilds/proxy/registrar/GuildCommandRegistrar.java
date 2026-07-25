@@ -1,0 +1,48 @@
+package net.valoury.guilds.proxy.registrar;
+
+import com.velocitypowered.api.command.CommandManager;
+import com.velocitypowered.api.proxy.ProxyServer;
+import net.valoury.guilds.proxy.command.GuildCommand;
+import net.valoury.guilds.proxy.service.GuildService;
+import org.jspecify.annotations.NonNull;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Registrar for guild commands.
+ */
+public final class GuildCommandRegistrar {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(GuildCommandRegistrar.class);
+
+    private final @NonNull GuildService guildService;
+    private final @NonNull ProxyServer proxyServer;
+
+    /**
+     * Creates a new command registrar.
+     *
+     * @param guildService Service for guild operations
+     */
+    public GuildCommandRegistrar(@NonNull GuildService guildService, @NonNull ProxyServer proxyServer) {
+        this.guildService = guildService;
+        this.proxyServer = proxyServer;
+    }
+
+    /**
+     * Registers all guild commands.
+     * This operation is thread-safe and includes proper error handling.
+     *
+     * @param commandManager The command manager for command registration
+     */
+    public void registerCommands(@NonNull CommandManager commandManager) {
+        try {
+            commandManager.register(
+                    commandManager.metaBuilder("guild").aliases("g").build(),
+                    GuildCommand.create(guildService, proxyServer)
+            );
+        } catch (Exception exception) {
+            LOGGER.error("Error registering guild commands", exception);
+            throw exception;
+        }
+    }
+}

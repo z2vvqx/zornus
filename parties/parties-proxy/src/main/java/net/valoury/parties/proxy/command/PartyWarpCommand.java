@@ -1,0 +1,65 @@
+package net.valoury.parties.proxy.command;
+
+import com.mojang.brigadier.Command;
+import com.mojang.brigadier.builder.LiteralArgumentBuilder;
+import com.mojang.brigadier.context.CommandContext;
+import com.velocitypowered.api.command.BrigadierCommand;
+import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.proxy.Player;
+import net.valoury.parties.proxy.PartyProxyConstants;
+import net.valoury.parties.proxy.model.PartyResult;
+import net.valoury.parties.proxy.service.PartyService;
+import net.valoury.shared.SharedConstants;
+import net.valoury.shared.utilities.StringUtils;
+import org.jspecify.annotations.NonNull;
+
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+/**
+ * Command for warping party members to the leader.
+ */
+public final class PartyWarpCommand {
+
+    private static final Logger LOGGER = LoggerFactory.getLogger(PartyWarpCommand.class);
+
+    public static LiteralArgumentBuilder<CommandSource> create(PartyService partyService) {
+        return BrigadierCommand
+                .literalArgumentBuilder("warp")
+                .executes(context -> handleWarpParty(context, partyService));
+    }
+
+    private static int handleWarpParty(@NonNull CommandContext<CommandSource> context, PartyService partyService) {
+        CommandSource source = context.getSource();
+        if (!(source instanceof Player sender)) {
+            source.sendMessage(StringUtils.deserialize(SharedConstants.PLAYERS_ONLY));
+            return Command.SINGLE_SUCCESS;
+        }
+
+        partyService.warpParty(sender)
+                .thenAccept(result -> {
+                    switch (result.legacy()) {
+                        case NOT_IN_PARTY ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_ERROR_NOT_IN_PARTY));
+                        case NOT_LEADER ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_NOT_LEADER));
+                        case WARP_ON_COOLDOWN ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_ERROR_ON_COOLDOWN));
+                        case WARP_FAILED ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_ERROR_FAILED));
+                        case PARTY_NOT_FOUND ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_ERROR_PARTY_NOT_FOUND));
+                        case PARTY_WARPED ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_SUCCESS));
+                        default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to warp party for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
+                });
+
+        return Command.SINGLE_SUCCESS;
+    }
+}
