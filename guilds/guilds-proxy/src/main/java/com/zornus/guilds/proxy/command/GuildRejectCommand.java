@@ -8,7 +8,6 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.zornus.guilds.proxy.GuildProxyConstants;
-import com.zornus.guilds.proxy.model.GuildResult;
 import com.zornus.guilds.proxy.service.GuildService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.StringUtils;
@@ -44,23 +43,21 @@ public final class GuildRejectCommand {
 
         String guildName = StringArgumentType.getString(context, "guild_name");
         guildService.rejectInvitation(sender, guildName)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to reject guild invitation for player {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return GuildResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case INVITATION_REJECTED -> sender.sendMessage(StringUtils.deserialize(
                                 GuildProxyConstants.REJECT_SUCCESS,
                                 Placeholder.unparsed("guild_name", guildName)));
                         case NO_INVITATION_FOUND -> sender.sendMessage(StringUtils.deserialize(
                                 GuildProxyConstants.REJECT_ERROR_NO_INVITATION,
                                 Placeholder.unparsed("guild_name", guildName)));
-                        case ERROR_ALREADY_HANDLED -> {
-                        }
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to reject guild invitation for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

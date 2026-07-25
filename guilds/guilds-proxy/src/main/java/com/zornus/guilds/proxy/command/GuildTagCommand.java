@@ -8,7 +8,6 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.zornus.guilds.proxy.GuildProxyConstants;
-import com.zornus.guilds.proxy.model.GuildResult;
 import com.zornus.guilds.proxy.service.GuildService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.StringUtils;
@@ -44,13 +43,8 @@ public final class GuildTagCommand {
 
         String guildTag = StringArgumentType.getString(context, "new_tag");
         guildService.updateGuildTag(sender, guildTag)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to update guild tag for player {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return GuildResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case GUILD_TAG_UPDATED -> sender.sendMessage(StringUtils.deserialize(
                                 GuildProxyConstants.TAG_SUCCESS, Placeholder.unparsed("new_tag", guildTag)));
                         case NOT_IN_GUILD ->
@@ -59,10 +53,13 @@ public final class GuildTagCommand {
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_LEADER));
                         case INVALID_GUILD_TAG ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_INVALID_GUILD_TAG));
-                        case ERROR_ALREADY_HANDLED -> {
-                        }
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to update guild tag for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

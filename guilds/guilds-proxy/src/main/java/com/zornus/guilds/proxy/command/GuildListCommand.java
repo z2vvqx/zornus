@@ -10,8 +10,6 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.model.Guild;
-import com.zornus.guilds.proxy.model.GuildResult;
-import com.zornus.guilds.proxy.model.result.GuildInfoResult;
 import com.zornus.guilds.proxy.model.result.GuildListResult;
 import com.zornus.guilds.proxy.service.GuildService;
 import com.zornus.shared.SharedConstants;
@@ -55,66 +53,54 @@ public final class GuildListCommand {
         }
 
         guildService.getGuildMembers(sender, page)
+                .thenAccept(result -> {
+                    switch (result) {
+                        case GuildListResult.Found found -> resolveAndDisplayMembers(
+                                sender, guildService, proxyServer, found, page);
+                        case GuildListResult.NotInGuild ignored ->
+                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.LIST_ERROR_NOT_IN_GUILD));
+                        case GuildListResult.InvalidPage invalidPage -> sender.sendMessage(StringUtils.deserialize(
+                                SharedConstants.INVALID_PAGE,
+                                Placeholder.unparsed("maximum_pages",
+                                        String.valueOf(invalidPage.pagination().maximumPages()))));
+                        case GuildListResult.Empty ignored ->
+                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    }
+                })
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to get guild members for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return new GuildListResult(
-                            GuildResult.ERROR_ALREADY_HANDLED, PaginationResult.invalidPage(1));
-                })
-                .thenAccept(result -> {
-                    switch (result.result()) {
-                        case SUCCESS -> resolveAndDisplayMembers(
-                                sender, guildService, proxyServer, result, page);
-                        case NOT_IN_GUILD ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.LIST_ERROR_NOT_IN_GUILD));
-                        case INVALID_PAGE -> sender.sendMessage(StringUtils.deserialize(
-                                SharedConstants.INVALID_PAGE,
-                                Placeholder.unparsed("maximum_pages",
-                                        String.valueOf(result.pagination().maximumPages()))));
-                        case ERROR_ALREADY_HANDLED -> {
-                        }
-                        default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    }
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;
     }
 
     private static void resolveAndDisplayMembers(@NonNull Player sender, GuildService guildService,
-                                                 ProxyServer proxyServer, @NonNull GuildListResult result,
+                                                 ProxyServer proxyServer, GuildListResult.Found result,
                                                  int page) {
-        guildService.getGuildInfo(sender)
-                .thenCombine(
-                        guildService.fetchPlayersByUuids(result.pagination().items()),
-                        (guildInfo, storedPlayers) -> new MemberDisplayData(guildInfo, storedPlayers))
+        guildService.fetchPlayersByUuids(result.pagination().items())
+                .thenAccept(storedPlayers ->
+                        displayMembers(sender, proxyServer, result.pagination(), result.guild(), storedPlayers, page))
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to resolve guild member names for player {}",
                             sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     return null;
-                })
-                .thenAccept(displayData -> {
-                    if (displayData != null) {
-                        displayMembers(sender, proxyServer, result, displayData, page);
-                    }
                 });
     }
 
     private static void displayMembers(@NonNull Player sender, ProxyServer proxyServer,
-                                       @NonNull GuildListResult result,
-                                       @NonNull MemberDisplayData displayData, int page) {
-        Guild guild = displayData.guildInfo().guild().orElse(null);
-        if (guild == null) {
-            sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.LIST_ERROR_NOT_IN_GUILD));
-            return;
-        }
-
+                                       @NonNull PaginationResult<UUID> pagination,
+                                       @NonNull Guild guild,
+                                       @NonNull Map<UUID, PlayerRecord> storedPlayers,
+                                       int page) {
         TextComponent.Builder messageBuilder = Component.text().appendNewline();
-        for (UUID memberId : result.pagination().items()) {
+        for (UUID memberId : pagination.items()) {
             String memberName = proxyServer.getPlayer(memberId)
                     .map(Player::getUsername)
                     .orElseGet(() -> {
-                        PlayerRecord record = displayData.storedPlayers().get(memberId);
+                        PlayerRecord record = storedPlayers.get(memberId);
                         return record == null ? "Unknown" : record.username();
                     });
             String format = guild.isLeader(memberId)
@@ -125,21 +111,15 @@ public final class GuildListCommand {
                     Placeholder.unparsed("member", memberName))).appendNewline();
         }
 
-        if (result.pagination().hasMultiplePages()) {
+        if (pagination.hasMultiplePages()) {
             TagResolver resolver = TagResolver.resolver(
                     Placeholder.unparsed("current_page", String.valueOf(page)),
                     Placeholder.unparsed("maximum_pages",
-                            String.valueOf(result.pagination().maximumPages()))
+                            String.valueOf(pagination.maximumPages()))
             );
             messageBuilder.appendNewline()
                     .append(StringUtils.deserialize(GuildProxyConstants.UI_LIST_PAGINATION, resolver));
         }
         sender.sendMessage(messageBuilder.build());
-    }
-
-    private record MemberDisplayData(
-            @NonNull GuildInfoResult guildInfo,
-            @NonNull Map<UUID, PlayerRecord> storedPlayers
-    ) {
     }
 }

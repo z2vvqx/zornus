@@ -1,12 +1,10 @@
 package com.zornus.guilds.proxy.model.result;
 
 import com.zornus.guilds.proxy.model.Guild;
-import com.zornus.guilds.proxy.model.GuildResult;
 import org.jspecify.annotations.NonNull;
 
-import java.util.Optional;
-
-public record GuildInfoResult(
-        @NonNull GuildResult result,
-        @NonNull Optional<Guild> guild
-) {}
+public sealed interface GuildInfoResult {
+    record Found(@NonNull Guild guild) implements GuildInfoResult {}
+    record NotInGuild() implements GuildInfoResult {}
+    record NotFound() implements GuildInfoResult {}
+}

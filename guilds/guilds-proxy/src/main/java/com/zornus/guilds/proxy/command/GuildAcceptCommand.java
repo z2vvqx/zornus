@@ -8,7 +8,6 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.zornus.guilds.proxy.GuildProxyConstants;
-import com.zornus.guilds.proxy.model.GuildResult;
 import com.zornus.guilds.proxy.service.GuildService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.StringUtils;
@@ -44,13 +43,8 @@ public final class GuildAcceptCommand {
 
         String guildName = StringArgumentType.getString(context, "guild_name");
         guildService.acceptInvitation(sender, guildName)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to accept guild invitation for player {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return GuildResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case JOINED_GUILD -> sender.sendMessage(StringUtils.deserialize(
                                 GuildProxyConstants.ACCEPT_SUCCESS,
                                 Placeholder.unparsed("guild_name", guildName)));
@@ -61,10 +55,13 @@ public final class GuildAcceptCommand {
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ACCEPT_ERROR_GUILD_FULL));
                         case ALREADY_IN_GUILD ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_ALREADY_IN_GUILD));
-                        case ERROR_ALREADY_HANDLED -> {
-                        }
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to accept guild invitation for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

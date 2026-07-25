@@ -10,7 +10,6 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.guilds.proxy.GuildProxyConstants;
-import com.zornus.guilds.proxy.model.GuildResult;
 import com.zornus.guilds.proxy.service.GuildService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.StringUtils;
@@ -68,13 +67,8 @@ public final class GuildTransferCommand {
 
         String targetName = StringArgumentType.getString(context, "member_name");
         guildService.transferLeadership(sender, targetName, isConfirming)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to transfer guild leadership to {}", targetName, throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return GuildResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case LEADERSHIP_TRANSFERRED -> sender.sendMessage(StringUtils.deserialize(
                                 GuildProxyConstants.TRANSFER_SUCCESS,
                                 Placeholder.unparsed("target", targetName)));
@@ -95,10 +89,13 @@ public final class GuildTransferCommand {
                                 Placeholder.unparsed("target", targetName)));
                         case CANNOT_TRANSFER_TO_SELF ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.TRANSFER_ERROR_CANNOT_TRANSFER_SELF));
-                        case ERROR_ALREADY_HANDLED -> {
-                        }
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to transfer guild leadership to {}", targetName, throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

@@ -7,7 +7,6 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.zornus.guilds.proxy.GuildProxyConstants;
-import com.zornus.guilds.proxy.model.GuildResult;
 import com.zornus.guilds.proxy.service.GuildService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.StringUtils;
@@ -34,23 +33,21 @@ public final class GuildLeaveCommand {
         }
 
         guildService.leaveGuild(sender)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to leave guild for player {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return GuildResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case LEFT_GUILD ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.LEAVE_SUCCESS));
                         case LEFT_GUILD_DISBANDED ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.LEAVE_SUCCESS_DISBANDED));
                         case NOT_IN_GUILD ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.LEAVE_ERROR_NOT_IN_GUILD));
-                        case ERROR_ALREADY_HANDLED -> {
-                        }
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to leave guild for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

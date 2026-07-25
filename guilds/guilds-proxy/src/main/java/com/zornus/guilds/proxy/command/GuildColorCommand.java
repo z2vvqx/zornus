@@ -9,7 +9,6 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.zornus.guilds.proxy.GuildProxyConstants;
-import com.zornus.guilds.proxy.model.GuildResult;
 import com.zornus.guilds.proxy.service.GuildService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.StringUtils;
@@ -50,13 +49,8 @@ public final class GuildColorCommand {
 
         String guildColor = StringArgumentType.getString(context, "color").toLowerCase();
         guildService.updateGuildColor(sender, guildColor)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to update guild color for player {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return GuildResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case GUILD_COLOR_UPDATED -> sender.sendMessage(StringUtils.deserialize(
                                 GuildProxyConstants.COLOR_SUCCESS,
                                 Placeholder.parsed("colored_value", "<" + guildColor + ">" + guildColor)));
@@ -66,10 +60,13 @@ public final class GuildColorCommand {
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_LEADER));
                         case INVALID_GUILD_COLOR ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_INVALID_GUILD_COLOR));
-                        case ERROR_ALREADY_HANDLED -> {
-                        }
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to update guild color for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

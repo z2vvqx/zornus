@@ -4,13 +4,16 @@ import com.google.inject.Inject;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
+import com.velocitypowered.api.plugin.Dependency;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.zornus.friends.api.FriendsApi;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 
 @Plugin(id = "guilds-proxy", name = "Guilds Proxy", version = "1.0.0",
-        url = "https://zornus.com", authors = {"Zornus"})
+        url = "https://zornus.com", authors = {"Zornus"},
+        dependencies = {@Dependency(id = FriendsApi.PLUGIN_ID)})
 public final class GuildProxyPlugin {
 
     private final @NonNull ProxyServer proxyServer;
@@ -28,7 +31,8 @@ public final class GuildProxyPlugin {
         try {
             logger.info("Initializing Guilds plugin...");
 
-            this.guildProxyModule = new GuildProxyModule(this, proxyServer);
+            FriendsApi friendsApi = resolveFriendsApi();
+            this.guildProxyModule = new GuildProxyModule(this, proxyServer, friendsApi.friendships());
             guildProxyModule.initialize(proxyServer.getCommandManager(), proxyServer.getEventManager(), proxyServer.getScheduler());
             logger.info("Guilds plugin initialized successfully");
         } catch (Exception exception) {
@@ -49,5 +53,17 @@ public final class GuildProxyPlugin {
         } catch (Exception exception) {
             logger.error("Error during Guilds plugin shutdown", exception);
         }
+    }
+
+    private @NonNull FriendsApi resolveFriendsApi() {
+        Object friendsPlugin = proxyServer.getPluginManager()
+                .getPlugin(FriendsApi.PLUGIN_ID)
+                .flatMap(pluginContainer -> pluginContainer.getInstance())
+                .orElseThrow(() -> new IllegalStateException("Friends plugin instance is unavailable"));
+
+        if (!(friendsPlugin instanceof FriendsApi friendsApi)) {
+            throw new IllegalStateException("Friends plugin does not expose the expected API");
+        }
+        return friendsApi;
     }
 }

@@ -9,7 +9,6 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.model.Guild;
-import com.zornus.guilds.proxy.model.GuildResult;
 import com.zornus.guilds.proxy.model.result.GuildInfoResult;
 import com.zornus.guilds.proxy.service.GuildService;
 import com.zornus.shared.SharedConstants;
@@ -19,8 +18,6 @@ import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
-
-import java.util.Optional;
 
 public final class GuildInfoCommand {
 
@@ -50,24 +47,19 @@ public final class GuildInfoCommand {
                 ? guildService.getGuildInfo(sender)
                 : guildService.getGuildInfoByName(guildName);
 
-        infoFuture.exceptionally(throwable -> {
+        infoFuture.thenAccept(result -> {
+                    switch (result) {
+                        case GuildInfoResult.Found found -> displayGuildInfo(sender, found.guild());
+                        case GuildInfoResult.NotInGuild ignored ->
+                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_IN_GUILD));
+                        case GuildInfoResult.NotFound ignored ->
+                                sender.sendMessage(StringUtils.deserialize("<red>Unable to find that guild.</red>"));
+                    }
+                })
+                .exceptionally(throwable -> {
                     LOGGER.error("Failed to get guild information for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return new GuildInfoResult(GuildResult.ERROR_ALREADY_HANDLED, Optional.empty());
-                })
-                .thenAccept(result -> {
-                    switch (result.result()) {
-                        case SUCCESS -> result.guild().ifPresentOrElse(
-                                guild -> displayGuildInfo(sender, guild),
-                                () -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED)));
-                        case NOT_IN_GUILD ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_IN_GUILD));
-                        case GUILD_NOT_FOUND ->
-                                sender.sendMessage(StringUtils.deserialize("<red>Unable to find that guild.</red>"));
-                        case ERROR_ALREADY_HANDLED -> {
-                        }
-                        default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    }
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

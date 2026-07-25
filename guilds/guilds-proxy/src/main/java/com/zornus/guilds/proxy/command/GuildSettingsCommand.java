@@ -10,7 +10,6 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.zornus.guilds.proxy.GuildProxyConstants;
-import com.zornus.guilds.proxy.model.GuildResult;
 import com.zornus.guilds.proxy.model.GuildSettings;
 import com.zornus.guilds.proxy.service.GuildService;
 import com.zornus.shared.SharedConstants;
@@ -100,14 +99,8 @@ public final class GuildSettingsCommand {
         }
 
         guildService.updateSettings(sender, setting, value)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to update guild setting {} for player {}",
-                            setting, sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return GuildResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case SETTING_UPDATED -> {
                             TagResolver resolver = TagResolver.resolver(
                                     Placeholder.unparsed("setting", setting),
@@ -118,10 +111,14 @@ public final class GuildSettingsCommand {
                         }
                         case INVALID_SETTING ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.USAGE_SETTINGS));
-                        case ERROR_ALREADY_HANDLED -> {
-                        }
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to update guild setting {} for player {}",
+                            setting, sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

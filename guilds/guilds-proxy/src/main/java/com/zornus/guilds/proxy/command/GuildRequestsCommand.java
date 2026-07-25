@@ -10,7 +10,6 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.model.GuildInvitation;
-import com.zornus.guilds.proxy.model.GuildResult;
 import com.zornus.guilds.proxy.model.result.GuildRequestsResult;
 import com.zornus.guilds.proxy.service.GuildService;
 import com.zornus.shared.SharedConstants;
@@ -68,41 +67,42 @@ public final class GuildRequestsCommand {
         }
 
         guildService.getRequestsList(sender.getUniqueId(), direction, page)
+                .thenAccept(result -> handleResult(
+                        sender, guildService, proxyServer, result, direction, page))
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to get guild requests for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return new GuildRequestsResult(
-                            GuildResult.ERROR_ALREADY_HANDLED,
-                            com.zornus.shared.utilities.PaginationResult.invalidPage(1));
-                })
-                .thenAccept(result -> handleResult(
-                        sender, guildService, proxyServer, result, direction, page));
+                    return null;
+                });
         return Command.SINGLE_SUCCESS;
     }
 
     private static void handleResult(Player sender, GuildService guildService, ProxyServer proxyServer,
                                      GuildRequestsResult result, String direction, int page) {
-        if (result.result() == GuildResult.LIST_EMPTY) {
-            sender.sendMessage(StringUtils.deserialize("incoming".equals(direction)
-                    ? GuildProxyConstants.UI_REQUESTS_INCOMING_EMPTY
-                    : GuildProxyConstants.UI_REQUESTS_OUTGOING_EMPTY));
-            return;
-        }
-        if (result.result() == GuildResult.INVALID_PAGE) {
-            sender.sendMessage(StringUtils.deserialize(
+        switch (result) {
+            case GuildRequestsResult.Empty ignored -> sender.sendMessage(StringUtils.deserialize(
+                    "incoming".equals(direction)
+                            ? GuildProxyConstants.UI_REQUESTS_INCOMING_EMPTY
+                            : GuildProxyConstants.UI_REQUESTS_OUTGOING_EMPTY));
+            case GuildRequestsResult.InvalidPage invalidPage -> sender.sendMessage(StringUtils.deserialize(
                     SharedConstants.INVALID_PAGE,
                     Placeholder.unparsed("maximum_pages",
-                            String.valueOf(result.pagination().maximumPages()))));
-            return;
+                            String.valueOf(invalidPage.pagination().maximumPages()))));
+            case GuildRequestsResult.InvalidRequestType ignored ->
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+            case GuildRequestsResult.Found found ->
+                    resolveAndDisplayRequests(sender, guildService, proxyServer, found, direction, page);
         }
-        if (result.result() == GuildResult.ERROR_ALREADY_HANDLED) {
-            return;
-        }
-        if (result.result() != GuildResult.SUCCESS) {
-            sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-            return;
-        }
+    }
 
+    private static void resolveAndDisplayRequests(
+            Player sender,
+            GuildService guildService,
+            ProxyServer proxyServer,
+            GuildRequestsResult.Found result,
+            String direction,
+            int page
+    ) {
         resolveNames(guildService, proxyServer, result.pagination().items(), direction)
                 .exceptionally(throwable -> {
                         LOGGER.error("Failed to resolve guild invitation names", throwable);
@@ -146,7 +146,7 @@ public final class GuildRequestsCommand {
                                 ResolvedInvitation::invitation, ResolvedInvitation::name)));
     }
 
-    private static void display(Player sender, GuildRequestsResult result, String direction, int page,
+    private static void display(Player sender, GuildRequestsResult.Found result, String direction, int page,
                                 Map<GuildInvitation, String> names) {
         boolean incoming = "incoming".equals(direction);
         String template = incoming

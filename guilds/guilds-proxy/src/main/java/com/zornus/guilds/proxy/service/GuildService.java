@@ -2,13 +2,14 @@ package com.zornus.guilds.proxy.service;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.zornus.friends.api.FriendshipService;
 import com.zornus.shared.model.PlayerRecord;
-import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.guilds.proxy.GuildProxyConstants;
 import com.zornus.guilds.proxy.model.*;
 import com.zornus.guilds.proxy.model.result.GuildInfoResult;
 import com.zornus.guilds.proxy.model.result.GuildListResult;
 import com.zornus.guilds.proxy.model.result.GuildRequestsResult;
+import com.zornus.guilds.proxy.model.result.GuildResults;
 import com.zornus.guilds.proxy.storage.*;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.PaginationResult;
@@ -35,12 +36,16 @@ public final class GuildService implements AutoCloseable {
     private final @NonNull GuildStorage storage;
     private final @NonNull ProxyServer proxyServer;
     private final @NonNull GuildNotificationService notificationService;
-    private final @Nullable FriendService friendService;
+    private final @NonNull FriendshipService friendshipService;
 
-    public GuildService(@NonNull GuildStorage storage, @NonNull ProxyServer proxyServer, @Nullable FriendService friendService) {
+    public GuildService(
+            @NonNull GuildStorage storage,
+            @NonNull ProxyServer proxyServer,
+            @NonNull FriendshipService friendshipService
+    ) {
         this.storage = storage;
         this.proxyServer = proxyServer;
-        this.friendService = friendService;
+        this.friendshipService = friendshipService;
         this.notificationService = new GuildNotificationService(storage, proxyServer);
     }
 
@@ -53,7 +58,11 @@ public final class GuildService implements AutoCloseable {
         return notificationService;
     }
 
-    public @NonNull CompletableFuture<GuildResult> createGuild(@NonNull Player sender, @NonNull String guildName, @NonNull String guildTag, @NonNull String guildColor) {
+    public @NonNull CompletableFuture<GuildResults.Create> createGuild(@NonNull Player sender, @NonNull String guildName, @NonNull String guildTag, @NonNull String guildColor) {
+        return createGuildLegacy(sender, guildName, guildTag, guildColor).thenApply(GuildResults.Create::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> createGuildLegacy(@NonNull Player sender, @NonNull String guildName, @NonNull String guildTag, @NonNull String guildColor) {
         UUID senderId = sender.getUniqueId();
 
         if (!isValidGuildName(guildName)) {
@@ -80,7 +89,11 @@ public final class GuildService implements AutoCloseable {
         return tag != null && tag.length() >= 2 && tag.length() <= 5 && tag.matches("^[a-zA-Z0-9_]+$");
     }
 
-    public @NonNull CompletableFuture<GuildResult> disbandGuild(@NonNull Player sender, boolean isConfirming) {
+    public @NonNull CompletableFuture<GuildResults.Disband> disbandGuild(@NonNull Player sender, boolean isConfirming) {
+        return disbandGuildLegacy(sender, isConfirming).thenApply(GuildResults.Disband::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> disbandGuildLegacy(@NonNull Player sender, boolean isConfirming) {
         UUID senderId = sender.getUniqueId();
         return storage.getPlayerGuild(senderId)
                 .thenCompose(guildOptional -> {
@@ -118,7 +131,11 @@ public final class GuildService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<GuildResult> sendInvitation(@NonNull Player sender, @Nullable String targetUsername) {
+    public @NonNull CompletableFuture<GuildResults.SendInvitation> sendInvitation(@NonNull Player sender, @Nullable String targetUsername) {
+        return sendInvitationLegacy(sender, targetUsername).thenApply(GuildResults.SendInvitation::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> sendInvitationLegacy(@NonNull Player sender, @Nullable String targetUsername) {
         if (targetUsername == null) {
             return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
         }
@@ -155,13 +172,9 @@ public final class GuildService implements AutoCloseable {
     private @NonNull CompletableFuture<GuildResult> executeSendInvitation(@NonNull Player sender, @NonNull UUID targetId, @NonNull String targetUsername, @NonNull Guild guild) {
         UUID senderId = sender.getUniqueId();
 
-        if (friendService != null) {
-            return friendService.areFriends(senderId, targetId)
-                    .thenCompose(isFriend -> executeStorageSendInvitation(sender, targetId, targetUsername, guild, isFriend));
-        } else {
-            LOGGER.warn("FriendService unavailable; treating invite_privacy='friend' as 'all' for player {}", targetId);
-            return executeStorageSendInvitation(sender, targetId, targetUsername, guild, true);
-        }
+        return friendshipService.areFriends(senderId, targetId)
+                .thenCompose(areFriends ->
+                        executeStorageSendInvitation(sender, targetId, targetUsername, guild, areFriends));
     }
 
     private @NonNull CompletableFuture<GuildResult> executeStorageSendInvitation(@NonNull Player sender, @NonNull UUID targetId, @NonNull String targetUsername, @NonNull Guild guild, boolean isPreCheckedFriend) {
@@ -192,7 +205,11 @@ public final class GuildService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<GuildResult> acceptInvitation(@NonNull Player sender, @Nullable String guildName) {
+    public @NonNull CompletableFuture<GuildResults.AcceptInvitation> acceptInvitation(@NonNull Player sender, @Nullable String guildName) {
+        return acceptInvitationLegacy(sender, guildName).thenApply(GuildResults.AcceptInvitation::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> acceptInvitationLegacy(@NonNull Player sender, @Nullable String guildName) {
         if (guildName == null) {
             return CompletableFuture.completedFuture(GuildResult.GUILD_NOT_FOUND);
         }
@@ -241,7 +258,11 @@ public final class GuildService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<GuildResult> rejectInvitation(@NonNull Player sender, @Nullable String guildName) {
+    public @NonNull CompletableFuture<GuildResults.RejectInvitation> rejectInvitation(@NonNull Player sender, @Nullable String guildName) {
+        return rejectInvitationLegacy(sender, guildName).thenApply(GuildResults.RejectInvitation::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> rejectInvitationLegacy(@NonNull Player sender, @Nullable String guildName) {
         if (guildName == null) {
             return CompletableFuture.completedFuture(GuildResult.GUILD_NOT_FOUND);
         }
@@ -259,7 +280,11 @@ public final class GuildService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<GuildResult> revokeInvitation(@NonNull Player sender, @Nullable String targetUsername) {
+    public @NonNull CompletableFuture<GuildResults.RevokeInvitation> revokeInvitation(@NonNull Player sender, @Nullable String targetUsername) {
+        return revokeInvitationLegacy(sender, targetUsername).thenApply(GuildResults.RevokeInvitation::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> revokeInvitationLegacy(@NonNull Player sender, @Nullable String targetUsername) {
         if (targetUsername == null) {
             return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
         }
@@ -312,23 +337,27 @@ public final class GuildService implements AutoCloseable {
             invitationsFuture = storage.fetchOutgoingInvitations(playerId);
         } else {
             return CompletableFuture.completedFuture(
-                    new GuildRequestsResult(GuildResult.INVALID_REQUEST_TYPE, PaginationResult.invalidPage(1)));
+                    new GuildRequestsResult.InvalidRequestType());
         }
 
         return invitationsFuture.thenApply(invitations -> {
             if (invitations.isEmpty()) {
-                return new GuildRequestsResult(GuildResult.LIST_EMPTY, PaginationResult.invalidPage(1));
+                return new GuildRequestsResult.Empty();
             }
 
             PaginationResult<GuildInvitation> pagination = PaginationResult.paginate(invitations, page, SharedConstants.ENTRIES_PER_PAGE);
             if (!pagination.isValidPage()) {
-                return new GuildRequestsResult(GuildResult.INVALID_PAGE, pagination);
+                return new GuildRequestsResult.InvalidPage(pagination);
             }
-            return new GuildRequestsResult(GuildResult.SUCCESS, pagination);
+            return new GuildRequestsResult.Found(pagination);
         });
     }
 
-    public @NonNull CompletableFuture<GuildResult> leaveGuild(@NonNull Player sender) {
+    public @NonNull CompletableFuture<GuildResults.Leave> leaveGuild(@NonNull Player sender) {
+        return leaveGuildLegacy(sender).thenApply(GuildResults.Leave::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> leaveGuildLegacy(@NonNull Player sender) {
         UUID senderId = sender.getUniqueId();
 
         return storage.getPlayerGuild(senderId)
@@ -347,7 +376,11 @@ public final class GuildService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<GuildResult> kickMember(@NonNull Player sender, @Nullable String targetUsername) {
+    public @NonNull CompletableFuture<GuildResults.KickMember> kickMember(@NonNull Player sender, @Nullable String targetUsername) {
+        return kickMemberLegacy(sender, targetUsername).thenApply(GuildResults.KickMember::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> kickMemberLegacy(@NonNull Player sender, @Nullable String targetUsername) {
         if (targetUsername == null) {
             return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
         }
@@ -405,7 +438,7 @@ public final class GuildService implements AutoCloseable {
         return storage.getPlayerGuild(senderId)
                 .thenApply(guildOptional -> {
                     if (guildOptional.isEmpty()) {
-                        return new GuildListResult(GuildResult.NOT_IN_GUILD, PaginationResult.invalidPage(1));
+                        return new GuildListResult.NotInGuild();
                     }
                     Guild guild = guildOptional.get();
                     List<UUID> members = new ArrayList<>(guild.getMemberIds());
@@ -417,18 +450,22 @@ public final class GuildService implements AutoCloseable {
                     });
 
                     if (members.isEmpty()) {
-                        return new GuildListResult(GuildResult.LIST_EMPTY, PaginationResult.invalidPage(1));
+                        return new GuildListResult.Empty();
                     }
 
                     PaginationResult<UUID> pagination = PaginationResult.paginate(members, page, SharedConstants.ENTRIES_PER_PAGE);
                     if (!pagination.isValidPage()) {
-                        return new GuildListResult(GuildResult.INVALID_PAGE, pagination);
+                        return new GuildListResult.InvalidPage(pagination);
                     }
-                    return new GuildListResult(GuildResult.SUCCESS, pagination);
+                    return new GuildListResult.Found(pagination, guild);
                 });
     }
 
-    public @NonNull CompletableFuture<GuildResult> sendGuildChat(@NonNull Player sender, @NonNull String message) {
+    public @NonNull CompletableFuture<GuildResults.SendChat> sendGuildChat(@NonNull Player sender, @NonNull String message) {
+        return sendGuildChatLegacy(sender, message).thenApply(GuildResults.SendChat::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> sendGuildChatLegacy(@NonNull Player sender, @NonNull String message) {
         if (message.length() > GuildProxyConstants.MAX_MESSAGE_LENGTH) {
             return CompletableFuture.completedFuture(GuildResult.MESSAGE_TOO_LONG);
         }
@@ -468,7 +505,11 @@ public final class GuildService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<GuildResult> transferLeadership(@NonNull Player sender, @Nullable String targetUsername, boolean isConfirming) {
+    public @NonNull CompletableFuture<GuildResults.TransferLeadership> transferLeadership(@NonNull Player sender, @Nullable String targetUsername, boolean isConfirming) {
+        return transferLeadershipLegacy(sender, targetUsername, isConfirming).thenApply(GuildResults.TransferLeadership::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> transferLeadershipLegacy(@NonNull Player sender, @Nullable String targetUsername, boolean isConfirming) {
         if (targetUsername == null) {
             return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
         }
@@ -528,7 +569,11 @@ public final class GuildService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<GuildResult> renameGuild(@NonNull Player sender, @Nullable String newName, boolean isConfirming) {
+    public @NonNull CompletableFuture<GuildResults.Rename> renameGuild(@NonNull Player sender, @Nullable String newName, boolean isConfirming) {
+        return renameGuildLegacy(sender, newName, isConfirming).thenApply(GuildResults.Rename::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> renameGuildLegacy(@NonNull Player sender, @Nullable String newName, boolean isConfirming) {
         if (newName == null) {
             return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_NAME);
         }
@@ -578,7 +623,11 @@ public final class GuildService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<GuildResult> updateSettings(@NonNull Player sender, @Nullable String setting, @Nullable String value) {
+    public @NonNull CompletableFuture<GuildResults.UpdateSetting> updateSettings(@NonNull Player sender, @Nullable String setting, @Nullable String value) {
+        return updateSettingsLegacy(sender, setting, value).thenApply(GuildResults.UpdateSetting::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> updateSettingsLegacy(@NonNull Player sender, @Nullable String setting, @Nullable String value) {
         if (setting == null || value == null) {
             return CompletableFuture.completedFuture(GuildResult.INVALID_SETTING);
         }
@@ -597,7 +646,11 @@ public final class GuildService implements AutoCloseable {
                 .thenApply(settings -> settings.orElseGet(() -> new GuildSettings(playerId)));
     }
 
-    public @NonNull CompletableFuture<GuildResult> updateGuildTag(@NonNull Player sender, @Nullable String guildTag) {
+    public @NonNull CompletableFuture<GuildResults.UpdateTag> updateGuildTag(@NonNull Player sender, @Nullable String guildTag) {
+        return updateGuildTagLegacy(sender, guildTag).thenApply(GuildResults.UpdateTag::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> updateGuildTagLegacy(@NonNull Player sender, @Nullable String guildTag) {
         if (!isValidGuildTag(guildTag)) {
             return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_TAG);
         }
@@ -606,7 +659,11 @@ public final class GuildService implements AutoCloseable {
                 .thenApply(result -> result == GuildResult.SUCCESS ? GuildResult.GUILD_TAG_UPDATED : result);
     }
 
-    public @NonNull CompletableFuture<GuildResult> updateGuildColor(@NonNull Player sender, @Nullable String guildColor) {
+    public @NonNull CompletableFuture<GuildResults.UpdateColor> updateGuildColor(@NonNull Player sender, @Nullable String guildColor) {
+        return updateGuildColorLegacy(sender, guildColor).thenApply(GuildResults.UpdateColor::from);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> updateGuildColorLegacy(@NonNull Player sender, @Nullable String guildColor) {
         if (guildColor == null || !ALLOWED_GUILD_COLORS.contains(guildColor.toLowerCase())) {
             return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_COLOR);
         }
@@ -652,15 +709,15 @@ public final class GuildService implements AutoCloseable {
         UUID senderId = sender.getUniqueId();
         return storage.getPlayerGuild(senderId)
                 .thenApply(guildOptional -> guildOptional
-                        .map(guild -> new GuildInfoResult(GuildResult.SUCCESS, Optional.of(guild)))
-                        .orElseGet(() -> new GuildInfoResult(GuildResult.NOT_IN_GUILD, Optional.empty())));
+                        .<GuildInfoResult>map(GuildInfoResult.Found::new)
+                        .orElseGet(GuildInfoResult.NotInGuild::new));
     }
 
     public @NonNull CompletableFuture<GuildInfoResult> getGuildInfoByName(@NonNull String guildName) {
         return storage.fetchGuildByName(guildName)
                 .thenApply(guildOptional -> guildOptional
-                        .map(guild -> new GuildInfoResult(GuildResult.SUCCESS, Optional.of(guild)))
-                        .orElseGet(() -> new GuildInfoResult(GuildResult.GUILD_NOT_FOUND, Optional.empty())));
+                        .<GuildInfoResult>map(GuildInfoResult.Found::new)
+                        .orElseGet(GuildInfoResult.NotFound::new));
     }
 
     public @NonNull CompletableFuture<Optional<Guild>> fetchGuild(@NonNull UUID guildId) {

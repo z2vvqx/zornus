@@ -10,7 +10,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.guilds.proxy.GuildProxyConstants;
-import com.zornus.guilds.proxy.model.GuildResult;
+import com.zornus.guilds.proxy.model.result.GuildResults;
 import com.zornus.guilds.proxy.service.GuildService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.StringUtils;
@@ -65,20 +65,20 @@ public final class GuildInviteCommand {
 
         String targetName = StringArgumentType.getString(context, "player_name");
         guildService.sendInvitation(sender, targetName)
+                .thenAccept(result -> handleInvitationResult(sender, targetName, result))
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to invite player {} to guild", targetName, throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return GuildResult.ERROR_ALREADY_HANDLED;
-                })
-                .thenAccept(result -> handleInvitationResult(sender, targetName, result));
+                    return null;
+                });
 
         return Command.SINGLE_SUCCESS;
     }
 
     private static void handleInvitationResult(@NonNull Player sender, @NonNull String targetName,
-                                               @NonNull GuildResult result) {
+                                               GuildResults.SendInvitation result) {
         TagResolver targetResolver = Placeholder.unparsed("target", targetName);
-        switch (result) {
+        switch (result.legacy()) {
             case INVITATION_SENT ->
                     sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.INVITE_SUCCESS, targetResolver));
             case NOT_IN_GUILD ->
@@ -111,8 +111,6 @@ public final class GuildInviteCommand {
                     GuildProxyConstants.SETTINGS_ERROR_INVITES_DISABLED, targetResolver));
             case INVITES_FRIENDS_ONLY -> sender.sendMessage(StringUtils.deserialize(
                     GuildProxyConstants.SETTINGS_ERROR_INVITES_FRIENDS_ONLY, targetResolver));
-            case ERROR_ALREADY_HANDLED -> {
-            }
             default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
         }
     }

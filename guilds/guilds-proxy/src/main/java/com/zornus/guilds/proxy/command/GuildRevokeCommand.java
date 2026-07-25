@@ -10,7 +10,6 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.guilds.proxy.GuildProxyConstants;
-import com.zornus.guilds.proxy.model.GuildResult;
 import com.zornus.guilds.proxy.service.GuildService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.StringUtils;
@@ -64,13 +63,8 @@ public final class GuildRevokeCommand {
 
         String targetName = StringArgumentType.getString(context, "player_name");
         guildService.revokeInvitation(sender, targetName)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to revoke guild invitation for player {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return GuildResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case INVITATION_REVOKED -> sender.sendMessage(StringUtils.deserialize(
                                 GuildProxyConstants.UNINVITE_SUCCESS,
                                 Placeholder.unparsed("target", targetName)));
@@ -83,10 +77,13 @@ public final class GuildRevokeCommand {
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_LEADER));
                         case PLAYER_NOT_FOUND ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
-                        case ERROR_ALREADY_HANDLED -> {
-                        }
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to revoke guild invitation for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;
