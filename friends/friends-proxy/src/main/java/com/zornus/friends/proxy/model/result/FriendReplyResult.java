@@ -9,5 +9,4 @@ public sealed interface FriendReplyResult {
     record NotFriends(@NonNull String targetName) implements FriendReplyResult {}
     record FriendNotOnline(@NonNull String targetName) implements FriendReplyResult {}
     record PlayerNotAcceptingMessages(@NonNull String targetName) implements FriendReplyResult {}
-    record ErrorAlreadyHandled() implements FriendReplyResult {}
 }

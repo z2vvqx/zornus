@@ -6,6 +6,8 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
+import com.zornus.friends.api.FriendsApi;
+import com.zornus.friends.api.FriendshipService;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 
@@ -13,13 +15,13 @@ import org.slf4j.Logger;
  * Main Velocity plugin for friends system.
  */
 @Plugin(
-        id = "friends",
-        name = "Friends",
+        id = "friends-proxy",
+        name = "Friends Proxy",
         version = "1.0.0",
         description = "Friend system for Velocity proxy",
         authors = {"Zornus"}
 )
-public class FriendProxyPlugin {
+public final class FriendProxyPlugin implements FriendsApi {
 
     private final @NonNull ProxyServer proxyServer;
     private final @NonNull Logger logger;
@@ -66,5 +68,13 @@ public class FriendProxyPlugin {
 
     public FriendProxyModule getFriendProxyModule() {
         return friendProxyModule;
+    }
+
+    @Override
+    public @NonNull FriendshipService friendships() {
+        if (friendProxyModule == null) {
+            throw new IllegalStateException("Friends API is unavailable before plugin initialization");
+        }
+        return friendProxyModule.getFriendService();
     }
 }

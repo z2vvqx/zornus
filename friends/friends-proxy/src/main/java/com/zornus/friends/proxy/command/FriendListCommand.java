@@ -12,7 +12,6 @@ import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.FriendRelation;
 import com.zornus.friends.proxy.model.FriendSettings;
 import com.zornus.friends.proxy.model.PresenceState;
-import com.zornus.friends.proxy.model.result.FriendResult;
 import com.zornus.friends.proxy.model.result.FriendListResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
@@ -63,32 +62,37 @@ public final class FriendListCommand {
         }
 
         friendService.getFriendsList(sender.getUniqueId(), page)
+                .thenAccept(result -> {
+                    switch (result) {
+                        case FriendListResult.Empty ignored ->
+                                sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.UI_LIST_EMPTY));
+                        case FriendListResult.InvalidPage invalidPage -> {
+                            TagResolver pageResolver = TagResolver.resolver(Placeholder.unparsed(
+                                    "maximum_pages", String.valueOf(invalidPage.pagination().maximumPages())));
+                            sender.sendMessage(StringUtils.deserialize(SharedConstants.INVALID_PAGE, pageResolver));
+                        }
+                        case FriendListResult.Found found ->
+                                handleDisplayList(sender, found.pagination(), friendService, proxyServer, page);
+                    }
+                })
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to fetch friends list for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return new FriendListResult(FriendResult.ERROR_ALREADY_HANDLED, PaginationResult.invalidPage(1));
-                })
-                .thenAccept(result -> {
-                    switch (result.result()) {
-                        case LIST_EMPTY ->
-                                sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.UI_LIST_EMPTY));
-                        case INVALID_PAGE -> {
-                            TagResolver pageResolver = TagResolver.resolver(Placeholder.unparsed("maximum_pages", String.valueOf(result.paginationResult().maximumPages())));
-                            sender.sendMessage(StringUtils.deserialize(SharedConstants.INVALID_PAGE, pageResolver));
-                        }
-                        case SUCCESS -> handleDisplayList(sender, result, friendService, proxyServer, page);
-                        case ERROR_ALREADY_HANDLED -> {}
-                        default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    }
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;
     }
 
-    private static void handleDisplayList(Player sender, @NonNull FriendListResult result,
-                                                FriendService friendService, ProxyServer proxyServer, int currentPage) {
+    private static void handleDisplayList(
+            @NonNull Player sender,
+            @NonNull PaginationResult<FriendRelation> pagination,
+            @NonNull FriendService friendService,
+            @NonNull ProxyServer proxyServer,
+            int currentPage
+    ) {
         TextComponent.Builder messageBuilder = Component.text().appendNewline();
-        List<FriendRelation> items = result.paginationResult().items();
+        List<FriendRelation> items = pagination.items();
         Component[] friendEntries = new Component[items.size()];
 
         List<CompletableFuture<Void>> friendDataFutures = new ArrayList<>();
@@ -163,12 +167,12 @@ public final class FriendListCommand {
                     messageBuilder.append(Component.join(JoinConfiguration.newlines(), Arrays.asList(friendEntries)));
                     messageBuilder.append(Component.newline());
 
-                    if (result.paginationResult().hasMultiplePages()) {
+                    if (pagination.hasMultiplePages()) {
                         messageBuilder.append(Component.newline())
                                 .append(StringUtils.deserialize(FriendProxyConstants.UI_LIST_PAGINATION,
                                         TagResolver.resolver(
                                                 Placeholder.unparsed("current_page", String.valueOf(currentPage)),
-                                                Placeholder.unparsed("maximum_pages", String.valueOf(result.paginationResult().maximumPages()))
+                                                Placeholder.unparsed("maximum_pages", String.valueOf(pagination.maximumPages()))
                                         )
                                 ))
                                 .append(Component.newline());

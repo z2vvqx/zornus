@@ -10,7 +10,6 @@ import com.velocitypowered.api.proxy.Player;
 import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.FriendRequest;
 import com.zornus.friends.proxy.model.result.FriendRequestListResult;
-import com.zornus.friends.proxy.model.result.FriendResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.PaginationResult;
@@ -70,34 +69,38 @@ public final class FriendRequestsCommand {
                 ? friendService.getIncomingRequestsList(sender.getUniqueId(), page)
                 : friendService.getOutgoingRequestsList(sender.getUniqueId(), page);
 
-        future.exceptionally(throwable -> {
+        future.thenAccept(result -> {
+                    switch (result) {
+                        case FriendRequestListResult.Empty ignored -> {
+                            String emptyMessage = type.equalsIgnoreCase("incoming")
+                                    ? FriendProxyConstants.UI_REQUESTS_INCOMING_EMPTY
+                                    : FriendProxyConstants.UI_REQUESTS_OUTGOING_EMPTY;
+                            sender.sendMessage(StringUtils.deserialize(emptyMessage));
+                        }
+                        case FriendRequestListResult.InvalidPage invalidPage -> {
+                            TagResolver pageResolver = TagResolver.resolver(Placeholder.unparsed(
+                                    "maximum_pages", String.valueOf(invalidPage.pagination().maximumPages())));
+                            sender.sendMessage(StringUtils.deserialize(SharedConstants.INVALID_PAGE, pageResolver));
+                        }
+                        case FriendRequestListResult.Found found ->
+                                handleDisplayRequestsPage(sender, found.pagination(), type, page);
+                    }
+                })
+                .exceptionally(throwable -> {
                     LOGGER.error("Failed to get friend requests for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return new FriendRequestListResult(FriendResult.ERROR_ALREADY_HANDLED, PaginationResult.invalidPage(1));
-                })
-                .thenAccept(result -> {
-                    switch (result.result()) {
-                        case LIST_EMPTY -> {
-                    String emptyMessage = type.equalsIgnoreCase("incoming")
-                            ? FriendProxyConstants.UI_REQUESTS_INCOMING_EMPTY
-                            : FriendProxyConstants.UI_REQUESTS_OUTGOING_EMPTY;
-                    sender.sendMessage(StringUtils.deserialize(emptyMessage));
-                }
-                case INVALID_PAGE -> {
-                    TagResolver pageResolver = TagResolver.resolver(Placeholder.unparsed("maximum_pages", String.valueOf(result.paginationResult().maximumPages())));
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.INVALID_PAGE, pageResolver));
-                }
-                        case SUCCESS -> handleDisplayRequestsPage(sender, result, type, page);
-                        case ERROR_ALREADY_HANDLED -> {}
-                        default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    }
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;
     }
 
-    private static void handleDisplayRequestsPage(Player sender, @NonNull FriendRequestListResult result,
-                                              @NonNull String type, int currentPage) {
+    private static void handleDisplayRequestsPage(
+            @NonNull Player sender,
+            @NonNull PaginationResult<FriendRequest> pagination,
+            @NonNull String type,
+            int currentPage
+    ) {
         TextComponent.Builder messageBuilder = Component.text().appendNewline();
 
         boolean isIncoming = type.equalsIgnoreCase("incoming");
@@ -106,7 +109,7 @@ public final class FriendRequestsCommand {
                 : FriendProxyConstants.UI_REQUESTS_OUTGOING_ENTRY;
 
         List<Component> requestEntries = new ArrayList<>();
-        for (FriendRequest request : result.paginationResult().items()) {
+        for (FriendRequest request : pagination.items()) {
             String playerName = isIncoming ? request.senderUsername() : request.receiverUsername();
             Component timestampComponent = StringUtils.formatRelativeTime(request.timestamp());
 
@@ -122,12 +125,12 @@ public final class FriendRequestsCommand {
         messageBuilder.append(Component.join(JoinConfiguration.newlines(), requestEntries));
         messageBuilder.append(Component.newline());
 
-        if (result.paginationResult().hasMultiplePages()) {
+        if (pagination.hasMultiplePages()) {
             messageBuilder.append(Component.newline())
                     .append(StringUtils.deserialize(FriendProxyConstants.UI_REQUESTS_PAGINATION,
                             TagResolver.resolver(
                                     Placeholder.unparsed("current_page", String.valueOf(currentPage)),
-                                    Placeholder.unparsed("maximum_pages", String.valueOf(result.paginationResult().maximumPages())),
+                                    Placeholder.unparsed("maximum_pages", String.valueOf(pagination.maximumPages())),
                                     Placeholder.unparsed("type", type)
                             )
                     ))

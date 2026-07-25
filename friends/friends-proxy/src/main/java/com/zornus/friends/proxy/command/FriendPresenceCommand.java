@@ -8,7 +8,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.zornus.friends.proxy.FriendProxyConstants;
 import com.zornus.friends.proxy.model.PresenceState;
-import com.zornus.friends.proxy.model.result.FriendResult;
+import com.zornus.friends.proxy.model.result.SetPresenceResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.StringUtils;
@@ -70,18 +70,15 @@ public final class FriendPresenceCommand {
         }
 
         friendService.setPresence(sender.getUniqueId(), presenceState)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to set presence for player {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return FriendResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
             switch (result) {
-                case STATUS_UPDATED ->
+                case SetPresenceResult.Updated ignored ->
                         sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.PRESENCE_UPDATE_SUCCESS, Placeholder.unparsed("presence", presenceState.name().toLowerCase())));
-                case ERROR_ALREADY_HANDLED -> {}
-                default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
             }
+        }).exceptionally(throwable -> {
+            LOGGER.error("Failed to set presence for player {}", sender.getUniqueId(), throwable);
+            sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+            return null;
         });
 
         return Command.SINGLE_SUCCESS;

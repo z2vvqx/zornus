@@ -10,7 +10,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.friends.proxy.FriendProxyConstants;
-import com.zornus.friends.proxy.model.result.FriendResult;
+import com.zornus.friends.proxy.model.result.RevokeFriendRequestResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.model.PlayerRecord;
@@ -87,23 +87,19 @@ public final class FriendRevokeCommand {
                     UUID targetUuid = targetRecord.playerUuid();
                     String targetUsername = targetRecord.username();
                     friendService.revokeFriendRequest(sender.getUniqueId(), targetUuid)
-                            .exceptionally(throwable -> {
-                                LOGGER.error("Failed to revoke friend request from {} to {}", sender.getUniqueId(), targetUuid, throwable);
-                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                                return FriendResult.ERROR_ALREADY_HANDLED;
-                            })
                             .thenAccept(result -> {
                                 switch (result) {
-                                    case PLAYER_NOT_FOUND ->
-                                            sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
-                                    case NO_REQUEST_FOUND ->
+                                    case RevokeFriendRequestResult.NoRequestFound ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ERROR_NOT_FOUND, Placeholder.unparsed("target", targetUsername)));
-                                    case REQUEST_REVOKED ->
+                                    case RevokeFriendRequestResult.Revoked ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_REVOKE_SUCCESS, Placeholder.unparsed("target", targetUsername)));
-                                    case ERROR_ALREADY_HANDLED -> {}
-                                    default ->
-                                            sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                                 }
+                            })
+                            .exceptionally(throwable -> {
+                                LOGGER.error("Failed to revoke friend request from {} to {}",
+                                        sender.getUniqueId(), targetUuid, throwable);
+                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                                return null;
                             });
                 });
 

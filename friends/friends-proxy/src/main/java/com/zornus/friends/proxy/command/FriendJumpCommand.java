@@ -10,7 +10,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.friends.proxy.FriendProxyConstants;
-import com.zornus.friends.proxy.model.result.FriendResult;
+import com.zornus.friends.proxy.model.result.JumpToFriendResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.model.PlayerRecord;
@@ -86,31 +86,33 @@ public final class FriendJumpCommand {
                     UUID targetUuid = targetRecord.playerUuid();
                     String targetUsername = targetRecord.username();
                     friendService.jumpToFriend(sender.getUniqueId(), targetUuid)
-                            .exceptionally(throwable -> {
-                                LOGGER.error("Failed to jump to friend {} from {}", targetUuid, sender.getUniqueId(), throwable);
-                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                                return FriendResult.ERROR_ALREADY_HANDLED;
-                            })
                             .thenAccept(result -> {
                                 switch (result) {
-                                    case PLAYER_NOT_FOUND ->
-                                            sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
-                                    case NOT_FRIENDS ->
+                                    case JumpToFriendResult.NotFriends ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_NOT_FRIENDS, Placeholder.unparsed("target", targetUsername)));
-                                    case FRIEND_NOT_ONLINE ->
+                                    case JumpToFriendResult.FriendNotOnline ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_FRIEND_OFFLINE, Placeholder.unparsed("target", targetUsername)));
-                                    case PLAYER_NOT_ALLOWING_JUMP ->
+                                    case JumpToFriendResult.TargetNotAllowingJump ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_PLAYER_NOT_ALLOWING_JUMP, Placeholder.unparsed("target", targetUsername)));
-                                    case FRIEND_NO_INSTANCE ->
+                                    case JumpToFriendResult.FriendHasNoInstance ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.JUMP_ERROR_NO_INSTANCE, Placeholder.unparsed("target", targetUsername)));
-                                    case ALREADY_IN_SAME_INSTANCE ->
+                                    case JumpToFriendResult.AlreadyInSameInstance ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.JUMP_INFO_SAME_INSTANCE, Placeholder.unparsed("target", targetUsername)));
-                                    case JUMP_SUCCESSFUL ->
+                                    case JumpToFriendResult.Jumped ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.JUMP_SUCCESS, Placeholder.unparsed("target", targetUsername)));
-                                    case ERROR_ALREADY_HANDLED -> {}
-                                    default ->
+                                    case JumpToFriendResult.JumpFailed ignored ->
+                                            sender.sendMessage(StringUtils.deserialize(
+                                                    FriendProxyConstants.JUMP_ERROR_FAILED,
+                                                    Placeholder.unparsed("target", targetUsername)));
+                                    case JumpToFriendResult.PlayerNotOnline ignored ->
                                             sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                                 }
+                            })
+                            .exceptionally(throwable -> {
+                                LOGGER.error("Failed to jump to friend {} from {}",
+                                        targetUuid, sender.getUniqueId(), throwable);
+                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                                return null;
                             });
                 });
 

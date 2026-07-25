@@ -4,8 +4,8 @@ import com.zornus.friends.proxy.model.FriendRequest;
 import com.zornus.shared.utilities.PaginationResult;
 import org.jspecify.annotations.NonNull;
 
-public record FriendRequestListResult(
-        @NonNull FriendResult result,
-        @NonNull PaginationResult<FriendRequest> paginationResult
-) {
+public sealed interface FriendRequestListResult {
+    record Found(@NonNull PaginationResult<FriendRequest> pagination) implements FriendRequestListResult {}
+    record Empty() implements FriendRequestListResult {}
+    record InvalidPage(@NonNull PaginationResult<FriendRequest> pagination) implements FriendRequestListResult {}
 }

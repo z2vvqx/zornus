@@ -8,7 +8,7 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.zornus.friends.proxy.FriendProxyConstants;
-import com.zornus.friends.proxy.model.result.FriendResult;
+import com.zornus.friends.proxy.model.result.UpdateFriendSettingResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.StringUtils;
@@ -62,24 +62,21 @@ public final class FriendSettingsCommand {
         boolean value = BoolArgumentType.getBool(context, "value");
 
         friendService.updateSetting(sender.getUniqueId(), setting, value)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to update setting for player {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return FriendResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
             switch (result) {
-                case SETTING_UPDATED ->
+                case UpdateFriendSettingResult.Updated ignored ->
                         sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.SETTINGS_UPDATE_SUCCESS,
                                 TagResolver.resolver(
                                         Placeholder.unparsed("setting", setting),
                                         Placeholder.unparsed("value", String.valueOf(value))
                                 )));
-                case INVALID_SETTING ->
+                case UpdateFriendSettingResult.InvalidSetting ignored ->
                         sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_INVALID_SETTING, Placeholder.unparsed("setting", setting)));
-                case ERROR_ALREADY_HANDLED -> {}
-                default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
             }
+        }).exceptionally(throwable -> {
+            LOGGER.error("Failed to update setting for player {}", sender.getUniqueId(), throwable);
+            sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+            return null;
         });
 
         return Command.SINGLE_SUCCESS;

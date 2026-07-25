@@ -9,7 +9,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.friends.proxy.FriendProxyConstants;
-import com.zornus.friends.proxy.model.result.FriendResult;
+import com.zornus.friends.proxy.model.result.SendFriendMessageResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.model.PlayerRecord;
@@ -101,32 +101,29 @@ public final class FriendMessageCommand {
 
     public static void processMessageSend(@NonNull Player sender, UUID targetUuid, String targetName, String message, @NonNull FriendService friendService) {
         friendService.sendFriendMessage(sender.getUniqueId(), targetUuid, message)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to send friend message from {} to {}", sender.getUniqueId(), targetUuid, throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return FriendResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
                     switch (result) {
-                        case PLAYER_NOT_FOUND ->
-                                sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
-                        case MESSAGE_TOO_LONG ->
+                        case SendFriendMessageResult.MessageTooLong ignored ->
                                 sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_MESSAGE_TOO_LONG, Placeholder.unparsed("max_length", String.valueOf(FriendProxyConstants.MAX_MESSAGE_LENGTH))));
-                        case NOT_FRIENDS ->
+                        case SendFriendMessageResult.NotFriends ignored ->
                                 sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_NOT_FRIENDS, Placeholder.unparsed("target", targetName)));
-                        case FRIEND_NOT_ONLINE ->
+                        case SendFriendMessageResult.FriendNotOnline ignored ->
                                 sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_FRIEND_OFFLINE, Placeholder.unparsed("target", targetName)));
-                        case PLAYER_NOT_ACCEPTING_MESSAGES ->
+                        case SendFriendMessageResult.ReceiverNotAcceptingMessages ignored ->
                                 sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_PLAYER_NOT_ACCEPTING_MESSAGES, Placeholder.unparsed("target", targetName)));
-                        case MESSAGE_SENT ->
+                        case SendFriendMessageResult.Sent ignored ->
                                 sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.MESSAGE_SENT_FORMAT,
                                         TagResolver.resolver(
                                                 Placeholder.unparsed("target", targetName),
                                                 Placeholder.unparsed("message", message)
                                         )));
-                        case ERROR_ALREADY_HANDLED -> {}
-                        default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to send friend message from {} to {}",
+                            sender.getUniqueId(), targetUuid, throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
     }
 

@@ -10,7 +10,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.friends.proxy.FriendProxyConstants;
-import com.zornus.friends.proxy.model.result.FriendResult;
+import com.zornus.friends.proxy.model.result.RejectFriendRequestResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.model.PlayerRecord;
@@ -87,23 +87,19 @@ public final class FriendRejectCommand {
                     UUID targetUuid = targetRecord.playerUuid();
                     String targetUsername = targetRecord.username();
                     friendService.rejectFriendRequest(sender.getUniqueId(), targetUuid)
-                            .exceptionally(throwable -> {
-                                LOGGER.error("Failed to reject friend request from {} to {}", sender.getUniqueId(), targetUuid, throwable);
-                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                                return FriendResult.ERROR_ALREADY_HANDLED;
-                            })
                             .thenAccept(result -> {
                                 switch (result) {
-                                    case PLAYER_NOT_FOUND ->
-                                            sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
-                                    case NO_REQUEST_FOUND ->
+                                    case RejectFriendRequestResult.NoRequestFound ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ERROR_NOT_FOUND, Placeholder.unparsed("target", targetUsername)));
-                                    case REQUEST_REJECTED ->
+                                    case RejectFriendRequestResult.Rejected ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_REJECT_SUCCESS, Placeholder.unparsed("target", targetUsername)));
-                                    case ERROR_ALREADY_HANDLED -> {}
-                                    default ->
-                                            sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                                 }
+                            })
+                            .exceptionally(throwable -> {
+                                LOGGER.error("Failed to reject friend request from {} to {}",
+                                        sender.getUniqueId(), targetUuid, throwable);
+                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                                return null;
                             });
                 });
 

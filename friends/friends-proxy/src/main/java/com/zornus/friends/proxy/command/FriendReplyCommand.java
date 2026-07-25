@@ -48,11 +48,6 @@ public final class FriendReplyCommand {
         String message = StringArgumentType.getString(context, "message_array");
 
         friendService.sendFriendReply(sender.getUniqueId(), message)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to send friend reply from {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return new FriendReplyResult.ErrorAlreadyHandled();
-                })
                 .thenAccept(result -> {
                     switch (result) {
                         case FriendReplyResult.MessageTooLong ignored ->
@@ -71,8 +66,12 @@ public final class FriendReplyCommand {
                                         Placeholder.unparsed("target", playerNotAcceptingMessages.targetName())));
                         case FriendReplyResult.Success ignored ->
                                 sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.MESSAGE_REPLY_SUCCESS));
-                        case FriendReplyResult.ErrorAlreadyHandled ignored -> {}
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to send friend reply from {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

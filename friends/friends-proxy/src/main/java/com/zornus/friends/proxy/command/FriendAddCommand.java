@@ -10,7 +10,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.friends.proxy.FriendProxyConstants;
-import com.zornus.friends.proxy.model.result.FriendResult;
+import com.zornus.friends.proxy.model.result.SendFriendRequestResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.model.PlayerRecord;
@@ -89,41 +89,40 @@ public final class FriendAddCommand {
                     UUID targetUuid = targetRecord.playerUuid();
                     String targetUsername = targetRecord.username();
                     friendService.sendFriendRequest(sender.getUniqueId(), targetUuid)
-                            .exceptionally(throwable -> {
-                                LOGGER.error("Failed to send friend request from {} to {}", sender.getUniqueId(), targetUuid, throwable);
-                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                                return FriendResult.ERROR_ALREADY_HANDLED;
-                            })
                             .thenAccept(result -> {
                                 switch (result) {
-                                    case PLAYER_NOT_FOUND ->
-                                            sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
-                                    case CANNOT_ADD_SELF ->
+                                    case SendFriendRequestResult.CannotAddSelf ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_CANNOT_PERFORM_ON_SELF));
-                                    case ALREADY_FRIENDS ->
+                                    case SendFriendRequestResult.AlreadyFriends ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_ALREADY_FRIENDS, Placeholder.unparsed("target", targetUsername)));
-                                    case REQUEST_ALREADY_SENT ->
+                                    case SendFriendRequestResult.AlreadySent ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ERROR_ALREADY_SENT, Placeholder.unparsed("target", targetUsername)));
-                                    case SENDER_FRIENDS_LIMIT_REACHED ->
+                                    case SendFriendRequestResult.SenderFriendLimitReached ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_SENDER_FRIENDS_LIMIT_REACHED));
-                                    case RECEIVER_FRIENDS_LIMIT_REACHED ->
+                                    case SendFriendRequestResult.ReceiverFriendLimitReached ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_RECEIVER_FRIENDS_LIMIT_REACHED, Placeholder.unparsed("target", targetUsername)));
-                                    case SENDER_REQUEST_LIMIT_REACHED ->
+                                    case SendFriendRequestResult.SenderRequestLimitReached ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_SENDER_REQUEST_LIMIT_REACHED));
-                                    case RECEIVER_REQUEST_LIMIT_REACHED ->
+                                    case SendFriendRequestResult.ReceiverRequestLimitReached ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_RECEIVER_REQUEST_LIMIT_REACHED, Placeholder.unparsed("target", targetUsername)));
-                                    case REQUEST_COOLDOWN_ACTIVE ->
+                                    case SendFriendRequestResult.CooldownActive ignored ->
                                             handleCooldownMessage(sender, targetUuid, targetUsername, friendService);
-                                    case PLAYER_NOT_ACCEPTING_REQUESTS ->
+                                    case SendFriendRequestResult.ReceiverNotAcceptingRequests ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_PLAYER_NOT_ACCEPTING_REQUESTS, Placeholder.unparsed("target", targetUsername)));
-                                    case REQUEST_SENT ->
+                                    case SendFriendRequestResult.Sent ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ADD_SUCCESS, Placeholder.unparsed("target", targetUsername)));
-                                    case REQUEST_ACCEPTED_AUTOMATICALLY ->
+                                    case SendFriendRequestResult.AcceptedAutomatically ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ACCEPT_SUCCESS_AUTO, Placeholder.unparsed("target", targetUsername)));
-                                    case ERROR_ALREADY_HANDLED -> {}
-                                    default ->
-                                            sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                                    case SendFriendRequestResult.RequestNoLongerValid ignored ->
+                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ERROR_NOT_FOUND,
+                                                    Placeholder.unparsed("target", targetUsername)));
                                 }
+                            })
+                            .exceptionally(throwable -> {
+                                LOGGER.error("Failed to send friend request from {} to {}",
+                                        sender.getUniqueId(), targetUuid, throwable);
+                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                                return null;
                             });
                 });
 

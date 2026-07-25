@@ -10,7 +10,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.friends.proxy.FriendProxyConstants;
-import com.zornus.friends.proxy.model.result.FriendResult;
+import com.zornus.friends.proxy.model.result.RemoveFriendResult;
 import com.zornus.friends.proxy.service.FriendService;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.model.PlayerRecord;
@@ -87,23 +87,19 @@ public final class FriendRemoveCommand {
                     UUID targetUuid = targetRecord.playerUuid();
                     String targetUsername = targetRecord.username();
                     friendService.removeFriend(sender.getUniqueId(), targetUuid)
-                            .exceptionally(throwable -> {
-                                LOGGER.error("Failed to remove friend {} from {}", targetUuid, sender.getUniqueId(), throwable);
-                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                                return FriendResult.ERROR_ALREADY_HANDLED;
-                            })
                             .thenAccept(result -> {
                                 switch (result) {
-                                    case PLAYER_NOT_FOUND ->
-                                            sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
-                                    case NOT_FRIENDS ->
+                                    case RemoveFriendResult.NotFriends ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_NOT_FRIENDS, Placeholder.unparsed("target", targetUsername)));
-                                    case FRIEND_REMOVED ->
+                                    case RemoveFriendResult.Removed ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REMOVE_SUCCESS, Placeholder.unparsed("target", targetUsername)));
-                                    case ERROR_ALREADY_HANDLED -> {}
-                                    default ->
-                                            sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                                 }
+                            })
+                            .exceptionally(throwable -> {
+                                LOGGER.error("Failed to remove friend {} from {}",
+                                        targetUuid, sender.getUniqueId(), throwable);
+                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                                return null;
                             });
                 });
 
