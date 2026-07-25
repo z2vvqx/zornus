@@ -4,11 +4,12 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
-import com.zornus.friends.proxy.service.FriendService;
+import com.zornus.friends.api.FriendshipService;
 import com.zornus.parties.proxy.PartyProxyConstants;
 import com.zornus.parties.proxy.model.*;
 import com.zornus.parties.proxy.model.result.PartyMembersResult;
 import com.zornus.parties.proxy.model.result.PartyRequestsResult;
+import com.zornus.parties.proxy.model.result.PartyResults;
 import com.zornus.parties.proxy.storage.*;
 import com.zornus.shared.SharedConstants;
 import com.zornus.shared.utilities.PaginationResult;
@@ -31,12 +32,16 @@ public final class PartyService implements AutoCloseable {
     private final @NonNull PartyStorage storage;
     private final @NonNull ProxyServer proxyServer;
     private final @NonNull PartyNotificationService notificationService;
-    private final @Nullable FriendService friendService;
+    private final @NonNull FriendshipService friendshipService;
 
-    public PartyService(@NonNull PartyStorage storage, @NonNull ProxyServer proxyServer, @Nullable FriendService friendService) {
+    public PartyService(
+            @NonNull PartyStorage storage,
+            @NonNull ProxyServer proxyServer,
+            @NonNull FriendshipService friendshipService
+    ) {
         this.storage = storage;
         this.proxyServer = proxyServer;
-        this.friendService = friendService;
+        this.friendshipService = friendshipService;
         this.notificationService = new PartyNotificationService(proxyServer);
     }
 
@@ -49,7 +54,11 @@ public final class PartyService implements AutoCloseable {
         return notificationService;
     }
 
-    public @NonNull CompletableFuture<PartyResult> createParty(@NonNull Player sender) {
+    public @NonNull CompletableFuture<PartyResults.Create> createParty(@NonNull Player sender) {
+        return createPartyLegacy(sender).thenApply(PartyResults.Create::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> createPartyLegacy(@NonNull Player sender) {
         UUID senderId = sender.getUniqueId();
         Party party = new Party(senderId);
         return storage.createParty(party)
@@ -59,7 +68,17 @@ public final class PartyService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<PartyResult> disbandParty(@NonNull Player sender, boolean isConfirming) {
+    public @NonNull CompletableFuture<PartyResults.Disband> disbandParty(
+            @NonNull Player sender,
+            boolean isConfirming
+    ) {
+        return disbandPartyLegacy(sender, isConfirming).thenApply(PartyResults.Disband::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> disbandPartyLegacy(
+            @NonNull Player sender,
+            boolean isConfirming
+    ) {
         UUID senderId = sender.getUniqueId();
         return storage.getPlayerParty(senderId)
                 .thenCompose(partyOptional -> {
@@ -145,7 +164,17 @@ public final class PartyService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<PartyResult> sendInvitation(@NonNull Player sender, @Nullable Player target) {
+    public @NonNull CompletableFuture<PartyResults.SendInvitation> sendInvitation(
+            @NonNull Player sender,
+            @Nullable Player target
+    ) {
+        return sendInvitationLegacy(sender, target).thenApply(PartyResults.SendInvitation::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> sendInvitationLegacy(
+            @NonNull Player sender,
+            @Nullable Player target
+    ) {
         if (target == null) {
             return CompletableFuture.completedFuture(PartyResult.PLAYER_NOT_FOUND);
         }
@@ -174,13 +203,8 @@ public final class PartyService implements AutoCloseable {
         UUID senderId = sender.getUniqueId();
         UUID targetId = target.getUniqueId();
 
-        if (friendService != null) {
-            return friendService.areFriends(senderId, targetId)
-                    .thenCompose(isFriend -> executeStorageSendInvitation(sender, target, party, isFriend));
-        } else {
-            LOGGER.warn("FriendService unavailable; treating invite_privacy='friend' as 'all' for player {}", targetId);
-            return executeStorageSendInvitation(sender, target, party, true);
-        }
+        return friendshipService.areFriends(senderId, targetId)
+                .thenCompose(areFriends -> executeStorageSendInvitation(sender, target, party, areFriends));
     }
 
     private @NonNull CompletableFuture<PartyResult> executeStorageSendInvitation(@NonNull Player sender, @NonNull Player target, @NonNull Party party, boolean isPreCheckedFriend) {
@@ -207,7 +231,17 @@ public final class PartyService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<PartyResult> acceptInvitation(@NonNull Player sender, @Nullable Player target) {
+    public @NonNull CompletableFuture<PartyResults.AcceptInvitation> acceptInvitation(
+            @NonNull Player sender,
+            @Nullable Player target
+    ) {
+        return acceptInvitationLegacy(sender, target).thenApply(PartyResults.AcceptInvitation::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> acceptInvitationLegacy(
+            @NonNull Player sender,
+            @Nullable Player target
+    ) {
         if (target == null) {
             return CompletableFuture.completedFuture(PartyResult.PLAYER_NOT_FOUND);
         }
@@ -254,7 +288,17 @@ public final class PartyService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<PartyResult> rejectInvitation(@NonNull Player sender, @Nullable Player target) {
+    public @NonNull CompletableFuture<PartyResults.RejectInvitation> rejectInvitation(
+            @NonNull Player sender,
+            @Nullable Player target
+    ) {
+        return rejectInvitationLegacy(sender, target).thenApply(PartyResults.RejectInvitation::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> rejectInvitationLegacy(
+            @NonNull Player sender,
+            @Nullable Player target
+    ) {
         if (target == null) {
             return CompletableFuture.completedFuture(PartyResult.PLAYER_NOT_FOUND);
         }
@@ -273,7 +317,17 @@ public final class PartyService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<PartyResult> revokeInvitation(@NonNull Player sender, @Nullable Player target) {
+    public @NonNull CompletableFuture<PartyResults.RevokeInvitation> revokeInvitation(
+            @NonNull Player sender,
+            @Nullable Player target
+    ) {
+        return revokeInvitationLegacy(sender, target).thenApply(PartyResults.RevokeInvitation::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> revokeInvitationLegacy(
+            @NonNull Player sender,
+            @Nullable Player target
+    ) {
         if (target == null) {
             return CompletableFuture.completedFuture(PartyResult.PLAYER_NOT_FOUND);
         }
@@ -314,23 +368,27 @@ public final class PartyService implements AutoCloseable {
             invitationsFuture = storage.fetchOutgoingInvitations(playerId);
         } else {
             return CompletableFuture.completedFuture(
-                    new PartyRequestsResult(PartyResult.INVALID_REQUEST_TYPE, PaginationResult.invalidPage(1)));
+                    new PartyRequestsResult.InvalidRequestType());
         }
 
         return invitationsFuture.thenApply(invitations -> {
             if (invitations.isEmpty()) {
-                return new PartyRequestsResult(PartyResult.LIST_EMPTY, PaginationResult.invalidPage(1));
+                return new PartyRequestsResult.Empty();
             }
 
             PaginationResult<PartyInvitation> pagination = PaginationResult.paginate(invitations, page, SharedConstants.ENTRIES_PER_PAGE);
             if (!pagination.isValidPage()) {
-                return new PartyRequestsResult(PartyResult.INVALID_PAGE, pagination);
+                return new PartyRequestsResult.InvalidPage(pagination);
             }
-            return new PartyRequestsResult(PartyResult.SUCCESS, pagination);
+            return new PartyRequestsResult.Found(pagination);
         });
     }
 
-    public @NonNull CompletableFuture<PartyResult> leaveParty(@NonNull Player sender) {
+    public @NonNull CompletableFuture<PartyResults.Leave> leaveParty(@NonNull Player sender) {
+        return leavePartyLegacy(sender).thenApply(PartyResults.Leave::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> leavePartyLegacy(@NonNull Player sender) {
         UUID senderId = sender.getUniqueId();
 
         return storage.getPlayerParty(senderId)
@@ -359,7 +417,19 @@ public final class PartyService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<PartyResult> kickMember(@NonNull Player sender, @Nullable Player target, @Nullable String reason) {
+    public @NonNull CompletableFuture<PartyResults.KickMember> kickMember(
+            @NonNull Player sender,
+            @Nullable Player target,
+            @Nullable String reason
+    ) {
+        return kickMemberLegacy(sender, target, reason).thenApply(PartyResults.KickMember::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> kickMemberLegacy(
+            @NonNull Player sender,
+            @Nullable Player target,
+            @Nullable String reason
+    ) {
         if (target == null) {
             return CompletableFuture.completedFuture(PartyResult.PLAYER_NOT_FOUND);
         }
@@ -404,7 +474,7 @@ public final class PartyService implements AutoCloseable {
         return storage.getPlayerParty(senderId)
                 .thenApply(partyOptional -> {
                     if (partyOptional.isEmpty()) {
-                        return new PartyMembersResult(PartyResult.NOT_IN_PARTY, PaginationResult.invalidPage(1), null);
+                        return new PartyMembersResult.NotInParty();
                     }
                     Party party = partyOptional.get();
                     List<UUID> members = new ArrayList<>(party.getMemberIds());
@@ -416,18 +486,28 @@ public final class PartyService implements AutoCloseable {
                     });
 
                     if (members.isEmpty()) {
-                        return new PartyMembersResult(PartyResult.LIST_EMPTY, PaginationResult.invalidPage(1), party);
+                        return new PartyMembersResult.Empty(party);
                     }
 
                     PaginationResult<UUID> pagination = PaginationResult.paginate(members, page, SharedConstants.ENTRIES_PER_PAGE);
                     if (!pagination.isValidPage()) {
-                        return new PartyMembersResult(PartyResult.INVALID_PAGE, pagination, party);
+                        return new PartyMembersResult.InvalidPage(pagination, party);
                     }
-                    return new PartyMembersResult(PartyResult.SUCCESS, pagination, party);
+                    return new PartyMembersResult.Found(pagination, party);
                 });
     }
 
-    public @NonNull CompletableFuture<PartyResult> sendPartyChat(@NonNull Player sender, @NonNull String message) {
+    public @NonNull CompletableFuture<PartyResults.SendChat> sendPartyChat(
+            @NonNull Player sender,
+            @NonNull String message
+    ) {
+        return sendPartyChatLegacy(sender, message).thenApply(PartyResults.SendChat::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> sendPartyChatLegacy(
+            @NonNull Player sender,
+            @NonNull String message
+    ) {
         if (message.length() > PartyProxyConstants.MAX_MESSAGE_LENGTH) {
             return CompletableFuture.completedFuture(PartyResult.MESSAGE_TOO_LONG);
         }
@@ -497,7 +577,20 @@ public final class PartyService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<PartyResult> transferLeadership(@NonNull Player sender, @Nullable Player target, boolean isConfirming) {
+    public @NonNull CompletableFuture<PartyResults.TransferLeadership> transferLeadership(
+            @NonNull Player sender,
+            @Nullable Player target,
+            boolean isConfirming
+    ) {
+        return transferLeadershipLegacy(sender, target, isConfirming)
+                .thenApply(PartyResults.TransferLeadership::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> transferLeadershipLegacy(
+            @NonNull Player sender,
+            @Nullable Player target,
+            boolean isConfirming
+    ) {
         if (target == null) {
             return CompletableFuture.completedFuture(PartyResult.PLAYER_NOT_FOUND);
         }
@@ -552,7 +645,11 @@ public final class PartyService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<PartyResult> warpParty(@NonNull Player sender) {
+    public @NonNull CompletableFuture<PartyResults.Warp> warpParty(@NonNull Player sender) {
+        return warpPartyLegacy(sender).thenApply(PartyResults.Warp::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> warpPartyLegacy(@NonNull Player sender) {
         UUID senderId = sender.getUniqueId();
 
         return storage.getPlayerParty(senderId)
@@ -621,7 +718,11 @@ public final class PartyService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<PartyResult> jumpToLeader(@NonNull Player sender) {
+    public @NonNull CompletableFuture<PartyResults.JumpToLeader> jumpToLeader(@NonNull Player sender) {
+        return jumpToLeaderLegacy(sender).thenApply(PartyResults.JumpToLeader::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> jumpToLeaderLegacy(@NonNull Player sender) {
         UUID senderId = sender.getUniqueId();
 
         return storage.getPlayerParty(senderId)
@@ -665,7 +766,20 @@ public final class PartyService implements AutoCloseable {
                 });
     }
 
-    public @NonNull CompletableFuture<PartyResult> updateBooleanSetting(@NonNull UUID playerId, @NonNull String settingName, boolean value) {
+    public @NonNull CompletableFuture<PartyResults.UpdateSetting> updateBooleanSetting(
+            @NonNull UUID playerId,
+            @NonNull String settingName,
+            boolean value
+    ) {
+        return updateBooleanSettingLegacy(playerId, settingName, value)
+                .thenApply(PartyResults.UpdateSetting::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> updateBooleanSettingLegacy(
+            @NonNull UUID playerId,
+            @NonNull String settingName,
+            boolean value
+    ) {
         if (!settingName.equals("allow_chat") && !settingName.equals("allow_warp")) {
             return CompletableFuture.completedFuture(PartyResult.INVALID_SETTING);
         }
@@ -681,7 +795,17 @@ public final class PartyService implements AutoCloseable {
                 .exceptionally(throwable -> PartyResult.INVALID_SETTING);
     }
 
-    public @NonNull CompletableFuture<PartyResult> updateInvitePrivacy(@NonNull UUID playerId, @NonNull String value) {
+    public @NonNull CompletableFuture<PartyResults.UpdateSetting> updateInvitePrivacy(
+            @NonNull UUID playerId,
+            @NonNull String value
+    ) {
+        return updateInvitePrivacyLegacy(playerId, value).thenApply(PartyResults.UpdateSetting::from);
+    }
+
+    private @NonNull CompletableFuture<PartyResult> updateInvitePrivacyLegacy(
+            @NonNull UUID playerId,
+            @NonNull String value
+    ) {
         if (!value.equals("all") && !value.equals("friend") && !value.equals("none")) {
             return CompletableFuture.completedFuture(PartyResult.INVALID_SETTING);
         }

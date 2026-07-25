@@ -37,13 +37,8 @@ public final class PartyWarpCommand {
         }
 
         partyService.warpParty(sender)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to warp party for player {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case NOT_IN_PARTY ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_ERROR_NOT_IN_PARTY));
                         case NOT_LEADER ->
@@ -56,10 +51,14 @@ public final class PartyWarpCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_ERROR_PARTY_NOT_FOUND));
                         case PARTY_WARPED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.WARP_SUCCESS));
-                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to warp party for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

@@ -10,7 +10,6 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.parties.proxy.PartyProxyConstants;
 import com.zornus.parties.proxy.model.PartyInvitation;
-import com.zornus.parties.proxy.model.PartyResult;
 import com.zornus.parties.proxy.model.result.PartyRequestsResult;
 import com.zornus.parties.proxy.service.PartyService;
 import com.zornus.shared.SharedConstants;
@@ -71,36 +70,42 @@ public final class PartyRequestsCommand {
         }
 
         partyService.getRequestsList(sender.getUniqueId(), type, page)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to get party requests for player {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return new PartyRequestsResult(PartyResult.ERROR_ALREADY_HANDLED, PaginationResult.invalidPage(1));
-                })
                 .thenAccept(result -> {
-                    switch (result.result()) {
-                        case LIST_EMPTY -> {
+                    switch (result) {
+                        case PartyRequestsResult.Empty ignored -> {
                             String emptyMessage = type.equalsIgnoreCase("incoming")
                                     ? PartyProxyConstants.UI_REQUESTS_INCOMING_EMPTY
                                     : PartyProxyConstants.UI_REQUESTS_OUTGOING_EMPTY;
                             sender.sendMessage(StringUtils.deserialize(emptyMessage));
                         }
-                        case INVALID_PAGE -> {
+                        case PartyRequestsResult.InvalidPage invalidPage -> {
                             TagResolver pageResolver = TagResolver.resolver(
-                                    Placeholder.unparsed("maximum_pages", String.valueOf(result.pagination().maximumPages()))
+                                    Placeholder.unparsed("maximum_pages", String.valueOf(invalidPage.pagination().maximumPages()))
                             );
                             sender.sendMessage(StringUtils.deserialize(SharedConstants.INVALID_PAGE, pageResolver));
                         }
-                        case SUCCESS -> handleDisplayRequestsPage(sender, result, type, page, proxyServer);
-                        case ERROR_ALREADY_HANDLED -> {}
-                        default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                        case PartyRequestsResult.Found found ->
+                                handleDisplayRequestsPage(sender, found.pagination(), type, page, proxyServer);
+                        case PartyRequestsResult.InvalidRequestType ignored ->
+                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to get party requests for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;
     }
 
-    private static void handleDisplayRequestsPage(@NonNull Player sender, @NonNull PartyRequestsResult result,
-                                           @NonNull String type, int currentPage, ProxyServer proxyServer) {
+    private static void handleDisplayRequestsPage(
+            @NonNull Player sender,
+            @NonNull PaginationResult<PartyInvitation> pagination,
+            @NonNull String type,
+            int currentPage,
+            ProxyServer proxyServer
+    ) {
         TextComponent.Builder messageBuilder = Component.text().appendNewline();
 
         boolean isIncoming = type.equalsIgnoreCase("incoming");
@@ -109,7 +114,7 @@ public final class PartyRequestsCommand {
                 : PartyProxyConstants.UI_REQUESTS_OUTGOING_ENTRY;
 
         List<Component> invitationEntries = new ArrayList<>();
-        for (PartyInvitation invitation : result.pagination().items()) {
+        for (PartyInvitation invitation : pagination.items()) {
             UUID playerId = isIncoming ? invitation.senderId() : invitation.targetId();
             String playerName = getPlayerName(proxyServer, playerId);
             Component timestampComponent = StringUtils.formatRelativeTime(invitation.timestamp());
@@ -126,12 +131,12 @@ public final class PartyRequestsCommand {
         messageBuilder.append(Component.join(JoinConfiguration.newlines(), invitationEntries));
         messageBuilder.append(Component.newline());
 
-        if (result.pagination().hasMultiplePages()) {
+        if (pagination.hasMultiplePages()) {
             messageBuilder.append(Component.newline())
                     .append(StringUtils.deserialize(PartyProxyConstants.UI_REQUESTS_PAGINATION,
                             TagResolver.resolver(
                                     Placeholder.unparsed("current_page", String.valueOf(currentPage)),
-                                    Placeholder.unparsed("maximum_pages", String.valueOf(result.pagination().maximumPages())),
+                                    Placeholder.unparsed("maximum_pages", String.valueOf(pagination.maximumPages())),
                                     Placeholder.unparsed("type", type)
                             )
                     ))

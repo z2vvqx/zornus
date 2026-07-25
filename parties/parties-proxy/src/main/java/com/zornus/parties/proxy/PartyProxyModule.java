@@ -4,7 +4,7 @@ import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.event.EventManager;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.Scheduler;
-import com.zornus.friends.proxy.service.FriendService;
+import com.zornus.friends.api.FriendshipService;
 import com.zornus.parties.proxy.registrar.PartyCommandRegistrar;
 import com.zornus.parties.proxy.registrar.PartyListenerRegistrar;
 import com.zornus.parties.proxy.registrar.PartyOperationRegistrar;
@@ -12,7 +12,6 @@ import com.zornus.parties.proxy.service.PartyService;
 import com.zornus.parties.proxy.storage.PartyPostgresStorage;
 import com.zornus.parties.proxy.storage.PartyStorage;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -24,17 +23,17 @@ public final class PartyProxyModule {
     private final @NonNull PartyListenerRegistrar partyListenerRegistrar;
     private final @NonNull PartyOperationRegistrar partyOperationRegistrar;
 
-    public PartyProxyModule(@NonNull Object plugin, @NonNull ProxyServer proxyServer) {
-        this(plugin, proxyServer, null);
-    }
-
-    public PartyProxyModule(@NonNull Object plugin, @NonNull ProxyServer proxyServer, @Nullable FriendService friendService) {
+    public PartyProxyModule(
+            @NonNull Object plugin,
+            @NonNull ProxyServer proxyServer,
+            @NonNull FriendshipService friendshipService
+    ) {
         PartyStorage storage = new PartyPostgresStorage(
                 PartyProxyConstants.POSTGRESQL_URL,
                 PartyProxyConstants.POSTGRESQL_USER,
                 PartyProxyConstants.POSTGRESQL_PASSWORD
         );
-        this.partyService = new PartyService(storage, proxyServer, friendService);
+        this.partyService = new PartyService(storage, proxyServer, friendshipService);
         this.partyCommandRegistrar = new PartyCommandRegistrar(partyService, proxyServer);
         this.partyListenerRegistrar = new PartyListenerRegistrar(plugin, partyService);
         this.partyOperationRegistrar = new PartyOperationRegistrar(plugin, partyService);

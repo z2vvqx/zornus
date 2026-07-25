@@ -89,9 +89,9 @@ public final class PartyProxyConstants {
     public static final String JUMP_ERROR_FAILED = "<red>Failed to jump to your party leader.</red>";
 
     public static final String SETTINGS_UPDATE_SUCCESS = "<green>Setting <yellow><setting></yellow> has been updated to <yellow><value></yellow>.</green>";
-    public static final String SETTINGS_DISPLAY_WARP = "<click:suggest_command:'/party settings warp '><#2DA0ED>warp</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Allow party leader to warp you: <value></white>";
-    public static final String SETTINGS_DISPLAY_CHAT = "<click:suggest_command:'/party settings chat '><#2DA0ED>chat</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Show party chat messages: <value></white>";
-    public static final String SETTINGS_DISPLAY_INVITES = "<click:suggest_command:'/party settings invites '><#2DA0ED>invites</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Who can invite you to party: <value></white>";
+    public static final String SETTINGS_DISPLAY_WARP = "<click:suggest_command:'/party settings warp '><#2DA0ED>warp</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Allow party leader to warp you: <value></white>";
+    public static final String SETTINGS_DISPLAY_CHAT = "<click:suggest_command:'/party settings chat '><#2DA0ED>chat</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Show party chat messages: <value></white>";
+    public static final String SETTINGS_DISPLAY_INVITES = "<click:suggest_command:'/party settings invites '><#2DA0ED>invites</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Who can invite you to party: <value></white>";
     public static final String SETTINGS_ERROR_INVITES_DISABLED = "<red><yellow><target></yellow> is not accepting party invites.</red>";
     public static final String SETTINGS_ERROR_INVITES_FRIENDS_ONLY = "<red><yellow><target></yellow> only accepts invites from friends.</red>";
 
@@ -118,9 +118,9 @@ public final class PartyProxyConstants {
     public static final String UI_REQUESTS_INCOMING_EMPTY = "<yellow>You don't have any incoming party invitations.</yellow>";
     public static final String UI_REQUESTS_OUTGOING_EMPTY = "<yellow>You don't have any outgoing party invitations.</yellow>";
     public static final String UI_REQUESTS_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /party requests <type> <page></gray>";
-    public static final String UI_REQUESTS_INCOMING_ENTRY = "<click:run_command:'/party accept <player>'><green>✔</green></click> <click:run_command:'/party reject <player>'><red>✘</red></click> <#2DA0ED><player></#2DA0ED> <dark_gray>—</dark_gray> <white><timestamp></white>";
-    public static final String UI_REQUESTS_OUTGOING_ENTRY = "<click:run_command:'/party uninvite <player>'><red>✘</red></click> <#2DA0ED><player></#2DA0ED> <dark_gray>—</dark_gray> <white><timestamp></white>";
-    public static final String UI_REQUESTS_ENTRY = "<#2DA0ED><player></#2DA0ED> <dark_gray>—</dark_gray> <white><timestamp></white>";
+    public static final String UI_REQUESTS_INCOMING_ENTRY = "<click:run_command:'/party accept <player>'><green>✔</green></click> <click:run_command:'/party reject <player>'><red>✘</red></click> <#2DA0ED><player></#2DA0ED> <dark_gray>─</dark_gray> <white><timestamp></white>";
+    public static final String UI_REQUESTS_OUTGOING_ENTRY = "<click:run_command:'/party uninvite <player>'><red>✘</red></click> <#2DA0ED><player></#2DA0ED> <dark_gray>─</dark_gray> <white><timestamp></white>";
+    public static final String UI_REQUESTS_ENTRY = "<#2DA0ED><player></#2DA0ED> <dark_gray>─</dark_gray> <white><timestamp></white>";
 
     public static final String NOTIFICATION_MEMBER_JOINED = "<green><sender> joined the party.</green>";
     public static final String NOTIFICATION_MEMBER_LEFT = "<yellow><sender> left the party.</yellow>";
@@ -138,22 +138,22 @@ public final class PartyProxyConstants {
     public static final String NOTIFICATION_CHAT_FORMAT = "<dark_aqua>[Party] <sender>: <message></dark_aqua>";
 
     public static final List<String> HELP_COMMANDS = Arrays.asList(
-            "<click:suggest_command:'/party help '><#2DA0ED>help [page]</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Shows this help menu</white>",
-            "<click:suggest_command:'/party create'><#2DA0ED>create</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Creates a new party with you as leader</white>",
-            "<click:suggest_command:'/party invite '><#2DA0ED>invite <player></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Sends a party invitation</white>",
-            "<click:suggest_command:'/party uninvite '><#2DA0ED>uninvite <player></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Cancels a pending invitation</white>",
-            "<click:suggest_command:'/party accept '><#2DA0ED>accept <leader></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Accepts a party invitation</white>",
-            "<click:suggest_command:'/party reject '><#2DA0ED>reject <leader></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Rejects a party invitation</white>",
-            "<click:suggest_command:'/party leave'><#2DA0ED>leave</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Leaves your current party</white>",
-            "<click:suggest_command:'/party kick '><#2DA0ED>kick <member> [reason]</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Kicks a member</white>",
-            "<click:suggest_command:'/party transfer '><#2DA0ED>transfer <member></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Transfers leadership</white>",
-            "<click:suggest_command:'/party disband'><#2DA0ED>disband</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Disbands the party</white>",
-            "<click:suggest_command:'/party list '><#2DA0ED>list [page]</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Lists party members</white>",
-            "<click:suggest_command:'/party requests '><#2DA0ED>requests <direction> [page]</#2DA0ED></click> <dark_gray>—</dark_gray> <white>View party invitations</white>",
-            "<click:suggest_command:'/party chat '><#2DA0ED>chat <message></#2DA0ED></click> <dark_gray>—</dark_gray> <white>Chat with party members</white>",
-            "<click:suggest_command:'/party jump'><#2DA0ED>jump</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Warps you to the party leader</white>",
-            "<click:suggest_command:'/party warp'><#2DA0ED>warp</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Warps all members to you</white>",
-            "<click:suggest_command:'/party settings '><#2DA0ED>settings [<setting> <value>]</#2DA0ED></click> <dark_gray>—</dark_gray> <white>Manage party preferences</white>"
+            "<click:suggest_command:'/party help '><#2DA0ED>help [page]</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Shows this help menu</white>",
+            "<click:suggest_command:'/party create'><#2DA0ED>create</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Creates a new party with you as leader</white>",
+            "<click:suggest_command:'/party invite '><#2DA0ED>invite <player></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Sends a party invitation</white>",
+            "<click:suggest_command:'/party uninvite '><#2DA0ED>uninvite <player></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Cancels a pending invitation</white>",
+            "<click:suggest_command:'/party accept '><#2DA0ED>accept <leader></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Accepts a party invitation</white>",
+            "<click:suggest_command:'/party reject '><#2DA0ED>reject <leader></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Rejects a party invitation</white>",
+            "<click:suggest_command:'/party leave'><#2DA0ED>leave</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Leaves your current party</white>",
+            "<click:suggest_command:'/party kick '><#2DA0ED>kick <member> [reason]</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Kicks a member</white>",
+            "<click:suggest_command:'/party transfer '><#2DA0ED>transfer <member></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Transfers leadership</white>",
+            "<click:suggest_command:'/party disband'><#2DA0ED>disband</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Disbands the party</white>",
+            "<click:suggest_command:'/party list '><#2DA0ED>list [page]</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Lists party members</white>",
+            "<click:suggest_command:'/party requests '><#2DA0ED>requests <direction> [page]</#2DA0ED></click> <dark_gray>─</dark_gray> <white>View party invitations</white>",
+            "<click:suggest_command:'/party chat '><#2DA0ED>chat <message></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Chat with party members</white>",
+            "<click:suggest_command:'/party jump'><#2DA0ED>jump</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Warps you to the party leader</white>",
+            "<click:suggest_command:'/party warp'><#2DA0ED>warp</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Warps all members to you</white>",
+            "<click:suggest_command:'/party settings '><#2DA0ED>settings [<setting> <value>]</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Manage party preferences</white>"
     );
 
     private PartyProxyConstants() {

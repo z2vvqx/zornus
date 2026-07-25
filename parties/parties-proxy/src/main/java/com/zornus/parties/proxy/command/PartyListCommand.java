@@ -10,7 +10,6 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.zornus.parties.proxy.PartyProxyConstants;
 import com.zornus.parties.proxy.model.Party;
-import com.zornus.parties.proxy.model.PartyResult;
 import com.zornus.parties.proxy.model.result.PartyMembersResult;
 import com.zornus.parties.proxy.service.PartyService;
 import com.zornus.shared.SharedConstants;
@@ -59,40 +58,40 @@ public final class PartyListCommand {
         }
 
         partyService.getPartyMembers(sender, page)
+                .thenAccept(result -> {
+                    switch (result) {
+                        case PartyMembersResult.Found found ->
+                                handleDisplayPartyMembers(sender, found.pagination(), found.party(), proxyServer, page);
+                        case PartyMembersResult.Empty ignored ->
+                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                        case PartyMembersResult.NotInParty ignored ->
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.LIST_ERROR_NOT_IN_PARTY));
+                        case PartyMembersResult.InvalidPage invalidPage -> {
+                            TagResolver resolver = Placeholder.unparsed(
+                                    "maximum_pages", String.valueOf(invalidPage.pagination().maximumPages()));
+                            sender.sendMessage(StringUtils.deserialize(SharedConstants.INVALID_PAGE, resolver));
+                        }
+                    }
+                })
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to get party members for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return new PartyMembersResult(PartyResult.ERROR_ALREADY_HANDLED, PaginationResult.invalidPage(1), null);
-                })
-                .thenAccept(result -> {
-                    switch (result.result()) {
-                        case SUCCESS -> handleDisplayPartyMembers(sender, result, proxyServer, page);
-                        case NOT_IN_PARTY ->
-                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.LIST_ERROR_NOT_IN_PARTY));
-                        case INVALID_PAGE -> {
-                            TagResolver resolver = Placeholder.unparsed("maximum_pages", String.valueOf(result.pagination().maximumPages()));
-                            sender.sendMessage(StringUtils.deserialize(SharedConstants.INVALID_PAGE, resolver));
-                        }
-                        case ERROR_ALREADY_HANDLED -> {}
-                        default ->
-                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    }
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;
     }
 
-    private static void handleDisplayPartyMembers(Player sender, @NonNull PartyMembersResult result,
-                                           ProxyServer proxyServer, int page) {
-        Party party = result.party();
-        if (party == null) {
-            sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.LIST_ERROR_NOT_IN_PARTY));
-            return;
-        }
-
+    private static void handleDisplayPartyMembers(
+            Player sender,
+            @NonNull PaginationResult<UUID> pagination,
+            @NonNull Party party,
+            ProxyServer proxyServer,
+            int page
+    ) {
         TextComponent.Builder messageBuilder = Component.text().append(Component.newline());
 
-        List<UUID> members = result.pagination().items();
+        List<UUID> members = pagination.items();
         for (int i = 0; i < members.size(); i++) {
             UUID memberId = members.get(i);
 
@@ -113,10 +112,10 @@ public final class PartyListCommand {
 
         messageBuilder.append(Component.newline());
 
-        if (result.pagination().hasMultiplePages()) {
+        if (pagination.hasMultiplePages()) {
             TagResolver paginationResolver = TagResolver.resolver(
                     Placeholder.unparsed("current_page", String.valueOf(page)),
-                    Placeholder.unparsed("maximum_pages", String.valueOf(result.pagination().maximumPages()))
+                    Placeholder.unparsed("maximum_pages", String.valueOf(pagination.maximumPages()))
             );
             messageBuilder.append(Component.newline())
                     .append(StringUtils.deserialize(PartyProxyConstants.UI_LIST_PAGINATION, paginationResolver));

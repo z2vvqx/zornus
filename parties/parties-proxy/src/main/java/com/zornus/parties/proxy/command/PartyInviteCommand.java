@@ -81,13 +81,8 @@ public final class PartyInviteCommand {
         Player target = targetOptional.get();
 
         partyService.sendInvitation(sender, target)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to send party invitation from {} to {}", sender.getUniqueId(), target.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case NOT_IN_PARTY ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.INVITE_ERROR_NOT_IN_PARTY));
                         case NOT_LEADER ->
@@ -119,10 +114,15 @@ public final class PartyInviteCommand {
                         case INVITATION_SENT ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.INVITE_SUCCESS,
                                         Placeholder.unparsed("target", targetName)));
-                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to send party invitation from {} to {}",
+                            sender.getUniqueId(), target.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

@@ -124,13 +124,8 @@ public final class PartySettingsCommand {
         };
 
         partyService.updateBooleanSetting(sender.getUniqueId(), settingName, value)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to update setting {} for player {}", setting, sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case SETTING_UPDATED -> {
                             TagResolver resolver = TagResolver.builder()
                                     .resolver(Placeholder.unparsed("setting", setting))
@@ -138,9 +133,14 @@ public final class PartySettingsCommand {
                                     .build();
                             sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.SETTINGS_UPDATE_SUCCESS, resolver));
                         }
-                        case ERROR_ALREADY_HANDLED -> {}
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to update setting {} for player {}",
+                            setting, sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;
@@ -156,13 +156,8 @@ public final class PartySettingsCommand {
         String value = StringArgumentType.getString(context, "value");
 
         partyService.updateInvitePrivacy(sender.getUniqueId(), value)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to update invite privacy for player {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case SETTING_UPDATED -> {
                             TagResolver resolver = TagResolver.builder()
                                     .resolver(Placeholder.unparsed("setting", "invites"))
@@ -170,9 +165,13 @@ public final class PartySettingsCommand {
                                     .build();
                             sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.SETTINGS_UPDATE_SUCCESS, resolver));
                         }
-                        case ERROR_ALREADY_HANDLED -> {}
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to update invite privacy for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

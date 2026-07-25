@@ -48,13 +48,8 @@ public final class PartyChatCommand {
         String message = StringArgumentType.getString(context, "message");
 
         partyService.sendPartyChat(sender, message)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to send party chat from player {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case MESSAGE_TOO_LONG ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_MESSAGE_TOO_LONG,
                                         Placeholder.unparsed("max_length", String.valueOf(PartyProxyConstants.MAX_MESSAGE_LENGTH))));
@@ -65,10 +60,14 @@ public final class PartyChatCommand {
                         case CHAT_SENT -> {
                             // Message already sent by the service, nothing more to do
                         }
-                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to send party chat from player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

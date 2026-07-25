@@ -45,13 +45,8 @@ public final class PartyDisbandCommand {
         }
 
         partyService.disbandParty(sender, isConfirming)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to disband party for player {}", sender.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case NOT_IN_PARTY ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.DISBAND_ERROR_NOT_IN_PARTY));
                         case NOT_LEADER ->
@@ -62,10 +57,14 @@ public final class PartyDisbandCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.DISBAND_ERROR_NO_CONFIRMATION));
                         case PARTY_DISBANDED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.DISBAND_SUCCESS));
-                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to disband party for player {}", sender.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;

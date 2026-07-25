@@ -77,13 +77,8 @@ public final class PartyAcceptCommand {
         Player target = targetOptional.get();
 
         partyService.acceptInvitation(sender, target)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to accept party invitation for {} from {}", sender.getUniqueId(), target.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return PartyResult.ERROR_ALREADY_HANDLED;
-                })
                 .thenAccept(result -> {
-                    switch (result) {
+                    switch (result.legacy()) {
                         case ALREADY_IN_PARTY ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_ALREADY_IN_PARTY));
                         case PLAYER_NOT_FOUND ->
@@ -96,10 +91,15 @@ public final class PartyAcceptCommand {
                         case JOINED_PARTY ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ACCEPT_SUCCESS,
                                         Placeholder.unparsed("target", targetName)));
-                        case ERROR_ALREADY_HANDLED -> {}
                         default ->
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
+                })
+                .exceptionally(throwable -> {
+                    LOGGER.error("Failed to accept party invitation for {} from {}",
+                            sender.getUniqueId(), target.getUniqueId(), throwable);
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                    return null;
                 });
 
         return Command.SINGLE_SUCCESS;
