@@ -85,6 +85,9 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
 
     private void initializeSchema() {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+            if (schemaExists(connection, "players")) {
+                return;
+            }
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS players (
                         player_id UUID PRIMARY KEY,
@@ -98,7 +101,6 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
             // a stale row still holding their new name under a different player_id. player_id
             // is the only identity we can rely on being unique; username is just a
             // last-known display name, resolved by recency in fetchPlayerByUsername.
-            statement.execute("DROP INDEX IF EXISTS idx_players_username");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_players_username_lower ON players (LOWER(username))");
 
             statement.execute("""
@@ -163,6 +165,17 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
 
         } catch (SQLException exception) {
             throw new RuntimeException("Failed to initialize database schema", exception);
+        }
+    }
+
+    private static boolean schemaExists(Connection connection, String rootTable) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT to_regclass(?) IS NOT NULL")) {
+            statement.setString(1, rootTable);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getBoolean(1);
+            }
         }
     }
 

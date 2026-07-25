@@ -66,6 +66,9 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
 
     private void initializeSchema() {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+            if (schemaExists(connection, "punishments")) {
+                return;
+            }
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS punishment_players (
                         player_id UUID PRIMARY KEY,
@@ -93,72 +96,30 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
                         revocation_reason TEXT,
                         victim_notified BOOLEAN NOT NULL DEFAULT FALSE,
                         preset_name VARCHAR(64),
-                        preset_application_number INTEGER
+                        preset_application_number INTEGER,
+                        CONSTRAINT chk_punishments_preset_metadata CHECK (
+                            (preset_name IS NULL AND preset_application_number IS NULL)
+                            OR (
+                                preset_name IS NOT NULL
+                                AND preset_application_number IS NOT NULL
+                                AND preset_application_number > 0
+                            )
+                        )
                     )
-                    """);
-            statement.execute("""
-                    ALTER TABLE punishments
-                    ADD COLUMN IF NOT EXISTS victim_notified BOOLEAN NOT NULL DEFAULT FALSE
-                    """);
-            statement.execute("""
-                    ALTER TABLE punishments
-                    ADD COLUMN IF NOT EXISTS preset_name VARCHAR(64)
-                    """);
-            statement.execute("""
-                    ALTER TABLE punishments
-                    ADD COLUMN IF NOT EXISTS preset_application_number INTEGER
-                    """);
-            statement.execute("""
-                    DO $$
-                    BEGIN
-                        IF NOT EXISTS (
-                            SELECT 1
-                            FROM pg_constraint
-                            WHERE conname = 'chk_punishments_preset_metadata'
-                              AND conrelid = 'punishments'::regclass
-                        ) THEN
-                            ALTER TABLE punishments
-                            ADD CONSTRAINT chk_punishments_preset_metadata
-                            CHECK (
-                                (preset_name IS NULL AND preset_application_number IS NULL)
-                                OR (
-                                    preset_name IS NOT NULL
-                                    AND preset_application_number IS NOT NULL
-                                    AND preset_application_number > 0
-                                )
-                            );
-                        END IF;
-                    END
-                    $$
                     """);
             statement.execute("""
                     CREATE INDEX IF NOT EXISTS idx_punishments_player_history
                     ON punishments (punished_player_id, created_at DESC)
                     """);
-            statement.execute("DROP INDEX IF EXISTS idx_punishments_one_active_type");
+            statement.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_punishments_active_expiry
+                    ON punishments (expires_at)
+                    WHERE active AND expires_at IS NOT NULL
+                    """);
             statement.execute("""
                     CREATE UNIQUE INDEX IF NOT EXISTS idx_punishments_one_active_type
                     ON punishments (punished_player_id, punishment_type)
                     WHERE active AND punishment_type IN ('BAN', 'MUTE')
-                    """);
-            statement.execute("""
-                    WITH duplicate_warnings AS (
-                        SELECT identifier,
-                               ROW_NUMBER() OVER (
-                                   PARTITION BY punished_player_id, LOWER(BTRIM(reason))
-                                   ORDER BY created_at DESC, identifier DESC
-                               ) AS duplicate_position
-                        FROM punishments
-                        WHERE active AND punishment_type = 'WARN'
-                    )
-                    UPDATE punishments
-                    SET active = FALSE,
-                        revoked_at = COALESCE(revoked_at, NOW()),
-                        revocation_reason = COALESCE(
-                            revocation_reason, 'Superseded by warning reason uniqueness migration')
-                    FROM duplicate_warnings
-                    WHERE punishments.identifier = duplicate_warnings.identifier
-                      AND duplicate_warnings.duplicate_position > 1
                     """);
             statement.execute("""
                     CREATE UNIQUE INDEX IF NOT EXISTS idx_punishments_one_active_warning_reason
@@ -172,6 +133,17 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
                     """);
         } catch (SQLException exception) {
             throw new RuntimeException("Failed to initialize punishment database schema", exception);
+        }
+    }
+
+    private static boolean schemaExists(Connection connection, String rootTable) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT to_regclass(?) IS NOT NULL")) {
+            statement.setString(1, rootTable);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getBoolean(1);
+            }
         }
     }
 

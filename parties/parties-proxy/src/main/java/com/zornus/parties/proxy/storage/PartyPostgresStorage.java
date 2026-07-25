@@ -78,6 +78,9 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
     private void initializeSchema() {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+            if (schemaExists(connection, "parties")) {
+                return;
+            }
             // STEP 1: Create party_members WITHOUT FK to parties (avoids circular dependency)
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS party_members (
@@ -165,6 +168,17 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
         } catch (SQLException exception) {
             throw new RuntimeException("Failed to initialize database schema", exception);
+        }
+    }
+
+    private static boolean schemaExists(Connection connection, String rootTable) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT to_regclass(?) IS NOT NULL")) {
+            statement.setString(1, rootTable);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getBoolean(1);
+            }
         }
     }
 

@@ -75,6 +75,9 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
 
     private void initializeSchema() {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
+            if (schemaExists(connection, "guilds")) {
+                return;
+            }
             // STEP 1: Create guild_players table
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS guild_players (
@@ -86,7 +89,6 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             // UUID is the stable identity. Usernames can change and later be reused by a
             // different account, so keep last-known names non-unique and resolve them by
             // the most recent join.
-            statement.execute("DROP INDEX IF EXISTS idx_guild_players_username");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_guild_players_username_lower ON guild_players (LOWER(username))");
 
             // STEP 2: Create guild_members WITHOUT FK to guilds (avoids circular dependency)
@@ -181,6 +183,17 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
 
         } catch (SQLException exception) {
             throw new RuntimeException("Failed to initialize database schema", exception);
+        }
+    }
+
+    private static boolean schemaExists(Connection connection, String rootTable) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT to_regclass(?) IS NOT NULL")) {
+            statement.setString(1, rootTable);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getBoolean(1);
+            }
         }
     }
 
