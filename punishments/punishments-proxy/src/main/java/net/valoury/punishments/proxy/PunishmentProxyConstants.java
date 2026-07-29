@@ -25,9 +25,9 @@ public final class PunishmentProxyConstants {
     public static final String USAGE_IMPOSE_WARN = "<red><click:suggest_command:'/punishment impose warn '>/punishment impose warn <player> <duration> <reason></click></red>";
     public static final String USAGE_IMPOSE_KICK = "<red><click:suggest_command:'/punishment impose kick '>/punishment impose kick <player> [reason]</click></red>";
     public static final String USAGE_IMPOSE_PRESET = "<red><click:suggest_command:'/punishment impose preset '>/punishment impose preset <player> <preset></click></red>";
-    public static final String USAGE_REVOKE_BAN = "<red><click:suggest_command:'/punishment revoke ban '>/punishment revoke ban <player> [reason]</click></red>";
-    public static final String USAGE_REVOKE_MUTE = "<red><click:suggest_command:'/punishment revoke mute '>/punishment revoke mute <player> [reason]</click></red>";
-    public static final String USAGE_REVOKE_ID = "<red><click:suggest_command:'/punishment revoke id '>/punishment revoke id <punishment_id> [reason]</click></red>";
+    public static final String USAGE_REVOKE_BAN = "<red><click:suggest_command:'/punishment revoke ban '>/punishment revoke ban <player> <reason></click></red>";
+    public static final String USAGE_REVOKE_MUTE = "<red><click:suggest_command:'/punishment revoke mute '>/punishment revoke mute <player> <reason></click></red>";
+    public static final String USAGE_REVOKE_ID = "<red><click:suggest_command:'/punishment revoke id '>/punishment revoke id <punishment_id> <reason></click></red>";
     public static final String USAGE_HISTORY = "<red><click:suggest_command:'/punishment history '>/punishment history <player_name> [page]</click></red>";
     public static final String USAGE_CHECK_BAN = "<red><click:suggest_command:'/punishment check ban '>/punishment check ban <player_name></click></red>";
     public static final String USAGE_CHECK_MUTE = "<red><click:suggest_command:'/punishment check mute '>/punishment check mute <player_name></click></red>";
@@ -95,9 +95,9 @@ public final class PunishmentProxyConstants {
     );
     public static final List<String> HELP_COMMANDS_REVOKE = List.of(
             "<click:suggest_command:'/punishment revoke help '><#2DA0ED>help [page]</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Shows this help menu</white>",
-            "<click:suggest_command:'/punishment revoke ban '><#2DA0ED>ban <player> [reason]</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Unban a player</white>",
-            "<click:suggest_command:'/punishment revoke mute '><#2DA0ED>mute <player> [reason]</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Unmute a player</white>",
-            "<click:suggest_command:'/punishment revoke id '><#2DA0ED>id <id> [reason]</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Revoke a specific punishment</white>"
+            "<click:suggest_command:'/punishment revoke ban '><#2DA0ED>ban <player> <reason></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Unban a player</white>",
+            "<click:suggest_command:'/punishment revoke mute '><#2DA0ED>mute <player> <reason></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Unmute a player</white>",
+            "<click:suggest_command:'/punishment revoke id '><#2DA0ED>id <id> <reason></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Revoke a specific punishment</white>"
     );
     public static final List<String> HELP_COMMANDS_CHECK = List.of(
             "<click:suggest_command:'/punishment check help '><#2DA0ED>help [page]</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Shows this help menu</white>",
