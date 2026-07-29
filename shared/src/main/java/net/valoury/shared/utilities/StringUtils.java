@@ -33,6 +33,14 @@ public final class StringUtils {
     }
 
     public static Component formatRelativeTime(Instant timestamp) {
+        String relativeTime = formatRelativeTimeText(timestamp);
+        String exactDate = EXACT_DATE_FORMATTER.format(timestamp);
+
+        return Component.text(relativeTime)
+                .hoverEvent(Component.text(exactDate));
+    }
+
+    public static String formatRelativeTimeText(Instant timestamp) {
         Duration duration = Duration.between(Instant.now(), timestamp);
         boolean isPast = duration.isNegative();
 
@@ -110,10 +118,7 @@ public final class StringUtils {
             relativeTime = "in " + relativeTime;
         }
 
-        String exactDate = EXACT_DATE_FORMATTER.format(timestamp);
-
-        return Component.text(relativeTime)
-                .hoverEvent(Component.text(exactDate));
+        return relativeTime;
     }
 
     public static Component formatDuration(Duration duration) {

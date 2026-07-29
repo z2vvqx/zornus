@@ -1,0 +1,107 @@
+package net.valoury.bloodstone.server;
+
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import org.junit.jupiter.api.Test;
+
+import java.lang.reflect.Field;
+import java.lang.reflect.Modifier;
+import java.util.List;
+import java.util.stream.Stream;
+
+import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+
+final class BloodstoneMiniMessageTest {
+
+    private static final TagResolver TEST_PLACEHOLDERS = TagResolver.resolver(
+            Stream.of(
+                            "error",
+                            "ratio",
+                            "suffix",
+                            "player",
+                            "message",
+                            "amount",
+                            "currency",
+                            "blood",
+                            "alloy",
+                            "cost",
+                            "enchantment",
+                            "cooldown",
+                            "seconds",
+                            "victim",
+                            "killer",
+                            "health",
+                            "armor",
+                            "shot",
+                            "share",
+                            "healing",
+                            "guild",
+                            "record",
+                            "text",
+                            "weapon",
+                            "value",
+                            "storage",
+                            "price",
+                            "requirement",
+                            "level",
+                            "name",
+                            "tag",
+                            "progress",
+                            "levels"
+                    )
+                    .map(name -> Placeholder.unparsed(name, "value"))
+                    .toArray(TagResolver[]::new)
+    );
+
+    @Test
+    void presentationConstantsUseValidStrictMiniMessageWithoutLegacyCodes()
+            throws IllegalAccessException {
+        for (Field field : BloodstoneServerConstants.class.getFields()) {
+            if (!Modifier.isStatic(field.getModifiers())) {
+                continue;
+            }
+            Object value = field.get(null);
+            if (value instanceof String template) {
+                assertTemplate(field.getName(), template);
+            } else if (value instanceof List<?> templates) {
+                for (int index = 0; index < templates.size(); index++) {
+                    Object entry = templates.get(index);
+                    if (entry instanceof String template) {
+                        assertTemplate(field.getName() + "[" + index + "]", template);
+                    }
+                }
+            } else if (value instanceof BloodstoneMenuItem menuItem) {
+                assertTemplate(field.getName() + ".name", menuItem.nameTemplate());
+                for (int index = 0; index < menuItem.loreTemplates().size(); index++) {
+                    assertTemplate(
+                            field.getName() + ".lore[" + index + "]",
+                            menuItem.loreTemplates().get(index)
+                    );
+                }
+            }
+        }
+        for (EffectAxeDefinitions.EffectAxeDefinition definition
+                : EffectAxeDefinitions.values()) {
+            assertTemplate(
+                    definition.id() + ".name",
+                    definition.displayNameTemplate()
+            );
+            assertTemplate(
+                    definition.id() + ".lore",
+                    definition.effectLoreTemplate()
+            );
+        }
+    }
+
+    private void assertTemplate(String name, String template) {
+        assertFalse(
+                template.indexOf('\u00A7') >= 0,
+                () -> name + " contains a legacy section color code"
+        );
+        assertDoesNotThrow(
+                () -> BloodstoneText.deserialize(template, TEST_PLACEHOLDERS),
+                () -> name + " is not valid strict MiniMessage"
+        );
+    }
+}

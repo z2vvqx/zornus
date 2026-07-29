@@ -1,0 +1,14 @@
+duel:
+  arena:
+    side-a:
+      x:
+      y:
+      z:
+      yaw: 0
+      pitch: 0
+    side-b:
+      x:
+      y:
+      z:
+      yaw: 0
+      pitch: 0

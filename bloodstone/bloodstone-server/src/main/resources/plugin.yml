@@ -1,0 +1,29 @@
+name: BloodstoneServer
+version: 1.0.0
+main: net.valoury.bloodstone.server.BloodstoneServerPlugin
+author: valoury
+description: Bloodstone game functionality for the Carbon server
+depend:
+  - GuildsServer
+  - packetevents
+  - WorldGuard
+softdepend:
+  - PlaceholderAPI
+  - LuckPerms
+commands:
+  bloodstone:
+    description: Opens the Bloodstone menu
+    usage: /bloodstone
+  trash:
+    description: Opens a disposal inventory
+    aliases: [disposal]
+    permission: valoury.command.trash
+  stack:
+    description: Stacks matching potions
+  disenchant:
+    description: Removes one enchantment from the held item
+    aliases: [de]
+    permission: valoury.command.disenchant
+  duel:
+    description: Challenges another player to a duel
+    usage: /duel <player|accept|reject>

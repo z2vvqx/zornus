@@ -1,0 +1,167 @@
+package net.valoury.bloodstone.server;
+
+import net.valoury.bloodstone.server.EffectAxeDefinitions.EffectTarget;
+import net.valoury.bloodstone.server.RandomBoxRewards.Rarity;
+import net.valoury.bloodstone.server.model.BloodstoneRank;
+import net.valoury.bloodstone.server.service.BloodstoneItemService;
+import org.bukkit.Color;
+import org.bukkit.Material;
+import org.junit.jupiter.api.Test;
+
+import java.time.Duration;
+import java.util.Map;
+import java.util.stream.Collectors;
+
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertTrue;
+
+final class BloodstoneCatalogTest {
+
+    @Test
+    void randomBoxKeepsLegacyWeightedPool() {
+        assertEquals(15, RandomBoxRewards.values().size());
+        assertEquals(24, RandomBoxRewards.totalWeight());
+        assertEquals(3, totalWeight(Rarity.LEGENDARY));
+        assertEquals(14, totalWeight(Rarity.RARE));
+        assertEquals(7, totalWeight(Rarity.COMMON));
+        assertEquals(1.0D,
+                RandomBoxRewards.values().stream()
+                        .mapToDouble(RandomBoxRewards.RandomBoxReward::probability)
+                        .sum(),
+                0.000_000_1D);
+        assertEquals(Map.ofEntries(
+                        Map.entry("golden_apple", 3),
+                        Map.entry("protection_helmet", 2),
+                        Map.entry("protection_chestplate", 2),
+                        Map.entry("protection_leggings", 2),
+                        Map.entry("protection_boots", 2),
+                        Map.entry("strong_sword", 2),
+                        Map.entry("strong_axe", 2),
+                        Map.entry("strong_bow", 2),
+                        Map.entry("unbreaking_sword", 1),
+                        Map.entry("unbreaking_axe", 1),
+                        Map.entry("unbreaking_helmet", 1),
+                        Map.entry("unbreaking_chestplate", 1),
+                        Map.entry("unbreaking_leggings", 1),
+                        Map.entry("unbreaking_boots", 1),
+                        Map.entry("unbreaking_bow", 1)
+                ),
+                RandomBoxRewards.values().stream().collect(Collectors.toMap(
+                        RandomBoxRewards.RandomBoxReward::id,
+                        RandomBoxRewards.RandomBoxReward::weight
+        )));
+        assertEquals("golden_apple", RandomBoxRewards.GOLDEN_APPLE.id());
+        assertEquals(1, RandomBoxRewards.GOLDEN_APPLE.data());
+        assertEquals(org.bukkit.Material.GOLDEN_APPLE,
+                RandomBoxRewards.GOLDEN_APPLE.material());
+        assertFalse(RandomBoxRewards.values().stream()
+                .anyMatch(reward -> reward.id().contains("blessed")
+                        || reward.material() == org.bukkit.Material.PRISMARINE_SHARD));
+    }
+
+    @Test
+    void effectAxesKeepCostsDurabilityAndEffects() {
+        assertEquals(6, EffectAxeDefinitions.values().size());
+        assertTrue(EffectAxeDefinitions.values().stream()
+                .allMatch(definition -> definition.bloodAlloyCost() == 64));
+        assertTrue(EffectAxeDefinitions.values().stream()
+                .allMatch(EffectAxeDefinitions.EffectAxeDefinition::requiresPaidRank));
+
+        assertEquals(Duration.ofSeconds(8), EffectAxeDefinitions.SPEED.duration());
+        assertEquals(0, EffectAxeDefinitions.SPEED.amplifier());
+        assertEquals(EffectTarget.SELF, EffectAxeDefinitions.SPEED.target());
+        assertEquals(Duration.ofSeconds(8), EffectAxeDefinitions.STRENGTH.duration());
+        assertEquals(1, EffectAxeDefinitions.STRENGTH.amplifier());
+        assertEquals(EffectTarget.SELF, EffectAxeDefinitions.STRENGTH.target());
+        assertTrue(EffectAxeDefinitions.values().stream()
+                .filter(definition -> definition.target() == EffectTarget.VICTIM)
+                .allMatch(definition -> definition.duration().equals(Duration.ofSeconds(6))
+                        && definition.amplifier() == 2));
+        assertEquals(Color.fromRGB(150, 37, 36),
+                EffectAxeDefinitions.STRENGTH.particleColor());
+        assertEquals(Color.fromRGB(126, 178, 202),
+                EffectAxeDefinitions.SPEED.particleColor());
+        assertEquals(Color.fromRGB(79, 150, 50),
+                EffectAxeDefinitions.POISON.particleColor());
+        assertEquals(Color.fromRGB(53, 42, 39),
+                EffectAxeDefinitions.WITHER.particleColor());
+        assertEquals(Color.fromRGB(92, 110, 131),
+                EffectAxeDefinitions.WEAKNESS.particleColor());
+        assertEquals(Color.fromRGB(31, 31, 35),
+                EffectAxeDefinitions.BLINDNESS.particleColor());
+        org.bukkit.inventory.ItemStack axe =
+                new org.bukkit.inventory.ItemStack(org.bukkit.Material.DIAMOND_AXE);
+        axe.setDurability((short) (axe.getType().getMaxDurability() - 3));
+        BloodstoneItemService itemService = new BloodstoneItemService();
+        assertFalse(itemService.consumeControlledUse(axe));
+        assertEquals(1, itemService.remainingDurability(axe));
+        assertTrue(itemService.consumeControlledUse(axe));
+        assertEquals(0, axe.getAmount());
+    }
+
+    @Test
+    void rankEconomyAndResistanceDurationStayBound() {
+        assertEquals(3, BloodstoneRank.DEFAULT.bloodPerQualifyingHit());
+        assertEquals(4, BloodstoneRank.IRON.bloodPerQualifyingHit());
+        assertEquals(5, BloodstoneRank.GOLD.bloodPerQualifyingHit());
+        assertEquals(6, BloodstoneRank.DIAMOND.bloodPerQualifyingHit());
+        assertEquals(7, BloodstoneRank.EMERALD.bloodPerQualifyingHit());
+        assertEquals(3_600, new BloodstoneItemService().createResistanceEffect().getDuration());
+        assertEquals(Map.ofEntries(
+                        Map.entry(BloodstoneItemService.ShopProduct.SHARPNESS_IV_SWORD, 2),
+                        Map.entry(BloodstoneItemService.ShopProduct.SHARPNESS_V_SWORD, 4),
+                        Map.entry(BloodstoneItemService.ShopProduct.POWER_V_BOW, 4),
+                        Map.entry(BloodstoneItemService.ShopProduct.SHARPNESS_IV_AXE, 2),
+                        Map.entry(BloodstoneItemService.ShopProduct.SHARPNESS_V_AXE, 4),
+                        Map.entry(BloodstoneItemService.ShopProduct.PROTECTION_IV_HELMET, 1),
+                        Map.entry(BloodstoneItemService.ShopProduct.PROTECTION_IV_CHESTPLATE, 1),
+                        Map.entry(BloodstoneItemService.ShopProduct.PROTECTION_IV_LEGGINGS, 1),
+                        Map.entry(BloodstoneItemService.ShopProduct.PROTECTION_IV_BOOTS, 1),
+                        Map.entry(BloodstoneItemService.ShopProduct.GOLDEN_APPLE, 5),
+                        Map.entry(BloodstoneItemService.ShopProduct.STRENGTH_POTION, 3),
+                        Map.entry(BloodstoneItemService.ShopProduct.RESISTANCE_POTION, 2),
+                        Map.entry(BloodstoneItemService.ShopProduct.SPEED_POTION, 2),
+                        Map.entry(BloodstoneItemService.ShopProduct.FIRE_RESISTANCE_POTION, 1)
+                ),
+                java.util.Arrays.stream(BloodstoneItemService.ShopProduct.values())
+                        .collect(Collectors.toMap(
+                        product -> product,
+                        BloodstoneItemService.ShopProduct::bloodAlloyCost
+                        )));
+        assertFalse(java.util.Arrays.stream(BloodstoneItemService.ShopProduct.values())
+                .anyMatch(product -> product.name().contains("BLESSED")
+                        || product.name().contains("PRISMARINE")));
+    }
+
+    @Test
+    void storageIconsReflectWhetherTheStorageIsAvailable() {
+        assertEquals(
+                Material.STORAGE_MINECART,
+                BloodstoneServerConstants.STORAGE_UNLOCKED_ITEM.material()
+        );
+        assertEquals(
+                Material.STORAGE_MINECART,
+                BloodstoneServerConstants.EXTRA_STORAGE_UNLOCKED_ITEM.material()
+        );
+        assertEquals(
+                Material.MINECART,
+                BloodstoneServerConstants.STORAGE_LOCKED_ITEM.material()
+        );
+        assertEquals(
+                Material.MINECART,
+                BloodstoneServerConstants.EXTRA_STORAGE_LOCKED_ITEM.material()
+        );
+        assertEquals(
+                Material.MINECART,
+                BloodstoneServerConstants.GUILD_STASH_ITEM.material()
+        );
+    }
+
+    private int totalWeight(Rarity rarity) {
+        return RandomBoxRewards.values().stream()
+                .filter(reward -> reward.rarity() == rarity)
+                .mapToInt(RandomBoxRewards.RandomBoxReward::weight)
+                .sum();
+    }
+}

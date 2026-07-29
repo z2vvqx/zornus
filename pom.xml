@@ -14,6 +14,7 @@
         <module>parties</module>
         <module>guilds</module>
         <module>punishments</module>
+        <module>bloodstone</module>
         <module>bootstrap</module>
     </modules>
 
@@ -32,6 +33,22 @@
         <repository>
             <id>papermc</id>
             <url>https://repo.papermc.io/repository/maven-public/</url>
+        </repository>
+        <repository>
+            <id>placeholderapi</id>
+            <url>https://repo.extendedclip.com/content/repositories/placeholderapi/</url>
+        </repository>
+        <repository>
+            <id>enginehub</id>
+            <url>https://maven.enginehub.org/repo/</url>
+        </repository>
+        <repository>
+            <id>codemc-releases</id>
+            <url>https://repo.codemc.io/repository/maven-releases/</url>
+        </repository>
+        <repository>
+            <id>codemc-snapshots</id>
+            <url>https://repo.codemc.io/repository/maven-snapshots/</url>
         </repository>
     </repositories>
 
@@ -58,6 +75,16 @@
                 <version>4.26.1</version>
             </dependency>
             <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-key</artifactId>
+                <version>4.26.1</version>
+            </dependency>
+            <dependency>
+                <groupId>net.kyori</groupId>
+                <artifactId>adventure-text-serializer-legacy</artifactId>
+                <version>4.26.1</version>
+            </dependency>
+            <dependency>
                 <groupId>org.slf4j</groupId>
                 <artifactId>slf4j-api</artifactId>
                 <version>2.0.17</version>
@@ -76,6 +103,11 @@
                 <groupId>net.valoury</groupId>
                 <artifactId>shared</artifactId>
                 <version>1.0-SNAPSHOT</version>
+            </dependency>
+            <dependency>
+                <groupId>com.github.retrooper</groupId>
+                <artifactId>packetevents-spigot</artifactId>
+                <version>2.13.0</version>
             </dependency>
         </dependencies>
     </dependencyManagement>

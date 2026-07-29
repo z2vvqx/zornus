@@ -1,0 +1,36 @@
+package net.valoury.bloodstone.server.model;
+
+import java.util.Objects;
+import java.util.UUID;
+
+public record PlayerProfile(
+        UUID playerId,
+        String username,
+        int kills,
+        int deaths,
+        int assists,
+        int carries,
+        int dominations,
+        int revenges,
+        int currentRampage,
+        int bestRampage,
+        boolean extraStorageUnlocked,
+        long version
+) {
+    public PlayerProfile {
+        Objects.requireNonNull(playerId, "Player ID cannot be null");
+        Objects.requireNonNull(username, "Username cannot be null");
+        if (username.isBlank() || username.length() > 16) {
+            throw new IllegalArgumentException("Username must contain between 1 and 16 characters");
+        }
+        if (kills < 0 || deaths < 0 || assists < 0 || carries < 0
+                || dominations < 0 || revenges < 0
+                || currentRampage < 0 || bestRampage < currentRampage || version < 0) {
+            throw new IllegalArgumentException("Player profile values cannot be negative or inconsistent");
+        }
+    }
+
+    public double ratio() {
+        return deaths == 0 ? kills : (double) kills / deaths;
+    }
+}
