@@ -6,11 +6,16 @@ import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.RejectedExecutionException;
 import java.util.concurrent.ThreadPoolExecutor;
 import java.util.concurrent.TimeUnit;
+import java.util.concurrent.atomic.AtomicBoolean;
+import java.util.concurrent.atomic.AtomicInteger;
 import java.util.function.Supplier;
 
 public final class DatabaseExecutor {
 
     private final ThreadPoolExecutor executor;
+    private final ThreadLocal<Boolean> executingTask = ThreadLocal.withInitial(() -> false);
+    private final AtomicBoolean acceptingExternalSubmissions = new AtomicBoolean(true);
+    private final AtomicInteger outstandingTasks = new AtomicInteger();
 
     public DatabaseExecutor(String threadNamePrefix, int threadCount) {
         if (threadNamePrefix == null || threadNamePrefix.isBlank()) {
@@ -35,19 +40,32 @@ public final class DatabaseExecutor {
         Objects.requireNonNull(task, "Database task cannot be null");
 
         CompletableFuture<T> future = new CompletableFuture<>();
+        if (!reserveTask()) {
+            future.completeExceptionally(
+                    new RejectedExecutionException("Database executor is shut down")
+            );
+            return future;
+        }
         try {
             executor.execute(() -> {
+                executingTask.set(true);
                 try {
                     future.complete(task.get());
                 } catch (Throwable exception) {
                     future.completeExceptionally(exception);
+                } finally {
+                    executingTask.remove();
+                    releaseTask();
                 }
             });
         } catch (RejectedExecutionException exception) {
-            String message = executor.isShutdown()
-                    ? "Database executor is shut down"
-                    : "Database executor queue is full";
-            future.completeExceptionally(new RejectedExecutionException(message, exception));
+            releaseTask();
+            future.completeExceptionally(new RejectedExecutionException(
+                    isShutdownRequested()
+                            ? "Database executor is shut down"
+                            : "Database executor queue is full",
+                    exception
+            ));
         }
         return future;
     }
@@ -61,7 +79,8 @@ public final class DatabaseExecutor {
     }
 
     public void shutdown() {
-        executor.shutdown();
+        acceptingExternalSubmissions.set(false);
+        shutdownWhenDrained();
     }
 
     public boolean awaitTermination(long timeout, TimeUnit unit) throws InterruptedException {
@@ -69,6 +88,39 @@ public final class DatabaseExecutor {
     }
 
     public void shutdownNow() {
+        acceptingExternalSubmissions.set(false);
         executor.shutdownNow();
+    }
+
+    private boolean reserveTask() {
+        if (!acceptingExternalSubmissions.get() && !executingTask.get()) {
+            return false;
+        }
+        if (executor.isShutdown()) {
+            return false;
+        }
+
+        outstandingTasks.incrementAndGet();
+        if (executor.isShutdown()) {
+            releaseTask();
+            return false;
+        }
+        return true;
+    }
+
+    private void releaseTask() {
+        if (outstandingTasks.decrementAndGet() == 0) {
+            shutdownWhenDrained();
+        }
+    }
+
+    private void shutdownWhenDrained() {
+        if (!acceptingExternalSubmissions.get() && outstandingTasks.get() == 0) {
+            executor.shutdown();
+        }
+    }
+
+    private boolean isShutdownRequested() {
+        return !acceptingExternalSubmissions.get();
     }
 }

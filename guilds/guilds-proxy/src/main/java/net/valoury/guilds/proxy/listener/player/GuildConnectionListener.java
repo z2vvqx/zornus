@@ -1,5 +1,6 @@
 package net.valoury.guilds.proxy.listener.player;
 
+import com.velocitypowered.api.event.EventTask;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.proxy.Player;
@@ -22,13 +23,15 @@ public class GuildConnectionListener {
     }
 
     @Subscribe
-    public void onPostLogin(@NonNull PostLoginEvent event) {
+    public @NonNull EventTask onPostLogin(@NonNull PostLoginEvent event) {
         Player player = event.getPlayer();
-        guildService.handlePlayerJoin(player.getUniqueId(), player.getUsername())
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to handle player join for {} ({})",
-                            player.getUsername(), player.getUniqueId(), throwable);
-                    return null;
-                });
+        return EventTask.resumeWhenComplete(
+                guildService.handlePlayerJoin(player.getUniqueId(), player.getUsername())
+                        .exceptionally(throwable -> {
+                            LOGGER.error("Failed to handle player join for {} ({})",
+                                    player.getUsername(), player.getUniqueId(), throwable);
+                            return null;
+                        })
+        );
     }
 }

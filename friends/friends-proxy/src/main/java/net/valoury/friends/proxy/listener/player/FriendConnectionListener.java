@@ -1,5 +1,6 @@
 package net.valoury.friends.proxy.listener.player;
 
+import com.velocitypowered.api.event.EventTask;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
@@ -23,25 +24,29 @@ public class FriendConnectionListener {
     }
 
     @Subscribe
-    public void onPostLogin(@NonNull PostLoginEvent event) {
+    public @NonNull EventTask onPostLogin(@NonNull PostLoginEvent event) {
         Player player = event.getPlayer();
-        friendService.handlePlayerJoin(player.getUniqueId(), player.getUsername())
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to handle player join for {} ({})",
-                            player.getUsername(), player.getUniqueId(), throwable);
-                    return null;
-                });
+        return EventTask.resumeWhenComplete(
+                friendService.handlePlayerJoin(player.getUniqueId(), player.getUsername())
+                        .exceptionally(throwable -> {
+                            LOGGER.error("Failed to handle player join for {} ({})",
+                                    player.getUsername(), player.getUniqueId(), throwable);
+                            return null;
+                        })
+        );
     }
 
     @Subscribe
-    public void onDisconnect(@NonNull DisconnectEvent event) {
+    public @NonNull EventTask onDisconnect(@NonNull DisconnectEvent event) {
         Player player = event.getPlayer();
         String username = player.getUsername();
-        friendService.handlePlayerDisconnect(player.getUniqueId(), username)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to handle player disconnect for {} ({})",
-                            username, player.getUniqueId(), throwable);
-                    return null;
-                });
+        return EventTask.resumeWhenComplete(
+                friendService.handlePlayerDisconnect(player.getUniqueId(), username)
+                        .exceptionally(throwable -> {
+                            LOGGER.error("Failed to handle player disconnect for {} ({})",
+                                    username, player.getUniqueId(), throwable);
+                            return null;
+                        })
+        );
     }
 }

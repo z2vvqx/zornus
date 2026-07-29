@@ -1,5 +1,6 @@
 package net.valoury.parties.proxy.listener.player;
 
+import com.velocitypowered.api.event.EventTask;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
 import com.velocitypowered.api.proxy.Player;
@@ -22,14 +23,16 @@ public class PartyConnectionListener {
     }
 
     @Subscribe
-    public void onDisconnect(@NonNull DisconnectEvent event) {
+    public @NonNull EventTask onDisconnect(@NonNull DisconnectEvent event) {
         Player player = event.getPlayer();
         String username = player.getUsername();
-        partyService.handlePlayerDisconnect(player.getUniqueId(), username)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to handle player disconnect for {} ({})",
-                            username, player.getUniqueId(), throwable);
-                    return null;
-                });
+        return EventTask.resumeWhenComplete(
+                partyService.handlePlayerDisconnect(player.getUniqueId(), username)
+                        .exceptionally(throwable -> {
+                            LOGGER.error("Failed to handle player disconnect for {} ({})",
+                                    username, player.getUniqueId(), throwable);
+                            return null;
+                        })
+        );
     }
 }
