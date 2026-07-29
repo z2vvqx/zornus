@@ -26,8 +26,17 @@ public final class PartyChatCommand {
     private static final Logger LOGGER = LoggerFactory.getLogger(PartyChatCommand.class);
 
     public static LiteralArgumentBuilder<CommandSource> create(PartyService partyService) {
+        return createCommand("chat", partyService);
+    }
+
+    public static @NonNull BrigadierCommand createShortcut(PartyService partyService) {
+        return new BrigadierCommand(createCommand("pc", partyService)
+                .requires(source -> source instanceof Player));
+    }
+
+    private static LiteralArgumentBuilder<CommandSource> createCommand(String commandName, PartyService partyService) {
         return BrigadierCommand
-                .literalArgumentBuilder("chat")
+                .literalArgumentBuilder(commandName)
                 .executes(context -> {
                     context.getSource().sendMessage(StringUtils.deserialize(PartyProxyConstants.USAGE_CHAT));
                     return Command.SINGLE_SUCCESS;

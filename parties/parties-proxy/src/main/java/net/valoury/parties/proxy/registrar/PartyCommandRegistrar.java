@@ -2,7 +2,9 @@ package net.valoury.parties.proxy.registrar;
 
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.proxy.ProxyServer;
+import net.valoury.parties.proxy.command.PartyChatCommand;
 import net.valoury.parties.proxy.command.PartyCommand;
+import net.valoury.parties.proxy.command.PartyListCommand;
 import net.valoury.parties.proxy.service.PartyService;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -50,6 +52,11 @@ public final class PartyCommandRegistrar {
      * @param commandManager The command manager for command registration
      */
     private void registerPartyCommand(@NonNull CommandManager commandManager) {
-        commandManager.register(commandManager.metaBuilder("party").build(), PartyCommand.create(partyService, proxyServer));
+        commandManager.register(
+                commandManager.metaBuilder("party").aliases("p").build(),
+                PartyCommand.create(partyService, proxyServer)
+        );
+        commandManager.register(PartyChatCommand.createShortcut(partyService));
+        commandManager.register(PartyListCommand.createShortcut(partyService, proxyServer));
     }
 }

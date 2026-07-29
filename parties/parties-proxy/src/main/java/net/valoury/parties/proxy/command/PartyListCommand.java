@@ -37,8 +37,21 @@ public final class PartyListCommand {
     private static final Logger LOGGER = LoggerFactory.getLogger(PartyListCommand.class);
 
     public static LiteralArgumentBuilder<CommandSource> create(PartyService partyService, ProxyServer proxyServer) {
+        return createCommand("list", partyService, proxyServer);
+    }
+
+    public static @NonNull BrigadierCommand createShortcut(PartyService partyService, ProxyServer proxyServer) {
+        return new BrigadierCommand(createCommand("pl", partyService, proxyServer)
+                .requires(source -> source instanceof Player));
+    }
+
+    private static LiteralArgumentBuilder<CommandSource> createCommand(
+            String commandName,
+            PartyService partyService,
+            ProxyServer proxyServer
+    ) {
         return BrigadierCommand
-                .literalArgumentBuilder("list")
+                .literalArgumentBuilder(commandName)
                 .executes(context -> handleListMembers(context, partyService, proxyServer, 1))
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("page", IntegerArgumentType.integer(1))
