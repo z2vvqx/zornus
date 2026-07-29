@@ -10,8 +10,8 @@
     <artifactId>punishments-server</artifactId>
     <dependencies>
         <dependency>
-            <groupId>net.minestom</groupId>
-            <artifactId>minestom</artifactId>
+            <groupId>xyz.refinedev.spigot</groupId>
+            <artifactId>Carbon-API</artifactId>
             <scope>provided</scope>
         </dependency>
     </dependencies>
