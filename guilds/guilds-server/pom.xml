@@ -14,10 +14,54 @@
 
     <dependencies>
         <dependency>
+            <groupId>net.valoury</groupId>
+            <artifactId>guilds-api</artifactId>
+            <version>${project.version}</version>
+        </dependency>
+        <dependency>
             <groupId>xyz.refinedev.spigot</groupId>
             <artifactId>Carbon-API</artifactId>
             <scope>provided</scope>
         </dependency>
     </dependencies>
+
+    <build>
+        <plugins>
+            <plugin>
+                <groupId>org.apache.maven.plugins</groupId>
+                <artifactId>maven-shade-plugin</artifactId>
+                <version>3.6.1</version>
+                <executions>
+                    <execution>
+                        <phase>package</phase>
+                        <goals>
+                            <goal>shade</goal>
+                        </goals>
+                        <configuration>
+                            <createDependencyReducedPom>false</createDependencyReducedPom>
+                            <minimizeJar>false</minimizeJar>
+                            <relocations>
+                                <relocation>
+                                    <pattern>com.zaxxer.hikari</pattern>
+                                    <shadedPattern>net.valoury.guilds.server.lib.hikari</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>org.postgresql</pattern>
+                                    <shadedPattern>net.valoury.guilds.server.lib.postgresql</shadedPattern>
+                                </relocation>
+                                <relocation>
+                                    <pattern>net.valoury.shared</pattern>
+                                    <shadedPattern>net.valoury.guilds.server.lib.shared</shadedPattern>
+                                </relocation>
+                            </relocations>
+                            <transformers>
+                                <transformer implementation="org.apache.maven.plugins.shade.resource.ServicesResourceTransformer"/>
+                            </transformers>
+                        </configuration>
+                    </execution>
+                </executions>
+            </plugin>
+        </plugins>
+    </build>
 
 </project>

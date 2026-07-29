@@ -1,0 +1,5 @@
+name: GuildsServer
+version: 1.0.0
+main: net.valoury.guilds.server.GuildsServerPlugin
+author: valoury
+description: Read-only Guilds integration for Carbon game servers
