@@ -13,6 +13,7 @@ import net.valoury.guilds.proxy.GuildProxyConstants;
 import net.valoury.guilds.proxy.model.Guild;
 import net.valoury.guilds.proxy.model.result.GuildInfoResult;
 import net.valoury.guilds.proxy.service.GuildService;
+import net.valoury.guilds.proxy.utilities.GuildColorFormatter;
 import net.valoury.shared.SharedConstants;
 import net.valoury.shared.utilities.StringUtils;
 import org.jspecify.annotations.NonNull;
@@ -68,8 +69,8 @@ public final class GuildInfoCommand {
     private static void displayGuildInfo(@NonNull Player sender, @NonNull Guild guild) {
         TagResolver resolver = TagResolver.resolver(
                 Placeholder.unparsed("guild_name", guild.guildName()),
-                Placeholder.parsed("guild_tag_display",
-                        guild.guildColor() + "[" + StringUtils.escapeTags(guild.guildTag()) + "]"),
+                Placeholder.component("guild_tag_display",
+                        GuildColorFormatter.createColoredText("[" + guild.guildTag() + "]", guild.guildColor())),
                 Placeholder.unparsed("member_count", String.valueOf(guild.memberIds().size())),
                 Placeholder.unparsed("maximum_size", String.valueOf(GuildProxyConstants.MAX_GUILD_SIZE))
         );

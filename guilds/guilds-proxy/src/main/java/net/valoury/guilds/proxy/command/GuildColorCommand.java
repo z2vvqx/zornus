@@ -10,6 +10,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import net.valoury.guilds.proxy.GuildProxyConstants;
 import net.valoury.guilds.proxy.service.GuildService;
+import net.valoury.guilds.proxy.utilities.GuildColorFormatter;
 import net.valoury.shared.SharedConstants;
 import net.valoury.shared.utilities.StringUtils;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -21,9 +22,11 @@ public final class GuildColorCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GuildColorCommand.class);
     private static final SuggestionProvider<CommandSource> COLOR_SUGGESTIONS = (context, builder) ->
-            builder.suggest("white").suggest("gray").suggest("gold").suggest("yellow")
-                    .suggest("green").suggest("aqua").suggest("blue").suggest("red")
-                    .suggest("light_purple").buildFuture();
+            builder.suggest("black").suggest("dark_blue").suggest("dark_green").suggest("dark_aqua")
+                    .suggest("dark_red").suggest("dark_purple").suggest("gold").suggest("gray")
+                    .suggest("dark_gray").suggest("blue").suggest("green").suggest("aqua")
+                    .suggest("red").suggest("light_purple").suggest("yellow").suggest("white")
+                    .buildFuture();
 
     public static LiteralArgumentBuilder<CommandSource> create(GuildService guildService) {
         return BrigadierCommand
@@ -53,7 +56,8 @@ public final class GuildColorCommand {
                     switch (result.legacy()) {
                         case GUILD_COLOR_UPDATED -> sender.sendMessage(StringUtils.deserialize(
                                 GuildProxyConstants.COLOR_SUCCESS,
-                                Placeholder.parsed("colored_value", "<" + guildColor + ">" + guildColor)));
+                                Placeholder.component("colored_value",
+                                        GuildColorFormatter.createColoredText(guildColor, guildColor))));
                         case NOT_IN_GUILD ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_IN_GUILD));
                         case NOT_LEADER ->
