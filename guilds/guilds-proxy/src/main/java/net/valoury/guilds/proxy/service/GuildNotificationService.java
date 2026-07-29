@@ -119,6 +119,7 @@ public final class GuildNotificationService {
                               @NonNull Map<UUID, GuildSettings> settingsMap) {
         Component componentMessage = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_CHAT_FORMAT,
                 TagResolver.resolver(
+                        Placeholder.unparsed("guild", guild.guildName()),
                         Placeholder.unparsed("sender", sender.getUsername()),
                         Placeholder.unparsed("message", message)));
 

@@ -2,7 +2,9 @@ package net.valoury.guilds.proxy.registrar;
 
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.proxy.ProxyServer;
+import net.valoury.guilds.proxy.command.GuildChatCommand;
 import net.valoury.guilds.proxy.command.GuildCommand;
+import net.valoury.guilds.proxy.command.GuildListCommand;
 import net.valoury.guilds.proxy.service.GuildService;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -40,6 +42,8 @@ public final class GuildCommandRegistrar {
                     commandManager.metaBuilder("guild").aliases("g").build(),
                     GuildCommand.create(guildService, proxyServer)
             );
+            commandManager.register(GuildChatCommand.createShortcut(guildService));
+            commandManager.register(GuildListCommand.createShortcut(guildService, proxyServer));
         } catch (Exception exception) {
             LOGGER.error("Error registering guild commands", exception);
             throw exception;

@@ -23,6 +23,7 @@ import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.function.Function;
 import java.util.function.Supplier;
+import java.util.stream.Collectors;
 
 public final class GuildService implements AutoCloseable {
 
@@ -451,10 +452,22 @@ public final class GuildService implements AutoCloseable {
                     }
                     Guild guild = guildOptional.get();
                     List<UUID> members = new ArrayList<>(guild.getMemberIds());
-                    // Sort: leader first, then UUID natural ordering
+                    Set<UUID> onlineMemberIds = members.stream()
+                            .filter(memberId -> proxyServer.getPlayer(memberId).isPresent())
+                            .collect(Collectors.toUnmodifiableSet());
                     members.sort((a, b) -> {
-                        if (guild.isLeader(a)) return -1;
-                        if (guild.isLeader(b)) return 1;
+                        boolean firstMemberLeader = guild.isLeader(a);
+                        boolean secondMemberLeader = guild.isLeader(b);
+                        if (firstMemberLeader != secondMemberLeader) {
+                            return firstMemberLeader ? -1 : 1;
+                        }
+
+                        boolean firstMemberOnline = onlineMemberIds.contains(a);
+                        boolean secondMemberOnline = onlineMemberIds.contains(b);
+                        if (firstMemberOnline != secondMemberOnline) {
+                            return firstMemberOnline ? -1 : 1;
+                        }
+
                         return a.compareTo(b);
                     });
 

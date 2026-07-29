@@ -21,8 +21,17 @@ public final class GuildChatCommand {
     private static final Logger LOGGER = LoggerFactory.getLogger(GuildChatCommand.class);
 
     public static LiteralArgumentBuilder<CommandSource> create(GuildService guildService) {
+        return createCommand("chat", guildService);
+    }
+
+    public static @NonNull BrigadierCommand createShortcut(GuildService guildService) {
+        return new BrigadierCommand(createCommand("gc", guildService)
+                .requires(source -> source instanceof Player));
+    }
+
+    private static LiteralArgumentBuilder<CommandSource> createCommand(String commandName, GuildService guildService) {
         return BrigadierCommand
-                .literalArgumentBuilder("chat")
+                .literalArgumentBuilder(commandName)
                 .executes(context -> {
                     context.getSource().sendMessage(StringUtils.deserialize(GuildProxyConstants.USAGE_CHAT));
                     return Command.SINGLE_SUCCESS;

@@ -18,6 +18,7 @@ import net.valoury.shared.utilities.PaginationResult;
 import net.valoury.shared.utilities.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.jspecify.annotations.NonNull;
@@ -25,6 +26,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Map;
+import java.util.Optional;
 import java.util.UUID;
 
 public final class GuildListCommand {
@@ -33,8 +35,21 @@ public final class GuildListCommand {
 
     public static LiteralArgumentBuilder<CommandSource> create(GuildService guildService,
                                                                ProxyServer proxyServer) {
+        return createCommand("list", guildService, proxyServer);
+    }
+
+    public static @NonNull BrigadierCommand createShortcut(GuildService guildService, ProxyServer proxyServer) {
+        return new BrigadierCommand(createCommand("gl", guildService, proxyServer)
+                .requires(source -> source instanceof Player));
+    }
+
+    private static LiteralArgumentBuilder<CommandSource> createCommand(
+            String commandName,
+            GuildService guildService,
+            ProxyServer proxyServer
+    ) {
         return BrigadierCommand
-                .literalArgumentBuilder("list")
+                .literalArgumentBuilder(commandName)
                 .executes(context -> handleListMembers(context, guildService, proxyServer, 1))
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("page", IntegerArgumentType.integer(1))
@@ -97,18 +112,24 @@ public final class GuildListCommand {
                                        int page) {
         TextComponent.Builder messageBuilder = Component.text().appendNewline();
         for (UUID memberId : pagination.items()) {
-            String memberName = proxyServer.getPlayer(memberId)
+            Optional<Player> onlineMember = proxyServer.getPlayer(memberId);
+            String memberName = onlineMember
                     .map(Player::getUsername)
                     .orElseGet(() -> {
                         PlayerRecord record = storedPlayers.get(memberId);
                         return record == null ? "Unknown" : record.username();
                     });
+            Component statusIndicator = onlineMember.isPresent()
+                    ? Component.text("▲", NamedTextColor.GREEN)
+                    : Component.text("▼", NamedTextColor.RED);
             String format = guild.isLeader(memberId)
                     ? GuildProxyConstants.UI_LIST_MEMBER_LEADER
                     : GuildProxyConstants.UI_LIST_MEMBER_NORMAL;
             messageBuilder.append(StringUtils.deserialize(
                     SharedConstants.BULLET_POINT + format,
-                    Placeholder.unparsed("member", memberName))).appendNewline();
+                    TagResolver.resolver(
+                            Placeholder.component("status", statusIndicator),
+                            Placeholder.unparsed("member", memberName)))).appendNewline();
         }
 
         if (pagination.hasMultiplePages()) {

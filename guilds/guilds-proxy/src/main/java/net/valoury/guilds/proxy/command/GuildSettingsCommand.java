@@ -16,6 +16,7 @@ import net.valoury.shared.SharedConstants;
 import net.valoury.shared.utilities.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.JoinConfiguration;
+import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.jspecify.annotations.NonNull;
@@ -87,7 +88,12 @@ public final class GuildSettingsCommand {
                         SharedConstants.BULLET_POINT + GuildProxyConstants.SETTINGS_DISPLAY_CHAT,
                         Placeholder.unparsed("value", String.valueOf(settings.showChat())))
         );
-        sender.sendMessage(Component.join(JoinConfiguration.newlines(), entries));
+
+        TextComponent.Builder messageBuilder = Component.text().appendNewline();
+        messageBuilder.append(Component.join(JoinConfiguration.newlines(), entries));
+        messageBuilder.appendNewline();
+
+        sender.sendMessage(messageBuilder.build());
     }
 
     private static int handleUpdateSetting(@NonNull CommandContext<CommandSource> context,

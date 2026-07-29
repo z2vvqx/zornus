@@ -8,6 +8,11 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.JoinConfiguration;
+import net.kyori.adventure.text.TextComponent;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.valoury.guilds.proxy.GuildProxyConstants;
 import net.valoury.guilds.proxy.model.GuildInvitation;
 import net.valoury.guilds.proxy.model.result.GuildRequestsResult;
@@ -15,11 +20,6 @@ import net.valoury.guilds.proxy.service.GuildService;
 import net.valoury.shared.SharedConstants;
 import net.valoury.shared.model.PlayerRecord;
 import net.valoury.shared.utilities.StringUtils;
-import net.kyori.adventure.text.Component;
-import net.kyori.adventure.text.JoinConfiguration;
-import net.kyori.adventure.text.TextComponent;
-import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -157,11 +157,11 @@ public final class GuildRequestsCommand {
                     String name = names.getOrDefault(invitation, "Unknown");
                     TagResolver resolver = incoming
                             ? TagResolver.resolver(
-                            Placeholder.unparsed("guild_name", name),
+                            Placeholder.parsed("guild_name", name),
                             Placeholder.component("timestamp",
                                     StringUtils.formatRelativeTime(invitation.timestamp())))
                             : TagResolver.resolver(
-                            Placeholder.unparsed("player", name),
+                            Placeholder.parsed("player", name),
                             Placeholder.component("timestamp",
                                     StringUtils.formatRelativeTime(invitation.timestamp())));
                     return StringUtils.deserialize(SharedConstants.BULLET_POINT + template, resolver);

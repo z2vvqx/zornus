@@ -110,8 +110,8 @@ public final class GuildProxyConstants {
 
     public static final String LIST_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to view the member list.</red>";
 
-    public static final String UI_LIST_MEMBER_LEADER = "<#2DA0ED><member></#2DA0ED> <#A78BFA>★</#A78BFA>";
-    public static final String UI_LIST_MEMBER_NORMAL = "<#2DA0ED><member></#2DA0ED>";
+    public static final String UI_LIST_MEMBER_LEADER = "<status> <#2DA0ED><member></#2DA0ED> <#A78BFA>★</#A78BFA>";
+    public static final String UI_LIST_MEMBER_NORMAL = "<status> <#2DA0ED><member></#2DA0ED>";
     public static final String UI_LIST_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /guild list <page></gray>";
     public static final String UI_INFO = "<#2DA0ED><guild_name></#2DA0ED> <guild_tag_display> <dark_gray>-</dark_gray> <white><member_count>/<maximum_size> members</white>";
     public static final String UI_HELP_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /guild help <page></gray>";
@@ -130,7 +130,7 @@ public final class GuildProxyConstants {
     public static final String NOTIFICATION_INVITE_SENT_ANNOUNCEMENT = "<green><sender> invited <target> to the guild.</green>";
     public static final String NOTIFICATION_GUILD_DISBANDED = "<red>The guild has been disbanded by <leader>.</red>";
     public static final String NOTIFICATION_GUILD_RENAMED = "<yellow>The guild has been renamed from <old_name> to <new_name>.</yellow>";
-    public static final String NOTIFICATION_CHAT_FORMAT = "<dark_aqua>[Guild] <sender>: <message></dark_aqua>";
+    public static final String NOTIFICATION_CHAT_FORMAT = "<dark_aqua>[<guild>] <sender>: <message></dark_aqua>";
 
     public static final List<String> HELP_COMMANDS = Arrays.asList(
             "<click:suggest_command:'/guild help '><#2DA0ED>help [page]</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Shows this help menu</white>",
