@@ -4,6 +4,7 @@ import net.valoury.bloodstone.server.BloodstoneServerConstants;
 import net.valoury.bloodstone.server.BloodstoneText;
 import net.valoury.bloodstone.server.EffectAxeDefinitions;
 import net.valoury.bloodstone.server.model.BloodstoneRank;
+import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;
@@ -23,14 +24,14 @@ public final class BloodstoneMenuService {
 
     private static final int BLOOD_PER_ALLOY = 64;
     private static final int ALLOY_PER_EXCHANGE = 1;
-    private static final Set<String> LEGACY_MENU_TITLES = Set.of(
-            BloodstoneText.legacy(BloodstoneServerConstants.MAIN_MENU_TITLE),
-            BloodstoneText.legacy(BloodstoneServerConstants.GEAR_MENU_TITLE),
-            BloodstoneText.legacy(BloodstoneServerConstants.ARMOR_MENU_TITLE),
-            BloodstoneText.legacy(BloodstoneServerConstants.EFFECT_AXES_MENU_TITLE),
-            BloodstoneText.legacy(BloodstoneServerConstants.POTIONS_MENU_TITLE),
-            BloodstoneText.legacy(BloodstoneServerConstants.EXCHANGE_MENU_TITLE),
-            BloodstoneText.legacy(BloodstoneServerConstants.TRASH_MENU_TITLE)
+    private static final Set<Component> MENU_TITLES = Set.of(
+            BloodstoneText.deserialize(BloodstoneServerConstants.MAIN_MENU_TITLE),
+            BloodstoneText.deserialize(BloodstoneServerConstants.GEAR_MENU_TITLE),
+            BloodstoneText.deserialize(BloodstoneServerConstants.ARMOR_MENU_TITLE),
+            BloodstoneText.deserialize(BloodstoneServerConstants.EFFECT_AXES_MENU_TITLE),
+            BloodstoneText.deserialize(BloodstoneServerConstants.POTIONS_MENU_TITLE),
+            BloodstoneText.deserialize(BloodstoneServerConstants.EXCHANGE_MENU_TITLE),
+            BloodstoneText.deserialize(BloodstoneServerConstants.TRASH_MENU_TITLE)
     );
 
     private final BloodstoneItemService itemService;
@@ -82,7 +83,7 @@ public final class BloodstoneMenuService {
         open(player, Bukkit.createInventory(
                 null,
                 45,
-                BloodstoneText.legacy(BloodstoneServerConstants.TRASH_MENU_TITLE)
+                BloodstoneText.deserialize(BloodstoneServerConstants.TRASH_MENU_TITLE)
         ));
     }
 
@@ -90,7 +91,7 @@ public final class BloodstoneMenuService {
         if (!(event.getWhoClicked() instanceof Player player) || !isInBloodstone(player)) {
             return;
         }
-        String title = event.getView().getTitle();
+        Component title = event.getView().title();
         if (!isMenuTitle(title)) {
             return;
         }
@@ -460,7 +461,7 @@ public final class BloodstoneMenuService {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 BloodstoneServerConstants.MENU_ROWS * 9,
-                BloodstoneText.legacy(title)
+                BloodstoneText.deserialize(title)
         );
         if (!BloodstoneServerConstants.MAIN_MENU_TITLE.equals(title)) {
             inventory.setItem(
@@ -496,20 +497,20 @@ public final class BloodstoneMenuService {
 
     private void appendPriceLore(ItemStack item, int price, String currency) {
         ItemMeta itemMeta = item.getItemMeta();
-        List<String> lore = itemMeta.hasLore()
-                ? new ArrayList<>(itemMeta.getLore())
+        List<Component> lore = itemMeta.hasLore()
+                ? new ArrayList<>(itemMeta.lore())
                 : new ArrayList<>();
-        lore.add("");
-        lore.add(BloodstoneText.legacy(
+        lore.add(Component.empty());
+        lore.add(BloodstoneText.deserialize(
                 BloodstoneServerConstants.MENU_PRICE_LORE_FORMAT,
                 Placeholder.unparsed("price", Integer.toString(price)),
                 Placeholder.unparsed("currency", currency)
         ));
-        lore.add("");
-        lore.add(BloodstoneText.legacy(
+        lore.add(Component.empty());
+        lore.add(BloodstoneText.deserialize(
                 BloodstoneServerConstants.MENU_PURCHASE_LORE
         ));
-        itemMeta.setLore(lore);
+        itemMeta.lore(lore);
         item.setItemMeta(itemMeta);
     }
 
@@ -539,12 +540,12 @@ public final class BloodstoneMenuService {
         return false;
     }
 
-    private boolean isMenuTitle(String title) {
-        return LEGACY_MENU_TITLES.contains(title);
+    private boolean isMenuTitle(Component title) {
+        return MENU_TITLES.contains(title);
     }
 
-    private boolean matchesTitle(String legacyTitle, String titleTemplate) {
-        return BloodstoneText.legacy(titleTemplate).equals(legacyTitle);
+    private boolean matchesTitle(Component title, String titleTemplate) {
+        return BloodstoneText.deserialize(titleTemplate).equals(title);
     }
 
     private void open(Player player, Inventory inventory) {

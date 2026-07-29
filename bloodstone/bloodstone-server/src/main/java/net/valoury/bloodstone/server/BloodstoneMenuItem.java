@@ -36,9 +36,9 @@ public record BloodstoneMenuItem(
         if (itemMeta == null) {
             throw new IllegalStateException(material + " does not support item metadata");
         }
-        itemMeta.setDisplayName(BloodstoneText.legacy(nameTemplate, resolvers));
+        itemMeta.displayName(BloodstoneText.deserialize(nameTemplate, resolvers));
         if (!loreTemplates.isEmpty()) {
-            itemMeta.setLore(BloodstoneText.legacyLines(loreTemplates, resolvers));
+            itemMeta.lore(BloodstoneText.deserializeLines(loreTemplates, resolvers));
         }
         itemMeta.addItemFlags(ItemFlag.values());
         item.setItemMeta(itemMeta);

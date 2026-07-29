@@ -1,5 +1,6 @@
 package net.valoury.bloodstone.server.service;
 
+import net.kyori.adventure.text.Component;
 import net.valoury.bloodstone.server.BloodstoneText;
 import net.valoury.bloodstone.server.EffectAxeDefinitions;
 import net.valoury.bloodstone.server.EffectAxeDefinitions.EffectAxeDefinition;
@@ -71,8 +72,8 @@ public final class BloodstoneItemService {
         if (!isBlood(blood)
                 || !blood.hasItemMeta()
                 || !blood.getItemMeta().hasDisplayName()
-                || !BloodstoneText.legacy(BLOOD_DISPLAY_NAME)
-                .equals(blood.getItemMeta().getDisplayName())) {
+                || !BloodstoneText.deserialize(BLOOD_DISPLAY_NAME)
+                .equals(blood.getItemMeta().displayName())) {
             throw new IllegalStateException(
                     "Blood item id or presentation did not survive Carbon item conversion"
             );
@@ -90,8 +91,8 @@ public final class BloodstoneItemService {
                 != EFFECT_AXE_UNBREAKING_LEVEL
                 || !effectAxe.hasItemMeta()
                 || !effectAxe.getItemMeta().hasLore()
-                || !effectAxe.getItemMeta().getLore().contains(
-                Classification.SOULBOUND.legacyLore())) {
+                || !effectAxe.getItemMeta().lore().contains(
+                Classification.SOULBOUND.lore())) {
             throw new IllegalStateException(
                     "Effect Axe id or presentation did not survive Carbon item conversion"
             );
@@ -169,13 +170,13 @@ public final class BloodstoneItemService {
         requireUsableItem(item);
         ItemStack classified = item.clone();
         ItemMeta itemMeta = classified.getItemMeta();
-        List<String> lore = itemMeta.hasLore()
-                ? new ArrayList<>(itemMeta.getLore())
+        List<Component> lore = itemMeta.hasLore()
+                ? new ArrayList<>(itemMeta.lore())
                 : new ArrayList<>();
-        if (!lore.contains(classification.legacyLore())) {
-            lore.add(classification.legacyLore());
+        if (!lore.contains(classification.lore())) {
+            lore.add(classification.lore());
         }
-        itemMeta.setLore(lore);
+        itemMeta.lore(lore);
         classified.setItemMeta(itemMeta);
         return itemTags.withString(classified, INTERNAL_ITEM_ID_KEY, classification.internalId());
     }
@@ -199,9 +200,9 @@ public final class BloodstoneItemService {
         ItemStack unclassified = item.clone();
         ItemMeta itemMeta = unclassified.getItemMeta();
         if (itemMeta.hasLore()) {
-            List<String> lore = new ArrayList<>(itemMeta.getLore());
-            lore.removeIf(removableClassification.legacyLore()::equals);
-            itemMeta.setLore(lore);
+            List<Component> lore = new ArrayList<>(itemMeta.lore());
+            lore.removeIf(removableClassification.lore()::equals);
+            itemMeta.lore(lore);
             unclassified.setItemMeta(itemMeta);
         }
         return itemTags.withString(unclassified, INTERNAL_ITEM_ID_KEY, "");
@@ -237,10 +238,10 @@ public final class BloodstoneItemService {
     public @NonNull ItemStack createResistancePotion() {
         ItemStack potion = new ItemStack(Material.POTION, 1, (short) 0);
         ItemMeta itemMeta = potion.getItemMeta();
-        itemMeta.setDisplayName(BloodstoneText.legacy(
+        itemMeta.displayName(BloodstoneText.deserialize(
                 RESISTANCE_POTION_DISPLAY_NAME
         ));
-        itemMeta.setLore(List.of(BloodstoneText.legacy(
+        itemMeta.lore(List.of(BloodstoneText.deserialize(
                 "<gray>Resistance (03:00)</gray>"
         )));
         potion.setItemMeta(itemMeta);
@@ -271,12 +272,12 @@ public final class BloodstoneItemService {
     public @NonNull ItemStack createEffectAxe(@NonNull EffectAxeDefinition definition) {
         ItemStack axe = new ItemStack(Material.DIAMOND_AXE);
         ItemMeta itemMeta = axe.getItemMeta();
-        itemMeta.setDisplayName(BloodstoneText.legacy(
+        itemMeta.displayName(BloodstoneText.deserialize(
                 definition.displayNameTemplate()
         ));
-        itemMeta.setLore(List.of(
-                BloodstoneText.legacy(definition.effectLoreTemplate()),
-                Classification.SOULBOUND.legacyLore()
+        itemMeta.lore(List.of(
+                BloodstoneText.deserialize(definition.effectLoreTemplate()),
+                Classification.SOULBOUND.lore()
         ));
         axe.setItemMeta(itemMeta);
         axe.addUnsafeEnchantment(
@@ -427,7 +428,7 @@ public final class BloodstoneItemService {
                         ENCHANTED_GOLDEN_APPLE_DATA
                 );
                 ItemMeta itemMeta = apple.getItemMeta();
-                itemMeta.setDisplayName(BloodstoneText.legacy(
+                itemMeta.displayName(BloodstoneText.deserialize(
                         GOLDEN_APPLE_DISPLAY_NAME
                 ));
                 apple.setItemMeta(itemMeta);
@@ -479,24 +480,24 @@ public final class BloodstoneItemService {
         ItemStack display = itemTags.withString(withoutItemId, OPERATION_ID_KEY, "");
         ItemMeta itemMeta = display.getItemMeta();
         if (!menuLore.isEmpty()) {
-            List<String> existingLore = itemMeta.hasLore()
-                    ? itemMeta.getLore()
+            List<Component> existingLore = itemMeta.hasLore()
+                    ? itemMeta.lore()
                     : List.of();
-            itemMeta.setLore(mergeMenuLore(menuLore, existingLore));
+            itemMeta.lore(mergeMenuLore(menuLore, existingLore));
         }
         itemMeta.addItemFlags(ItemFlag.values());
         display.setItemMeta(itemMeta);
         return display;
     }
 
-    static @NonNull List<String> mergeMenuLore(
+    static @NonNull List<Component> mergeMenuLore(
             @NonNull List<String> menuLore,
-            @NonNull List<String> existingLore
+            @NonNull List<Component> existingLore
     ) {
-        List<String> mergedLore = new ArrayList<>(
-                BloodstoneText.legacyLines(menuLore)
+        List<Component> mergedLore = new ArrayList<>(
+                BloodstoneText.deserializeLines(menuLore)
         );
-        for (String existingLine : existingLore) {
+        for (Component existingLine : existingLore) {
             if (!mergedLore.contains(existingLine)) {
                 mergedLore.add(existingLine);
             }
@@ -536,7 +537,7 @@ public final class BloodstoneItemService {
     ) {
         ItemStack item = new ItemStack(material, checkedStackAmount(material, amount), data);
         ItemMeta itemMeta = item.getItemMeta();
-        itemMeta.setDisplayName(BloodstoneText.legacy(displayNameTemplate));
+        itemMeta.displayName(BloodstoneText.deserialize(displayNameTemplate));
         item.setItemMeta(itemMeta);
         return itemTags.withString(item, INTERNAL_ITEM_ID_KEY, itemId);
     }
@@ -647,19 +648,19 @@ public final class BloodstoneItemService {
         SOULBOUND("classification.soulbound", "<gray>Soulbound</gray>");
 
         private final String internalId;
-        private final String loreTemplate;
+        private final Component lore;
 
         Classification(String internalId, String loreTemplate) {
             this.internalId = internalId;
-            this.loreTemplate = loreTemplate;
+            this.lore = BloodstoneText.deserialize(loreTemplate);
         }
 
         String internalId() {
             return internalId;
         }
 
-        public String legacyLore() {
-            return BloodstoneText.legacy(loreTemplate);
+        public Component lore() {
+            return lore;
         }
     }
 

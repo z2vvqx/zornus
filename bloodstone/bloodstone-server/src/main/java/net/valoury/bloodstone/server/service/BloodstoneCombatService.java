@@ -220,7 +220,7 @@ public final class BloodstoneCombatService {
                     BloodstoneServerConstants.KILLER_MESSAGE_FORMAT,
                     Placeholder.component(
                             "victim",
-                            BloodstoneText.legacyComponent(victim.getDisplayName())
+                            victim.displayName()
                     ),
                     Placeholder.unparsed("health", killerHealth)
             );
@@ -229,7 +229,7 @@ public final class BloodstoneCombatService {
                     BloodstoneServerConstants.VICTIM_MESSAGE_FORMAT,
                     Placeholder.component(
                             "killer",
-                            BloodstoneText.legacyComponent(killer.getDisplayName())
+                            killer.displayName()
                     ),
                     Placeholder.unparsed("health", killerHealth)
             );
@@ -488,7 +488,7 @@ public final class BloodstoneCombatService {
                 ),
                 Placeholder.component(
                         "victim",
-                        BloodstoneText.legacyComponent(victim.getDisplayName())
+                        victim.displayName()
                 ),
                 Placeholder.unparsed("health", formatHealth(remainingHealth))
         );
@@ -754,7 +754,7 @@ public final class BloodstoneCombatService {
                 Placeholder.unparsed("rampage", Integer.toString(rampage))
         ).color(message.weaponColor());
         Component killerName =
-                BloodstoneText.legacyComponent(killer.getDisplayName());
+                killer.displayName();
         broadcastBloodstone(BloodstoneText.deserialize(
                 RAMPAGE_MESSAGE_FORMAT,
                 Placeholder.unparsed("text", message.text()),
@@ -838,7 +838,7 @@ public final class BloodstoneCombatService {
         Player player = Bukkit.getPlayer(playerId);
         return player == null
                 ? Component.text(playerId.toString().substring(0, 8))
-                : BloodstoneText.legacyComponent(player.getDisplayName());
+                : player.displayName();
     }
 
     private String formatHealth(double health) {

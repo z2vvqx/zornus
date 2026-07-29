@@ -10,6 +10,7 @@ import java.util.List;
 import java.util.stream.Stream;
 
 import static org.junit.jupiter.api.Assertions.assertDoesNotThrow;
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 
 final class BloodstoneMiniMessageTest {
@@ -90,6 +91,28 @@ final class BloodstoneMiniMessageTest {
             assertTemplate(
                     definition.id() + ".lore",
                     definition.effectLoreTemplate()
+            );
+        }
+    }
+
+    @Test
+    void carbonInventoryTitleRoundTripRetainsComponentIdentity() {
+        for (String titleTemplate : List.of(
+                BloodstoneServerConstants.MAIN_MENU_TITLE,
+                BloodstoneServerConstants.GEAR_MENU_TITLE,
+                BloodstoneServerConstants.ARMOR_MENU_TITLE,
+                BloodstoneServerConstants.EFFECT_AXES_MENU_TITLE,
+                BloodstoneServerConstants.POTIONS_MENU_TITLE,
+                BloodstoneServerConstants.EXCHANGE_MENU_TITLE,
+                BloodstoneServerConstants.TRASH_MENU_TITLE,
+                BloodstoneServerConstants.STORAGE_MENU_TITLE,
+                BloodstoneServerConstants.ENCHANTER_MENU_TITLE,
+                BloodstoneServerConstants.DISENCHANTER_MENU_TITLE
+        )) {
+            var title = BloodstoneText.deserialize(titleTemplate);
+            assertEquals(
+                    title,
+                    BloodstoneText.legacyComponent(BloodstoneText.legacy(title))
             );
         }
     }

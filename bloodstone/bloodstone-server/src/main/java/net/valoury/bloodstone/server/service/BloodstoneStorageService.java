@@ -1,5 +1,6 @@
 package net.valoury.bloodstone.server.service;
 
+import net.kyori.adventure.text.Component;
 import net.valoury.bloodstone.server.BloodstoneServerConstants;
 import net.valoury.bloodstone.server.BloodstoneText;
 import net.valoury.bloodstone.server.model.BloodstoneRank;
@@ -45,8 +46,8 @@ public final class BloodstoneStorageService {
     private static final int STORAGE_CLOSE_MAXIMUM_ATTEMPTS = 3;
     private static final long STORAGE_RETRY_DELAY_SECONDS = 1L;
     private static final int EXTRA_STORAGE_PRICE = 8;
-    private static final String LEGACY_STORAGE_MENU_TITLE =
-            BloodstoneText.legacy(BloodstoneServerConstants.STORAGE_MENU_TITLE);
+    private static final Component STORAGE_MENU_TITLE =
+            BloodstoneText.deserialize(BloodstoneServerConstants.STORAGE_MENU_TITLE);
     private final BloodstoneStorage storage;
     private final BloodstoneItemService itemService;
     private final BloodstonePlayerService playerService;
@@ -89,7 +90,7 @@ public final class BloodstoneStorageService {
         Inventory menu = Bukkit.createInventory(
                 null,
                 BloodstoneServerConstants.STORAGE_MENU_ROWS * 9,
-                LEGACY_STORAGE_MENU_TITLE
+                STORAGE_MENU_TITLE
         );
         BloodstoneRank rank = BloodstoneRank.resolve(player);
         menu.setItem(
@@ -150,7 +151,7 @@ public final class BloodstoneStorageService {
         if (!(event.getWhoClicked() instanceof Player player)) {
             return;
         }
-        if (LEGACY_STORAGE_MENU_TITLE.equals(event.getView().getTitle())) {
+        if (STORAGE_MENU_TITLE.equals(event.getView().title())) {
             event.setCancelled(true);
             if (event.getRawSlot() < 0 || event.getRawSlot() >= event.getView().getTopInventory().getSize()) {
                 return;
@@ -338,11 +339,11 @@ public final class BloodstoneStorageService {
             return;
         }
         StorageSession session = ((StorageOpenOutcome.Opened) outcome).session();
-            ActiveStorage active = new ActiveStorage(
-                    session,
-                    storageType.inventorySize(),
-                    legacyTitle(storageType)
-            );
+        ActiveStorage active = new ActiveStorage(
+                session,
+                storageType.inventorySize(),
+                storageTitle(storageType)
+        );
         Inventory inventory = active.inventory;
         if (session.contentsPayload() != null) {
             try {
@@ -676,8 +677,8 @@ public final class BloodstoneStorageService {
                 : BloodstoneServerConstants.STORAGE_LOCKED_ITEM.create(storageName);
     }
 
-    private String legacyTitle(StorageType type) {
-        return BloodstoneText.legacy(
+    private Component storageTitle(StorageType type) {
+        return BloodstoneText.deserialize(
                 BloodstoneServerConstants.STORAGE_INVENTORY_TITLE_FORMAT,
                 Placeholder.unparsed("storage", type.displayName())
         );
@@ -700,7 +701,11 @@ public final class BloodstoneStorageService {
         private StorageSession lastCommittedSession;
         private CompletableFuture<StorageSession> tail;
 
-        private ActiveStorage(StorageSession session, int inventorySize, String inventoryTitle) {
+        private ActiveStorage(
+                StorageSession session,
+                int inventorySize,
+                Component inventoryTitle
+        ) {
             this.lastCommittedSession = session;
             this.tail = CompletableFuture.completedFuture(session);
             this.inventory = Bukkit.createInventory(this, inventorySize, inventoryTitle);

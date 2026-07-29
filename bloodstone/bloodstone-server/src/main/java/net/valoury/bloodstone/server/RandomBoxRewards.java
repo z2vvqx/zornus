@@ -234,7 +234,7 @@ public final class RandomBoxRewards {
             ItemStack item = new ItemStack(material, 1, (short) data);
             if (displayNameTemplate != null) {
                 ItemMeta itemMeta = item.getItemMeta();
-                itemMeta.setDisplayName(BloodstoneText.legacy(displayNameTemplate));
+                itemMeta.displayName(BloodstoneText.deserialize(displayNameTemplate));
                 item.setItemMeta(itemMeta);
             }
             item.addUnsafeEnchantments(enchantments);

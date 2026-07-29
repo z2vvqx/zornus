@@ -422,7 +422,7 @@ public final class BloodstonePlayerService {
             if (exception != null) {
                 profiles.remove(playerId);
                 logger.log(Level.SEVERE, "Failed to load Bloodstone player " + playerId, exception);
-                player.kickPlayer(BloodstoneText.legacy(
+                player.kick(BloodstoneText.deserialize(
                         BloodstoneServerConstants.PLAYER_DATA_LOAD_FAILED_KICK
                 ));
             }

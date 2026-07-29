@@ -1,5 +1,6 @@
 package net.valoury.bloodstone.server.service;
 
+import net.kyori.adventure.text.Component;
 import net.valoury.bloodstone.server.BloodstoneMenuItem;
 import net.valoury.bloodstone.server.BloodstoneServerConstants;
 import net.valoury.bloodstone.server.BloodstoneText;
@@ -28,7 +29,7 @@ enum EnchantmentToolAction {
             BloodstoneServerConstants.DISENCHANTER_OPTION_ITEM
     );
 
-    private final String legacyMenuTitle;
+    private final Component menuTitle;
     private final String accessRequiredMessage;
     private final String itemRejectedMessage;
     private final String heldItemChangedMessage;
@@ -47,7 +48,7 @@ enum EnchantmentToolAction {
             String offerKeyPrefix,
             BloodstoneMenuItem optionItem
     ) {
-        this.legacyMenuTitle = BloodstoneText.legacy(menuTitleTemplate);
+        this.menuTitle = BloodstoneText.deserialize(menuTitleTemplate);
         this.accessRequiredMessage = accessRequiredMessage;
         this.itemRejectedMessage = itemRejectedMessage;
         this.heldItemChangedMessage = heldItemChangedMessage;
@@ -57,13 +58,13 @@ enum EnchantmentToolAction {
         this.optionItem = optionItem;
     }
 
-    String legacyMenuTitle() {
-        return legacyMenuTitle;
+    Component menuTitle() {
+        return menuTitle;
     }
 
-    static boolean isMenuTitle(String title) {
+    static boolean isMenuTitle(Component title) {
         for (EnchantmentToolAction action : values()) {
-            if (action.legacyMenuTitle.equals(title)) {
+            if (action.menuTitle.equals(title)) {
                 return true;
             }
         }

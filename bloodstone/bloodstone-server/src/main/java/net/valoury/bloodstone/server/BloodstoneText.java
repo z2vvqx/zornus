@@ -1,11 +1,9 @@
 package net.valoury.bloodstone.server;
 
-import net.kyori.adventure.audience.Audience;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.md_5.bungee.api.chat.BaseComponent;
-import net.md_5.bungee.api.chat.TextComponent;
+import net.kyori.adventure.title.Title;
 import net.valoury.shared.utilities.StringUtils;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -47,12 +45,12 @@ public final class BloodstoneText {
         return LEGACY_SECTION.serialize(component);
     }
 
-    public static @NonNull List<String> legacyLines(
+    public static @NonNull List<Component> deserializeLines(
             @NonNull List<String> templates,
             @NonNull TagResolver... resolvers
     ) {
         return templates.stream()
-                .map(template -> legacy(template, resolvers))
+                .map(template -> deserialize(template, resolvers))
                 .toList();
     }
 
@@ -78,7 +76,7 @@ public final class BloodstoneText {
             @NonNull CommandSender sender,
             @NonNull Component message
     ) {
-        audience(sender).sendMessage(message);
+        sender.sendMessage(message);
     }
 
     public static void sendActionBar(
@@ -86,9 +84,7 @@ public final class BloodstoneText {
             @NonNull String template,
             @NonNull TagResolver... resolvers
     ) {
-        player.sendActionBar(
-                legacyBungeeComponents(deserialize(template, resolvers))
-        );
+        player.sendActionBar(deserialize(template, resolvers));
     }
 
     public static void showTitle(
@@ -96,25 +92,12 @@ public final class BloodstoneText {
             @NonNull Component title,
             @NonNull Component subtitle
     ) {
-        player.showTitle(
-                legacyBungeeComponents(title),
-                legacyBungeeComponents(subtitle),
+        player.showTitle(Title.title(
+                title,
+                subtitle,
                 DEFAULT_TITLE_FADE_IN_TICKS,
                 DEFAULT_TITLE_STAY_TICKS,
                 DEFAULT_TITLE_FADE_OUT_TICKS
-        );
-    }
-
-    private static BaseComponent[] legacyBungeeComponents(Component component) {
-        return TextComponent.fromLegacyText(legacy(component));
-    }
-
-    private static Audience audience(CommandSender sender) {
-        if (sender instanceof Audience audience) {
-            return audience;
-        }
-        throw new IllegalStateException(
-                "Carbon CommandSender does not expose its native Adventure audience"
-        );
+        ));
     }
 }

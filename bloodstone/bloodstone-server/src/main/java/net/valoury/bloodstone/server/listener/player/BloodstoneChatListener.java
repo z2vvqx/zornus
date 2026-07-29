@@ -74,9 +74,7 @@ public final class BloodstoneChatListener implements Listener {
                             Placeholder.component("suffix", suffix(sender)),
                             Placeholder.component(
                                     "player",
-                                    BloodstoneText.legacyComponent(
-                                            sender.getDisplayName()
-                                    )
+                                    sender.displayName()
                             ),
                             Placeholder.unparsed("message", message)
                     )

@@ -1,5 +1,6 @@
 package net.valoury.bloodstone.server.service;
 
+import net.kyori.adventure.text.Component;
 import net.valoury.bloodstone.server.BloodstoneServerConstants;
 import net.valoury.bloodstone.server.model.BloodstoneRank;
 import net.valoury.bloodstone.server.storage.BloodstoneStorage;
@@ -141,7 +142,7 @@ public final class BloodstoneEnchanterService {
         Inventory inventory = Bukkit.createInventory(
                 null,
                 27,
-                action.legacyMenuTitle()
+                action.menuTitle()
         );
         for (EnchantmentToolCatalog.Option option : options) {
             inventory.setItem(option.slot(), option.displayItem(action));
@@ -161,13 +162,13 @@ public final class BloodstoneEnchanterService {
 
     public void handleInventoryClick(InventoryClickEvent event) {
         if (!(event.getWhoClicked() instanceof Player player)
-                || !isEnchantmentToolMenu(event.getView().getTitle())) {
+                || !isEnchantmentToolMenu(event.getView().title())) {
             return;
         }
         event.setCancelled(true);
         EnchanterContext context = contexts.get(player.getUniqueId());
         if (context == null
-                || !context.action().legacyMenuTitle().equals(event.getView().getTitle())) {
+                || !context.action().menuTitle().equals(event.getView().title())) {
             player.closeInventory();
             return;
         }
@@ -581,7 +582,7 @@ public final class BloodstoneEnchanterService {
         return "bloodstone".equals(player.getWorld().getName());
     }
 
-    private boolean isEnchantmentToolMenu(String title) {
+    private boolean isEnchantmentToolMenu(Component title) {
         return EnchantmentToolAction.isMenuTitle(title);
     }
 

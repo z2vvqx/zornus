@@ -67,24 +67,28 @@ final class BloodstoneItemMenuLoreTest {
     @Test
     void menuLorePrecedesExistingDetailsWithoutDuplicates() {
         assertEquals(
-                List.of(
-                        "\u00A77Unbreaking III",
-                        "\u00A77Strength II (00:08)",
-                        "\u00A77Soulbound"
-                ),
+                BloodstoneText.deserializeLines(List.of(
+                        "<gray>Unbreaking III</gray>",
+                        "<gray>Strength II (00:08)</gray>",
+                        "<gray>Soulbound</gray>"
+                )),
                 BloodstoneItemService.mergeMenuLore(
                         List.of("<gray>Unbreaking III</gray>"),
-                        BloodstoneText.legacyLines(List.of(
+                        BloodstoneText.deserializeLines(List.of(
                                 "<gray>Strength II (00:08)</gray>",
                                 "<gray>Soulbound</gray>"
                         ))
                 )
         );
         assertEquals(
-                List.of("\u00A77Resistance (03:00)"),
+                BloodstoneText.deserializeLines(List.of(
+                        "<gray>Resistance (03:00)</gray>"
+                )),
                 BloodstoneItemService.mergeMenuLore(
                         List.of("<gray>Resistance (03:00)</gray>"),
-                        List.of("\u00A77Resistance (03:00)")
+                        BloodstoneText.deserializeLines(List.of(
+                                "<gray>Resistance (03:00)</gray>"
+                        ))
                 )
         );
     }

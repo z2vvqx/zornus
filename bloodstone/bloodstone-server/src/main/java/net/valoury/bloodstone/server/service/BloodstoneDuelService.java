@@ -495,6 +495,6 @@ public final class BloodstoneDuelService {
     private Component displayName(@Nullable Player player, UUID playerId) {
         return player == null
                 ? Component.text(playerId.toString().substring(0, 8))
-                : BloodstoneText.legacyComponent(player.getDisplayName());
+                : player.displayName();
     }
 }
