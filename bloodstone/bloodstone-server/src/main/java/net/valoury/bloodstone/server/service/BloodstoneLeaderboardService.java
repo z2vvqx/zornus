@@ -1,6 +1,7 @@
 package net.valoury.bloodstone.server.service;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.valoury.bloodstone.server.BloodstoneServerConstants;
 import net.valoury.bloodstone.server.BloodstoneText;
@@ -80,12 +81,12 @@ public final class BloodstoneLeaderboardService {
     public String entry(LeaderboardBoard board, int oneBasedPosition) {
         if (oneBasedPosition < 1
                 || oneBasedPosition > LeaderboardSnapshot.MAXIMUM_ENTRIES) {
-            return emptyEntry();
+            return emptyEntry(board);
         }
         List<String> entries = snapshot.get().entries().get(board);
         return oneBasedPosition <= entries.size()
                 ? entries.get(oneBasedPosition - 1)
-                : emptyEntry();
+                : emptyEntry(board);
     }
 
     private CompletableFuture<LeaderboardSnapshot> buildSnapshot(
@@ -96,12 +97,30 @@ public final class BloodstoneLeaderboardService {
             List<GuildLeaderboardEntry> guildCurrent,
             List<GuildLeaderboardEntry> guildBest
     ) {
-        CompletableFuture<List<String>> formattedPlayerKills = formatPlayers(playerKills);
-        CompletableFuture<List<String>> formattedPlayerCurrent = formatPlayers(playerCurrent);
-        CompletableFuture<List<String>> formattedPlayerBest = formatPlayers(playerBest);
-        CompletableFuture<List<String>> formattedGuildKills = formatGuilds(guildKills);
-        CompletableFuture<List<String>> formattedGuildCurrent = formatGuilds(guildCurrent);
-        CompletableFuture<List<String>> formattedGuildBest = formatGuilds(guildBest);
+        CompletableFuture<List<String>> formattedPlayerKills = formatPlayers(
+                LeaderboardBoard.PLAYER_KILLS,
+                playerKills
+        );
+        CompletableFuture<List<String>> formattedPlayerCurrent = formatPlayers(
+                LeaderboardBoard.PLAYER_CURRENT_RAMPAGE,
+                playerCurrent
+        );
+        CompletableFuture<List<String>> formattedPlayerBest = formatPlayers(
+                LeaderboardBoard.PLAYER_BEST_RAMPAGE,
+                playerBest
+        );
+        CompletableFuture<List<String>> formattedGuildKills = formatGuilds(
+                LeaderboardBoard.GUILD_KILLS,
+                guildKills
+        );
+        CompletableFuture<List<String>> formattedGuildCurrent = formatGuilds(
+                LeaderboardBoard.GUILD_CURRENT_RAMPAGE,
+                guildCurrent
+        );
+        CompletableFuture<List<String>> formattedGuildBest = formatGuilds(
+                LeaderboardBoard.GUILD_BEST_RAMPAGE,
+                guildBest
+        );
 
         return CompletableFuture.allOf(
                         formattedPlayerKills,
@@ -124,7 +143,10 @@ public final class BloodstoneLeaderboardService {
                 });
     }
 
-    private CompletableFuture<List<String>> formatPlayers(List<PlayerLeaderboardEntry> entries) {
+    private CompletableFuture<List<String>> formatPlayers(
+            LeaderboardBoard board,
+            List<PlayerLeaderboardEntry> entries
+    ) {
         List<CompletableFuture<Optional<GuildProfile>>> guildLookups = entries.stream()
                 .map(entry -> guildMembershipService.findGuildByPlayer(entry.playerId()))
                 .toList();
@@ -142,6 +164,7 @@ public final class BloodstoneLeaderboardService {
                                         .PLAYER_LEADERBOARD_ENTRY_FORMAT,
                                 Placeholder.unparsed("player", entry.username()),
                                 Placeholder.component("guild", guildDisplay),
+                                Placeholder.component("icon", leaderboardIcon(board)),
                                 Placeholder.unparsed(
                                         "value",
                                         Long.toString(entry.value())
@@ -152,7 +175,10 @@ public final class BloodstoneLeaderboardService {
                 });
     }
 
-    private CompletableFuture<List<String>> formatGuilds(List<GuildLeaderboardEntry> entries) {
+    private CompletableFuture<List<String>> formatGuilds(
+            LeaderboardBoard board,
+            List<GuildLeaderboardEntry> entries
+    ) {
         List<CompletableFuture<Optional<GuildProfile>>> guildLookups = entries.stream()
                 .map(entry -> guildMembershipService.findGuild(entry.guildId()))
                 .toList();
@@ -173,6 +199,7 @@ public final class BloodstoneLeaderboardService {
                                         "guild",
                                         BloodstoneGuildText.nameAndTag(profile)
                                 ),
+                                Placeholder.component("icon", leaderboardIcon(board)),
                                 Placeholder.unparsed(
                                         "value",
                                         Long.toString(entry.value())
@@ -183,9 +210,20 @@ public final class BloodstoneLeaderboardService {
                 });
     }
 
-    private String emptyEntry() {
+    private String emptyEntry(LeaderboardBoard board) {
         return BloodstoneText.legacy(
-                BloodstoneServerConstants.EMPTY_LEADERBOARD_ENTRY
+                BloodstoneServerConstants.EMPTY_LEADERBOARD_ENTRY,
+                Placeholder.component("icon", leaderboardIcon(board))
         );
+    }
+
+    private static Component leaderboardIcon(LeaderboardBoard board) {
+        return switch (board) {
+            case PLAYER_KILLS, GUILD_KILLS ->
+                    Component.text("⚔", NamedTextColor.GREEN);
+            case PLAYER_CURRENT_RAMPAGE, PLAYER_BEST_RAMPAGE,
+                 GUILD_CURRENT_RAMPAGE, GUILD_BEST_RAMPAGE ->
+                    Component.text("➹", NamedTextColor.GOLD);
+        };
     }
 }

@@ -154,9 +154,9 @@ public final class BloodstoneServerConstants {
     // ========================================
 
     public static final String CHAT_FORMAT = "<dark_gray>❘</dark_gray> <gray><ratio></gray> <dark_gray>❘</dark_gray> <suffix><player> <dark_gray>»</dark_gray> <white><message></white>";
-    public static final String PLAYER_LEADERBOARD_ENTRY_FORMAT = "<white><player></white><guild> <red>⚔</red> <gray><value></gray>";
-    public static final String GUILD_LEADERBOARD_ENTRY_FORMAT = "<guild> <red>⚔</red> <gray><value></gray>";
-    public static final String EMPTY_LEADERBOARD_ENTRY = "<dark_gray><strikethrough>--</strikethrough> <strikethrough>--</strikethrough> <strikethrough>--</strikethrough> <strikethrough>--</strikethrough></dark_gray> <red>⚔</red> <gray>0</gray>";
+    public static final String PLAYER_LEADERBOARD_ENTRY_FORMAT = "<white><player></white><guild> <icon> <gray><value></gray>";
+    public static final String GUILD_LEADERBOARD_ENTRY_FORMAT = "<guild> <icon> <gray><value></gray>";
+    public static final String EMPTY_LEADERBOARD_ENTRY = "<dark_gray><strikethrough>--</strikethrough> <strikethrough>--</strikethrough> <strikethrough>--</strikethrough> <strikethrough>--</strikethrough></dark_gray> <icon> <gray>0</gray>";
 
     // ========================================
     // MENU CONSTANTS

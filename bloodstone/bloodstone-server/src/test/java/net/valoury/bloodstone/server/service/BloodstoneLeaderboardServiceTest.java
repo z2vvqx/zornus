@@ -27,7 +27,7 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class BloodstoneLeaderboardServiceTest {
 
     @Test
-    void failedRefreshRetainsTheLastCompleteSixBoardSnapshot() {
+    void formatsAllBoardsAndRetainsTheLastSnapshotWhenRefreshFails() {
         AtomicBoolean failPlayerBest = new AtomicBoolean();
         UUID playerId = new UUID(0L, 1L);
         UUID guildId = new UUID(0L, 2L);
@@ -84,6 +84,28 @@ final class BloodstoneLeaderboardServiceTest {
         assertTrue(guildEntry.contains("Guild One [ONE]"));
         assertFalse(playerEntry.contains("<"));
         assertFalse(guildEntry.contains("<"));
+        assertTrue(playerEntry.contains("§a⚔"));
+        assertTrue(guildEntry.contains("§a⚔"));
+        assertTrue(complete.entries()
+                .get(LeaderboardBoard.PLAYER_CURRENT_RAMPAGE)
+                .getFirst()
+                .contains("§6➹"));
+        assertTrue(complete.entries()
+                .get(LeaderboardBoard.PLAYER_BEST_RAMPAGE)
+                .getFirst()
+                .contains("§6➹"));
+        assertTrue(complete.entries()
+                .get(LeaderboardBoard.GUILD_CURRENT_RAMPAGE)
+                .getFirst()
+                .contains("§6➹"));
+        assertTrue(complete.entries()
+                .get(LeaderboardBoard.GUILD_BEST_RAMPAGE)
+                .getFirst()
+                .contains("§6➹"));
+        assertTrue(service.entry(LeaderboardBoard.PLAYER_KILLS, 0)
+                .contains("§a⚔"));
+        assertTrue(service.entry(LeaderboardBoard.PLAYER_CURRENT_RAMPAGE, 0)
+                .contains("§6➹"));
         assertFalse(service.entry(LeaderboardBoard.PLAYER_KILLS, 0).contains("<"));
 
         failPlayerBest.set(true);
