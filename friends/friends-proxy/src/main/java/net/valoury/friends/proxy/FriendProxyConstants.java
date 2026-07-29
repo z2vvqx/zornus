@@ -71,7 +71,6 @@ public final class FriendProxyConstants {
     public static final String MESSAGE_SENT_FORMAT = "<gray>[To <yellow><target></yellow>] <white><message></white></gray>";
     public static final String MESSAGE_RECEIVED_FORMAT = "<gray>[From <yellow><sender></yellow>] <white><message></white></gray>";
     public static final String MESSAGE_ERROR_NO_REPLY_TARGET = "<red>No recent friend messages to reply to.</red>";
-    public static final String MESSAGE_REPLY_SUCCESS = "<green>Reply sent!</green>";
 
     public static final String JUMP_SUCCESS = "<green>Teleported to <yellow><target></yellow>!</green>";
     public static final String JUMP_ERROR_NO_INSTANCE = "<red><yellow><target></yellow> is not in a valid instance.</red>";
@@ -80,10 +79,10 @@ public final class FriendProxyConstants {
 
     public static final String UI_LIST_EMPTY = "<yellow>You don't have any friends yet. Use <green>/friend add <player></green> to send a friend request!</yellow>";
     public static final String UI_LIST_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /friend list <page></gray>";
-    public static final String UI_STATUS_ONLINE = "<green>●</green> <#2DA0ED><friend></#2DA0ED> <gray>(Online)</gray>";
-    public static final String UI_STATUS_ONLINE_WITH_LOCATION = "<green>●</green> <#2DA0ED><friend></#2DA0ED> <dark_gray>─</dark_gray> <gray>Playing on <click:suggest_command:'/friend jump <friend>'><yellow><server></yellow></click></gray>";
-    public static final String UI_STATUS_OFFLINE = "<red>●</red> <#2DA0ED><friend></#2DA0ED> <dark_gray>─</dark_gray> <gray>Last seen <timestamp></gray>";
-    public static final String UI_STATUS_OFFLINE_NO_DATA = "<red>●</red> <dark_gray><friend></dark_gray> <gray>(Offline)</gray>";
+    public static final String UI_STATUS_ONLINE = "<green>▲</green> <#2DA0ED><friend></#2DA0ED> <gray>(Online)</gray>";
+    public static final String UI_STATUS_ONLINE_WITH_LOCATION = "<green>▲</green> <#2DA0ED><friend></#2DA0ED> <dark_gray>─</dark_gray> <gray>Playing on <click:suggest_command:'/friend jump <friend>'><yellow><server></yellow></click></gray>";
+    public static final String UI_STATUS_OFFLINE = "<red>▼</red> <#2DA0ED><friend></#2DA0ED> <dark_gray>─</dark_gray> <gray>Last seen <timestamp></gray>";
+    public static final String UI_STATUS_OFFLINE_NO_DATA = "<red>▼</red> <dark_gray><friend></dark_gray> <gray>(Offline)</gray>";
     public static final String UI_HELP_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /friend help <page></gray>";
     public static final String UI_REQUESTS_INCOMING_EMPTY = "<yellow>You don't have any incoming friend requests.</yellow>";
     public static final String UI_REQUESTS_OUTGOING_EMPTY = "<yellow>You don't have any outgoing friend requests.</yellow>";
@@ -94,6 +93,7 @@ public final class FriendProxyConstants {
 
     public static final String NOTIFICATION_REQUEST_RECEIVED = "<green>You received a friend request from <yellow><sender></yellow>! <click:run_command:'/friend accept <sender>'><green>✔</green></click> <click:run_command:'/friend reject <sender>'><red>✘</red></click></green>";
     public static final String NOTIFICATION_REQUEST_ACCEPTED = "<green><yellow><sender></yellow> accepted your friend request! You are now friends.</green>";
+    public static final String NOTIFICATION_INCOMING_REQUESTS = "<yellow>You have <green><request_count></green> incoming friend <request_noun>. Use <click:run_command:'/friend requests incoming'><green>/friend requests incoming</green></click> to see all incoming requests.</yellow>";
     public static final String NOTIFICATION_FRIEND_JOINED = "<green><yellow><friend></yellow> is now online!</green>";
     public static final String NOTIFICATION_FRIEND_LEFT = "<red><yellow><friend></yellow> is now offline.</red>";
 

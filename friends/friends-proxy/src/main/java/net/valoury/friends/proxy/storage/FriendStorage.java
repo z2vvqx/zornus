@@ -26,6 +26,8 @@ public interface FriendStorage {
 
     CompletableFuture<Boolean> removeFriendRequest(@NonNull UUID sender, @NonNull UUID receiver);
 
+    CompletableFuture<Integer> countIncomingFriendRequests(@NonNull UUID receiverId);
+
     CompletableFuture<List<FriendRequest>> fetchIncomingFriendRequests(@NonNull UUID receiver);
 
     CompletableFuture<List<FriendRequest>> fetchOutgoingFriendRequests(@NonNull UUID sender);
@@ -56,7 +58,10 @@ public interface FriendStorage {
 
     CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUuid(@NonNull UUID playerId);
 
-    CompletableFuture<Void> saveLastSeen(@NonNull UUID playerId, @NonNull Instant timestamp);
+    CompletableFuture<Boolean> saveLastSeenIfPresenceOnline(
+            @NonNull UUID playerId,
+            @NonNull Instant timestamp
+    );
 
     CompletableFuture<Optional<Instant>> fetchLastSeen(@NonNull UUID playerId);
 

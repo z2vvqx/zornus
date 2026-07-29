@@ -3,6 +3,7 @@ package net.valoury.friends.proxy.registrar;
 import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.valoury.friends.proxy.command.FriendCommand;
+import net.valoury.friends.proxy.command.FriendListCommand;
 import net.valoury.friends.proxy.service.FriendService;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -50,5 +51,6 @@ public final class FriendCommandRegistrar {
      */
     private void registerFriendCommand(@NonNull CommandManager commandManager) {
         commandManager.register(commandManager.metaBuilder("friend").aliases("f").build(), FriendCommand.create(friendService, proxyServer));
+        commandManager.register(FriendListCommand.createShortcut(friendService, proxyServer));
     }
 }

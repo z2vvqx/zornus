@@ -287,7 +287,7 @@ public final class FriendService implements FriendshipService, AutoCloseable {
                                     return CompletableFuture.completedFuture(new FriendReplyResult.FriendNotOnline(targetName));
                                 }
                                 return deliverMessage(senderUuid, targetUuid, message, targetPlayer.get())
-                                        .thenApply(result -> new FriendReplyResult.Success());
+                                        .thenApply(result -> new FriendReplyResult.Success(targetName));
                             });
                 });
     }
@@ -445,17 +445,37 @@ public final class FriendService implements FriendshipService, AutoCloseable {
 
     public @NonNull CompletableFuture<Void> handlePlayerJoin(@NonNull UUID playerUuid, @NonNull String username) {
         return storage.upsertPlayer(playerUuid, username)
-                .thenCompose(ignored -> storage.fetchFriendRelations(playerUuid))
-                .thenAccept(friendRelations -> notificationService.notifyFriendsOfPlayerJoin(playerUuid, username, friendRelations));
+                .thenCompose(ignored -> CompletableFuture.allOf(
+                        storage.fetchFriendRelations(playerUuid)
+                                .thenAccept(friendRelations -> notificationService.notifyFriendsOfPlayerJoin(
+                                        playerUuid,
+                                        username,
+                                        friendRelations
+                                )),
+                        storage.countIncomingFriendRequests(playerUuid)
+                                .thenAccept(incomingRequestCount -> notificationService.notifyIncomingFriendRequests(
+                                        playerUuid,
+                                        incomingRequestCount
+                                ))
+                ));
     }
 
     public @NonNull CompletableFuture<Void> handlePlayerDisconnect(@NonNull UUID playerUuid, @NonNull String username) {
         if (proxyServer.getPlayer(playerUuid).isPresent()) {
             return CompletableFuture.completedFuture(null);
         }
-        return storage.saveLastSeen(playerUuid, Instant.now())
-                .thenCompose(ignored -> storage.fetchFriendRelations(playerUuid))
-                .thenAccept(friendRelations -> notificationService.notifyFriendsOfPlayerLeave(playerUuid, username, friendRelations));
+        return storage.saveLastSeenIfPresenceOnline(playerUuid, Instant.now())
+                .thenCompose(lastSeenUpdated -> {
+                    if (!lastSeenUpdated) {
+                        return CompletableFuture.completedFuture(null);
+                    }
+                    return storage.fetchFriendRelations(playerUuid)
+                            .thenAccept(friendRelations -> notificationService.notifyFriendsOfPlayerLeave(
+                                    playerUuid,
+                                    username,
+                                    friendRelations
+                            ));
+                });
     }
 
     public void cleanupExpiredRequests() {

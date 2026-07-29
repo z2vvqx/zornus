@@ -116,6 +116,20 @@ public final class FriendNotificationService {
         targetPlayer.get().sendMessage(message);
     }
 
+    public void notifyIncomingFriendRequests(@NonNull UUID playerId, int incomingRequestCount) {
+        if (incomingRequestCount <= 0) {
+            return;
+        }
+
+        proxyServer.getPlayer(playerId).ifPresent(player -> {
+            TagResolver resolver = TagResolver.resolver(
+                    Placeholder.unparsed("request_count", String.valueOf(incomingRequestCount)),
+                    Placeholder.unparsed("request_noun", incomingRequestCount == 1 ? "request" : "requests")
+            );
+            player.sendMessage(StringUtils.deserialize(FriendProxyConstants.NOTIFICATION_INCOMING_REQUESTS, resolver));
+        });
+    }
+
     public void notifyFriendMessageReceived(@NonNull Player receiver, @NonNull UUID senderUuid, @NonNull String message) {
         Optional<Player> sender = proxyServer.getPlayer(senderUuid);
         String senderName = sender.map(Player::getUsername).orElse("Unknown");

@@ -42,8 +42,21 @@ public final class FriendListCommand {
     private static final Logger LOGGER = LoggerFactory.getLogger(FriendListCommand.class);
 
     public static LiteralArgumentBuilder<CommandSource> create(FriendService friendService, ProxyServer proxyServer) {
+        return createCommand("list", friendService, proxyServer);
+    }
+
+    public static @NonNull BrigadierCommand createShortcut(FriendService friendService, ProxyServer proxyServer) {
+        return new BrigadierCommand(createCommand("fl", friendService, proxyServer)
+                .requires(source -> source instanceof Player));
+    }
+
+    private static LiteralArgumentBuilder<CommandSource> createCommand(
+            String commandName,
+            FriendService friendService,
+            ProxyServer proxyServer
+    ) {
         return BrigadierCommand
-                .literalArgumentBuilder("list")
+                .literalArgumentBuilder(commandName)
                 .executes(context -> handleListFriends(context, friendService, proxyServer, 1))
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("page_index", IntegerArgumentType.integer(1))

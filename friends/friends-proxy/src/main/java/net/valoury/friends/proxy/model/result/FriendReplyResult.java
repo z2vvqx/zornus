@@ -3,7 +3,7 @@ package net.valoury.friends.proxy.model.result;
 import org.jspecify.annotations.NonNull;
 
 public sealed interface FriendReplyResult {
-    record Success() implements FriendReplyResult {
+    record Success(@NonNull String targetName) implements FriendReplyResult {
     }
 
     record MessageTooLong() implements FriendReplyResult {

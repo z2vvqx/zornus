@@ -8,6 +8,7 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.valoury.friends.proxy.FriendProxyConstants;
 import net.valoury.friends.proxy.model.result.FriendReplyResult;
 import net.valoury.friends.proxy.service.FriendService;
@@ -63,8 +64,14 @@ public final class FriendReplyCommand {
                         case FriendReplyResult.PlayerNotAcceptingMessages playerNotAcceptingMessages ->
                                 sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_PLAYER_NOT_ACCEPTING_MESSAGES,
                                         Placeholder.unparsed("target", playerNotAcceptingMessages.targetName())));
-                        case FriendReplyResult.Success ignored ->
-                                sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.MESSAGE_REPLY_SUCCESS));
+                        case FriendReplyResult.Success success ->
+                                sender.sendMessage(StringUtils.deserialize(
+                                        FriendProxyConstants.MESSAGE_SENT_FORMAT,
+                                        TagResolver.resolver(
+                                                Placeholder.unparsed("target", success.targetName()),
+                                                Placeholder.unparsed("message", message)
+                                        )
+                                ));
                     }
                 })
                 .exceptionally(throwable -> {

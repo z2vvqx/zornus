@@ -219,6 +219,18 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
 
     @Contract("_ -> new")
     @Override
+    public @NonNull CompletableFuture<Integer> countIncomingFriendRequests(UUID receiverId) {
+        return databaseExecutor.supply(() -> {
+            String sql = "SELECT COUNT(*) FROM requests WHERE receiver = ?";
+            return executeQuery(sql, statement -> statement.setObject(1, receiverId), resultSet -> {
+                resultSet.next();
+                return resultSet.getInt(1);
+            }, "count incoming friend requests");
+        });
+    }
+
+    @Contract("_ -> new")
+    @Override
     public @NonNull CompletableFuture<List<FriendRequest>> fetchIncomingFriendRequests(UUID receiver) {
         return databaseExecutor.supply(() -> {
             String sql = """
@@ -477,13 +489,24 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
 
     @Contract("_, _ -> new")
     @Override
-    public @NonNull CompletableFuture<Void> saveLastSeen(UUID playerId, Instant timestamp) {
-        return databaseExecutor.run(() -> {
-            String sql = "UPDATE players SET last_seen_at = ? WHERE player_id = ?";
-            executeUpdate(sql, statement -> {
+    public @NonNull CompletableFuture<Boolean> saveLastSeenIfPresenceOnline(UUID playerId, Instant timestamp) {
+        return databaseExecutor.supply(() -> {
+            String sql = """
+                    UPDATE players
+                    SET last_seen_at = ?
+                    WHERE player_id = ?
+                      AND NOT EXISTS (
+                          SELECT 1
+                          FROM settings
+                          WHERE settings.player_id = players.player_id
+                            AND settings.presence_state = 'offline'
+                      )
+                    """;
+            int updatedPlayers = executeUpdate(sql, statement -> {
                 statement.setTimestamp(1, Timestamp.from(timestamp));
                 statement.setObject(2, playerId);
-            }, "record last seen");
+            }, "record visible last seen");
+            return updatedPlayers > 0;
         });
     }
 
