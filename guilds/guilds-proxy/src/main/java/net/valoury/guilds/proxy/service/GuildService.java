@@ -78,6 +78,8 @@ public final class GuildService implements AutoCloseable {
                     case CreateGuildOutcome.Created created -> GuildResult.GUILD_CREATED;
                     case CreateGuildOutcome.AlreadyInGuild alreadyInGuild -> GuildResult.ALREADY_IN_GUILD;
                     case CreateGuildOutcome.GuildNameAlreadyExists ignored -> GuildResult.NAME_ALREADY_EXISTS;
+                    case CreateGuildOutcome.GuildTagAlreadyExists ignored ->
+                            GuildResult.GUILD_TAG_ALREADY_EXISTS;
                 });
     }
 
@@ -661,9 +663,28 @@ public final class GuildService implements AutoCloseable {
         if (!isValidGuildTag(guildTag)) {
             return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_TAG);
         }
-        return updateGuildAppearance(sender, guild -> storage.updateGuildTag(
-                guild.guildId(), sender.getUniqueId(), guildTag))
-                .thenApply(result -> result == GuildResult.SUCCESS ? GuildResult.GUILD_TAG_UPDATED : result);
+        UUID senderId = sender.getUniqueId();
+        return storage.getPlayerGuild(senderId)
+                .thenCompose(guildOptional -> {
+                    if (guildOptional.isEmpty()) {
+                        return CompletableFuture.completedFuture(GuildResult.NOT_IN_GUILD);
+                    }
+                    Guild guild = guildOptional.get();
+                    if (!guild.isLeader(senderId)) {
+                        return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
+                    }
+                    return storage.tryUpdateGuildTag(guild.guildId(), senderId, guildTag)
+                            .thenApply(outcome -> switch (outcome) {
+                                case UpdateGuildTagOutcome.Updated ignored ->
+                                        GuildResult.GUILD_TAG_UPDATED;
+                                case UpdateGuildTagOutcome.GuildNotFound ignored ->
+                                        GuildResult.GUILD_NOT_FOUND;
+                                case UpdateGuildTagOutcome.NotLeader ignored ->
+                                        GuildResult.NOT_LEADER;
+                                case UpdateGuildTagOutcome.GuildTagAlreadyExists ignored ->
+                                        GuildResult.GUILD_TAG_ALREADY_EXISTS;
+                            });
+                });
     }
 
     public @NonNull CompletableFuture<GuildResults.UpdateColor> updateGuildColor(@NonNull Player sender, @Nullable String guildColor) {

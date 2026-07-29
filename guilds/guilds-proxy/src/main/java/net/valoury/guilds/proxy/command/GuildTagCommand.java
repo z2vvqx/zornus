@@ -53,6 +53,9 @@ public final class GuildTagCommand {
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_LEADER));
                         case INVALID_GUILD_TAG ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_INVALID_GUILD_TAG));
+                        case GUILD_TAG_ALREADY_EXISTS ->
+                                sender.sendMessage(StringUtils.deserialize(
+                                        GuildProxyConstants.ERROR_GUILD_TAG_ALREADY_EXISTS));
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 })

@@ -65,7 +65,11 @@ public final class GuildCreateCommand {
                         case INVALID_GUILD_TAG ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_INVALID_GUILD_TAG));
                         case NAME_ALREADY_EXISTS ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.RENAME_ERROR_NAME_EXISTS));
+                                sender.sendMessage(StringUtils.deserialize(
+                                        GuildProxyConstants.ERROR_GUILD_NAME_ALREADY_EXISTS));
+                        case GUILD_TAG_ALREADY_EXISTS ->
+                                sender.sendMessage(StringUtils.deserialize(
+                                        GuildProxyConstants.ERROR_GUILD_TAG_ALREADY_EXISTS));
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 })

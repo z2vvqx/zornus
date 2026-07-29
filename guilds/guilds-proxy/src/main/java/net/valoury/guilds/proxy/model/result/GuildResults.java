@@ -22,6 +22,7 @@ public final class GuildResults {
                 case INVALID_GUILD_NAME -> new InvalidName();
                 case INVALID_GUILD_TAG -> new InvalidTag();
                 case NAME_ALREADY_EXISTS -> new NameAlreadyExists();
+                case GUILD_TAG_ALREADY_EXISTS -> new TagAlreadyExists();
                 default -> throw unexpected("create guild", result);
             };
         }
@@ -33,6 +34,7 @@ public final class GuildResults {
                 case InvalidName ignored -> GuildResult.INVALID_GUILD_NAME;
                 case InvalidTag ignored -> GuildResult.INVALID_GUILD_TAG;
                 case NameAlreadyExists ignored -> GuildResult.NAME_ALREADY_EXISTS;
+                case TagAlreadyExists ignored -> GuildResult.GUILD_TAG_ALREADY_EXISTS;
             };
         }
 
@@ -49,6 +51,9 @@ public final class GuildResults {
         }
 
         record NameAlreadyExists() implements Create {
+        }
+
+        record TagAlreadyExists() implements Create {
         }
     }
 
@@ -549,6 +554,7 @@ public final class GuildResults {
             return switch (result) {
                 case GUILD_TAG_UPDATED -> new Updated();
                 case INVALID_GUILD_TAG -> new InvalidTag();
+                case GUILD_TAG_ALREADY_EXISTS -> new TagAlreadyExists();
                 case NOT_IN_GUILD -> new NotInGuild();
                 case NOT_LEADER -> new NotLeader();
                 case GUILD_NOT_FOUND -> new GuildNotFound();
@@ -560,6 +566,7 @@ public final class GuildResults {
             return switch (this) {
                 case Updated ignored -> GuildResult.GUILD_TAG_UPDATED;
                 case InvalidTag ignored -> GuildResult.INVALID_GUILD_TAG;
+                case TagAlreadyExists ignored -> GuildResult.GUILD_TAG_ALREADY_EXISTS;
                 case NotInGuild ignored -> GuildResult.NOT_IN_GUILD;
                 case NotLeader ignored -> GuildResult.NOT_LEADER;
                 case GuildNotFound ignored -> GuildResult.GUILD_NOT_FOUND;
@@ -570,6 +577,9 @@ public final class GuildResults {
         }
 
         record InvalidTag() implements UpdateTag {
+        }
+
+        record TagAlreadyExists() implements UpdateTag {
         }
 
         record NotInGuild() implements UpdateTag {

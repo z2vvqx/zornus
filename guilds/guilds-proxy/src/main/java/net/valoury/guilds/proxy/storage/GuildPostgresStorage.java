@@ -69,6 +69,49 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
         }
     }
 
+    private static boolean isUniqueConstraintViolation(
+            SQLException exception,
+            String expectedConstraintName
+    ) {
+        if (!"23505".equals(exception.getSQLState())
+                || !(exception instanceof PSQLException postgresException)
+                || postgresException.getServerErrorMessage() == null) {
+            return false;
+        }
+        return expectedConstraintName.equals(
+                postgresException.getServerErrorMessage().getConstraint());
+    }
+
+    private static Optional<CreateGuildOutcome> findGuildIdentityConflict(
+            Connection connection,
+            String guildName,
+            String guildTag
+    ) throws SQLException {
+        String sql = """
+                SELECT
+                    EXISTS (
+                        SELECT 1 FROM guilds WHERE LOWER(guild_name) = LOWER(?)
+                    ) AS name_exists,
+                    EXISTS (
+                        SELECT 1 FROM guilds WHERE LOWER(guild_tag) = LOWER(?)
+                    ) AS tag_exists
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, guildName);
+            statement.setString(2, guildTag);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                if (resultSet.getBoolean("name_exists")) {
+                    return Optional.of(new CreateGuildOutcome.GuildNameAlreadyExists());
+                }
+                if (resultSet.getBoolean("tag_exists")) {
+                    return Optional.of(new CreateGuildOutcome.GuildTagAlreadyExists());
+                }
+                return Optional.empty();
+            }
+        }
+    }
+
     @Override
     public void close() {
         databaseExecutor.shutdown();
@@ -125,6 +168,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     )
                     """);
             statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_guilds_name_ci ON guilds(LOWER(guild_name))");
+            statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_guilds_tag_ci ON guilds(LOWER(guild_tag))");
 
             // STEP 4: Add FK from guild_members to guilds (now that both tables exist)
             try {
@@ -228,6 +272,13 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
+                    Optional<CreateGuildOutcome> identityConflict =
+                            findGuildIdentityConflict(connection, guildName, guildTag);
+                    if (identityConflict.isPresent()) {
+                        connection.rollback();
+                        return identityConflict.get();
+                    }
+
                     try (Statement deferStatement = connection.createStatement()) {
                         deferStatement.execute("SET CONSTRAINTS fk_leader_is_member DEFERRED");
                     }
@@ -260,16 +311,13 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
 
                 } catch (SQLException exception) {
                     connection.rollback();
+                    if (isUniqueConstraintViolation(exception, "idx_guilds_name_ci")) {
+                        return new CreateGuildOutcome.GuildNameAlreadyExists();
+                    }
+                    if (isUniqueConstraintViolation(exception, "idx_guilds_tag_ci")) {
+                        return new CreateGuildOutcome.GuildTagAlreadyExists();
+                    }
                     if ("23505".equals(exception.getSQLState())) {
-                        String constraintName = "";
-                        if (exception instanceof PSQLException psqlException
-                                && psqlException.getServerErrorMessage() != null) {
-                            constraintName = Objects.toString(
-                                    psqlException.getServerErrorMessage().getConstraint(), "");
-                        }
-                        if ("idx_guilds_name_ci".equals(constraintName)) {
-                            return new CreateGuildOutcome.GuildNameAlreadyExists();
-                        }
                         return new CreateGuildOutcome.AlreadyInGuild();
                     }
                     throw new RuntimeException("Failed to create guild", exception);
@@ -879,16 +927,10 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     return new RenameGuildOutcome.Renamed();
                 } catch (SQLException exception) {
                     connection.rollback();
+                    if (isUniqueConstraintViolation(exception, "idx_guilds_name_ci")) {
+                        return new RenameGuildOutcome.NameAlreadyExists();
+                    }
                     if ("23505".equals(exception.getSQLState())) {
-                        String constraintName = "";
-                        if (exception instanceof PSQLException psqlException
-                                && psqlException.getServerErrorMessage() != null) {
-                            constraintName = Objects.toString(
-                                    psqlException.getServerErrorMessage().getConstraint(), "");
-                        }
-                        if ("idx_guilds_name_ci".equals(constraintName)) {
-                            return new RenameGuildOutcome.NameAlreadyExists();
-                        }
                         throw new RuntimeException("Unexpected unique violation during rename", exception);
                     }
                     throw new RuntimeException("Failed to rename guild", exception);
@@ -1129,15 +1171,70 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<Boolean> updateGuildTag(@NonNull UUID guildId, @NonNull UUID leaderId,
-                                                     @NonNull String guildTag) {
+    public CompletableFuture<UpdateGuildTagOutcome> tryUpdateGuildTag(
+            @NonNull UUID guildId,
+            @NonNull UUID leaderId,
+            @NonNull String guildTag
+    ) {
         return databaseExecutor.supply(() -> {
-            String sql = "UPDATE guilds SET guild_tag = ? WHERE guild_id = ? AND leader_id = ?";
-            return executeUpdate(sql, statement -> {
-                statement.setString(1, guildTag);
-                statement.setObject(2, guildId);
-                statement.setObject(3, leaderId);
-            }, "update guild tag") == 1;
+            try (Connection connection = dataSource.getConnection()) {
+                connection.setAutoCommit(false);
+                try {
+                    String checkLeaderSql =
+                            "SELECT leader_id FROM guilds WHERE guild_id = ? FOR UPDATE";
+                    UUID currentLeaderId;
+                    try (PreparedStatement statement = connection.prepareStatement(checkLeaderSql)) {
+                        statement.setObject(1, guildId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (!resultSet.next()) {
+                                connection.rollback();
+                                return new UpdateGuildTagOutcome.GuildNotFound();
+                            }
+                            currentLeaderId = (UUID) resultSet.getObject("leader_id");
+                        }
+                    }
+
+                    if (!currentLeaderId.equals(leaderId)) {
+                        connection.rollback();
+                        return new UpdateGuildTagOutcome.NotLeader();
+                    }
+
+                    String checkTagSql = """
+                            SELECT 1
+                            FROM guilds
+                            WHERE LOWER(guild_tag) = LOWER(?) AND guild_id != ?
+                            """;
+                    try (PreparedStatement statement = connection.prepareStatement(checkTagSql)) {
+                        statement.setString(1, guildTag);
+                        statement.setObject(2, guildId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (resultSet.next()) {
+                                connection.rollback();
+                                return new UpdateGuildTagOutcome.GuildTagAlreadyExists();
+                            }
+                        }
+                    }
+
+                    String updateTagSql =
+                            "UPDATE guilds SET guild_tag = ? WHERE guild_id = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(updateTagSql)) {
+                        statement.setString(1, guildTag);
+                        statement.setObject(2, guildId);
+                        statement.executeUpdate();
+                    }
+
+                    connection.commit();
+                    return new UpdateGuildTagOutcome.Updated();
+                } catch (SQLException exception) {
+                    connection.rollback();
+                    if (isUniqueConstraintViolation(exception, "idx_guilds_tag_ci")) {
+                        return new UpdateGuildTagOutcome.GuildTagAlreadyExists();
+                    }
+                    throw new RuntimeException("Failed to update guild tag", exception);
+                }
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed to update guild tag", exception);
+            }
         });
     }
 

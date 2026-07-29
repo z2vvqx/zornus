@@ -50,6 +50,8 @@ public final class GuildProxyConstants {
     public static final String ERROR_INVALID_GUILD_NAME = "<red>Guild name must be 3-24 characters and contain only letters, numbers, and underscores.</red>";
     public static final String ERROR_INVALID_GUILD_TAG = "<red>Guild tag must be 2-5 characters and contain only letters, numbers, and underscores.</red>";
     public static final String ERROR_INVALID_GUILD_COLOR = "<red>Unknown guild color.</red>";
+    public static final String ERROR_GUILD_NAME_ALREADY_EXISTS = "<red>A guild with that name already exists.</red>";
+    public static final String ERROR_GUILD_TAG_ALREADY_EXISTS = "<red>A guild with that tag already exists.</red>";
 
     public static final String CREATE_SUCCESS = "<green>You have created the guild <yellow><guild_name></yellow> [<guild_tag>]!</green>";
     public static final String DISBAND_SUCCESS = "<green>Guild has been disbanded.</green>";
@@ -95,7 +97,6 @@ public final class GuildProxyConstants {
 
     public static final String RENAME_SUCCESS = "<green>Guild renamed to <yellow><new_name></yellow>.</green>";
     public static final String RENAME_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to rename it.</red>";
-    public static final String RENAME_ERROR_NAME_EXISTS = "<red>A guild with that name already exists.</red>";
     public static final String RENAME_CONFIRMATION_REQUIRED = "<yellow>Are you sure you want to rename the guild to <yellow><new_name></yellow>? Use <green>/guild rename <new_name> confirm</green> to proceed.</yellow>";
     public static final String RENAME_ERROR_NO_CONFIRMATION = "<red>No confirmation is pending. Use <yellow>/guild rename <name></yellow> first.</red>";
     public static final String TAG_SUCCESS = "<green>Guild tag updated to <yellow><new_tag></yellow>.</green>";

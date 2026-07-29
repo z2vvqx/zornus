@@ -64,7 +64,8 @@ public final class GuildRenameCommand {
                         case INVALID_GUILD_NAME ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_INVALID_GUILD_NAME));
                         case NAME_ALREADY_EXISTS ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.RENAME_ERROR_NAME_EXISTS));
+                                sender.sendMessage(StringUtils.deserialize(
+                                        GuildProxyConstants.ERROR_GUILD_NAME_ALREADY_EXISTS));
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 })

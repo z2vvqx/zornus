@@ -61,7 +61,11 @@ public interface GuildStorage {
 
     CompletableFuture<Void> updateShowChat(@NonNull UUID playerId, boolean value);
 
-    CompletableFuture<Boolean> updateGuildTag(@NonNull UUID guildId, @NonNull UUID leaderId, @NonNull String guildTag);
+    CompletableFuture<UpdateGuildTagOutcome> tryUpdateGuildTag(
+            @NonNull UUID guildId,
+            @NonNull UUID leaderId,
+            @NonNull String guildTag
+    );
 
     CompletableFuture<Boolean> updateGuildColor(@NonNull UUID guildId, @NonNull UUID leaderId, @NonNull String guildColor);
 
