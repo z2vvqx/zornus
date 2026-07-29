@@ -132,12 +132,8 @@ public final class GuildService implements AutoCloseable {
     }
 
     public @NonNull CompletableFuture<GuildResults.SendInvitation> sendInvitation(@NonNull Player sender, @Nullable String targetUsername) {
-        return sendInvitationLegacy(sender, targetUsername).thenApply(GuildResults.SendInvitation::from);
-    }
-
-    private @NonNull CompletableFuture<GuildResult> sendInvitationLegacy(@NonNull Player sender, @Nullable String targetUsername) {
         if (targetUsername == null) {
-            return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
+            return CompletableFuture.completedFuture(new GuildResults.SendInvitation.PlayerNotFound());
         }
 
         UUID senderId = sender.getUniqueId();
@@ -145,26 +141,28 @@ public final class GuildService implements AutoCloseable {
         return resolveTargetPlayer(targetUsername)
                 .thenCompose(targetOptional -> {
                     if (targetOptional.isEmpty()) {
-                        return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
+                        return CompletableFuture.completedFuture(new GuildResults.SendInvitation.PlayerNotFound());
                     }
                     PlayerRecord targetRecord = targetOptional.get();
                     UUID targetId = targetRecord.playerUuid();
                     String targetPlayerName = targetRecord.username();
 
                     if (senderId.equals(targetId)) {
-                        return CompletableFuture.completedFuture(GuildResult.CANNOT_INVITE_SELF);
+                        return CompletableFuture.completedFuture(new GuildResults.SendInvitation.CannotInviteSelf());
                     }
 
                     return storage.getPlayerGuild(senderId)
                             .thenCompose(guildOptional -> {
                                 if (guildOptional.isEmpty()) {
-                                    return CompletableFuture.completedFuture(GuildResult.NOT_IN_GUILD);
+                                    return CompletableFuture.completedFuture(new GuildResults.SendInvitation.NotInGuild());
                                 }
                                 Guild guild = guildOptional.get();
                                 if (!guild.isLeader(senderId)) {
-                                    return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
+                                    return CompletableFuture.completedFuture(new GuildResults.SendInvitation.NotLeader());
                                 }
-                                return executeSendInvitation(sender, targetId, targetPlayerName, guild);
+                                return executeSendInvitation(sender, targetId, targetPlayerName, guild)
+                                        .thenApply(result ->
+                                                GuildResults.SendInvitation.from(result, targetPlayerName));
                             });
                 });
     }
@@ -206,12 +204,8 @@ public final class GuildService implements AutoCloseable {
     }
 
     public @NonNull CompletableFuture<GuildResults.AcceptInvitation> acceptInvitation(@NonNull Player sender, @Nullable String guildName) {
-        return acceptInvitationLegacy(sender, guildName).thenApply(GuildResults.AcceptInvitation::from);
-    }
-
-    private @NonNull CompletableFuture<GuildResult> acceptInvitationLegacy(@NonNull Player sender, @Nullable String guildName) {
         if (guildName == null) {
-            return CompletableFuture.completedFuture(GuildResult.GUILD_NOT_FOUND);
+            return CompletableFuture.completedFuture(new GuildResults.AcceptInvitation.GuildNotFound());
         }
 
         UUID senderId = sender.getUniqueId();
@@ -219,42 +213,55 @@ public final class GuildService implements AutoCloseable {
         return storage.isInGuild(senderId)
                 .thenCompose(inGuild -> {
                     if (inGuild) {
-                        return CompletableFuture.completedFuture(GuildResult.ALREADY_IN_GUILD);
+                        return CompletableFuture.completedFuture(new GuildResults.AcceptInvitation.AlreadyInGuild());
                     }
                     return findAndAcceptInvitationByGuildName(senderId, guildName);
                 });
     }
 
-    private @NonNull CompletableFuture<GuildResult> findAndAcceptInvitationByGuildName(@NonNull UUID senderId, @NonNull String guildName) {
+    private @NonNull CompletableFuture<GuildResults.AcceptInvitation> findAndAcceptInvitationByGuildName(
+            @NonNull UUID senderId,
+            @NonNull String guildName
+    ) {
         return storage.findInvitationByGuildName(senderId, guildName)
                 .thenCompose(invitationOptional -> {
                     if (invitationOptional.isEmpty()) {
-                        return CompletableFuture.completedFuture(GuildResult.NO_INVITATION_FOUND);
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.AcceptInvitation.NoInvitationFound());
                     }
                     GuildInvitation invitation = invitationOptional.get();
                     return addMemberToGuild(senderId, invitation);
                 });
     }
 
-    private @NonNull CompletableFuture<GuildResult> addMemberToGuild(@NonNull UUID playerId, @NonNull GuildInvitation invitation) {
+    private @NonNull CompletableFuture<GuildResults.AcceptInvitation> addMemberToGuild(
+            @NonNull UUID playerId,
+            @NonNull GuildInvitation invitation
+    ) {
         UUID guildId = invitation.guildId();
         return storage.tryAcceptInvitation(guildId, invitation.senderId(), playerId)
                 .thenCompose(outcome -> switch (outcome) {
                     case AcceptInvitationOutcome.Accepted accepted -> storage.fetchGuild(guildId)
                             .thenApply(guildOptional -> {
-                                guildOptional.ifPresent(guild ->
-                                        proxyServer.getPlayer(playerId).ifPresent(player ->
-                                                notificationService.notifyMemberJoined(guild, player)));
-                                return GuildResult.JOINED_GUILD;
+                                if (guildOptional.isEmpty()) {
+                                    return new GuildResults.AcceptInvitation.GuildNotFound();
+                                }
+
+                                Guild guild = guildOptional.get();
+                                proxyServer.getPlayer(playerId).ifPresent(player ->
+                                        notificationService.notifyMemberJoined(guild, player));
+                                return new GuildResults.AcceptInvitation.Joined(guild.guildName());
                             });
                     case AcceptInvitationOutcome.GuildFull guildFull ->
-                            CompletableFuture.completedFuture(GuildResult.GUILD_FULL);
+                            CompletableFuture.completedFuture(new GuildResults.AcceptInvitation.GuildFull());
                     case AcceptInvitationOutcome.AlreadyInGuild alreadyInGuild ->
-                            CompletableFuture.completedFuture(GuildResult.ALREADY_IN_GUILD);
+                            CompletableFuture.completedFuture(new GuildResults.AcceptInvitation.AlreadyInGuild());
                     case AcceptInvitationOutcome.InvitationExpired invitationExpired ->
-                            CompletableFuture.completedFuture(GuildResult.NO_INVITATION_FOUND);
+                            CompletableFuture.completedFuture(
+                                    new GuildResults.AcceptInvitation.NoInvitationFound());
                     case AcceptInvitationOutcome.InvitationNoLongerValid invitationNoLongerValid ->
-                            CompletableFuture.completedFuture(GuildResult.NO_INVITATION_FOUND);
+                            CompletableFuture.completedFuture(
+                                    new GuildResults.AcceptInvitation.NoInvitationFound());
                 });
     }
 

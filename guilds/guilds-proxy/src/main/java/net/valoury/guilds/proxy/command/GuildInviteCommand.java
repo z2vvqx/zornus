@@ -65,7 +65,7 @@ public final class GuildInviteCommand {
 
         String targetName = StringArgumentType.getString(context, "player_name");
         guildService.sendInvitation(sender, targetName)
-                .thenAccept(result -> handleInvitationResult(sender, targetName, result))
+                .thenAccept(result -> handleInvitationResult(sender, result))
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to invite player {} to guild", targetName, throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
@@ -75,41 +75,58 @@ public final class GuildInviteCommand {
         return Command.SINGLE_SUCCESS;
     }
 
-    private static void handleInvitationResult(@NonNull Player sender, @NonNull String targetName,
+    private static void handleInvitationResult(@NonNull Player sender,
                                                GuildResults.SendInvitation result) {
-        TagResolver targetResolver = Placeholder.unparsed("target", targetName);
-        switch (result.legacy()) {
-            case INVITATION_SENT ->
-                    sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.INVITE_SUCCESS, targetResolver));
-            case NOT_IN_GUILD ->
+        switch (result) {
+            case GuildResults.SendInvitation.Sent sent ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.INVITE_SUCCESS,
+                            Placeholder.unparsed("target", sent.targetName())));
+            case GuildResults.SendInvitation.NotInGuild ignored ->
                     sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.INVITE_ERROR_NOT_IN_GUILD));
-            case NOT_LEADER -> sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_LEADER));
-            case PLAYER_NOT_FOUND -> sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
-            case CANNOT_INVITE_SELF ->
+            case GuildResults.SendInvitation.NotLeader ignored ->
+                    sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_LEADER));
+            case GuildResults.SendInvitation.PlayerNotFound ignored ->
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
+            case GuildResults.SendInvitation.CannotInviteSelf ignored ->
                     sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.INVITE_ERROR_CANNOT_INVITE_SELF));
-            case TARGET_ALREADY_IN_GUILD ->
-                    sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.INVITE_ERROR_TARGET_IN_GUILD, targetResolver));
-            case TARGET_IN_ANOTHER_GUILD -> sender.sendMessage(StringUtils.deserialize(
-                    GuildProxyConstants.INVITE_ERROR_TARGET_IN_ANOTHER_GUILD, targetResolver));
-            case GUILD_FULL -> sender.sendMessage(StringUtils.deserialize(
+            case GuildResults.SendInvitation.TargetAlreadyInGuild targetAlreadyInGuild ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.INVITE_ERROR_TARGET_IN_GUILD,
+                            Placeholder.unparsed("target", targetAlreadyInGuild.targetName())));
+            case GuildResults.SendInvitation.TargetInAnotherGuild targetInAnotherGuild ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.INVITE_ERROR_TARGET_IN_ANOTHER_GUILD,
+                            Placeholder.unparsed("target", targetInAnotherGuild.targetName())));
+            case GuildResults.SendInvitation.GuildFull ignored -> sender.sendMessage(StringUtils.deserialize(
                     GuildProxyConstants.INVITE_ERROR_GUILD_FULL,
                     Placeholder.unparsed("maximum_size", String.valueOf(GuildProxyConstants.MAX_GUILD_SIZE))));
-            case ALREADY_INVITED -> sender.sendMessage(StringUtils.deserialize(
-                    GuildProxyConstants.INVITE_ERROR_ALREADY_SENT, targetResolver));
-            case SENDER_INVITATION_LIMIT_REACHED ->
+            case GuildResults.SendInvitation.AlreadyInvited alreadyInvited ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.INVITE_ERROR_ALREADY_SENT,
+                            Placeholder.unparsed("target", alreadyInvited.targetName())));
+            case GuildResults.SendInvitation.SenderLimitReached ignored ->
                     sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_SENDER_INVITATION_LIMIT_REACHED));
-            case RECEIVER_INVITATION_LIMIT_REACHED -> sender.sendMessage(StringUtils.deserialize(
-                    GuildProxyConstants.ERROR_RECEIVER_INVITATION_LIMIT_REACHED, targetResolver));
-            case INVITATION_COOLDOWN_ACTIVE -> sender.sendMessage(StringUtils.deserialize(
-                    GuildProxyConstants.ERROR_INVITATION_COOLDOWN,
-                    TagResolver.resolver(
-                            Placeholder.unparsed("target", targetName),
-                            Placeholder.unparsed("time_remaining", "a moment"))));
-            case INVITES_DISABLED -> sender.sendMessage(StringUtils.deserialize(
-                    GuildProxyConstants.SETTINGS_ERROR_INVITES_DISABLED, targetResolver));
-            case INVITES_FRIENDS_ONLY -> sender.sendMessage(StringUtils.deserialize(
-                    GuildProxyConstants.SETTINGS_ERROR_INVITES_FRIENDS_ONLY, targetResolver));
-            default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+            case GuildResults.SendInvitation.ReceiverLimitReached receiverLimitReached ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.ERROR_RECEIVER_INVITATION_LIMIT_REACHED,
+                            Placeholder.unparsed("target", receiverLimitReached.targetName())));
+            case GuildResults.SendInvitation.CooldownActive cooldownActive ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.ERROR_INVITATION_COOLDOWN,
+                            TagResolver.resolver(
+                                    Placeholder.unparsed("target", cooldownActive.targetName()),
+                                    Placeholder.unparsed("time_remaining", "a moment"))));
+            case GuildResults.SendInvitation.InvitesDisabled invitesDisabled ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.SETTINGS_ERROR_INVITES_DISABLED,
+                            Placeholder.unparsed("target", invitesDisabled.targetName())));
+            case GuildResults.SendInvitation.InvitesFriendsOnly invitesFriendsOnly ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.SETTINGS_ERROR_INVITES_FRIENDS_ONLY,
+                            Placeholder.unparsed("target", invitesFriendsOnly.targetName())));
+            case GuildResults.SendInvitation.GuildNotFound ignored ->
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
         }
     }
 }

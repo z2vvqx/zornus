@@ -9,6 +9,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.valoury.guilds.proxy.GuildProxyConstants;
+import net.valoury.guilds.proxy.model.result.GuildResults;
 import net.valoury.guilds.proxy.service.GuildService;
 import net.valoury.shared.SharedConstants;
 import net.valoury.shared.utilities.StringUtils;
@@ -44,18 +45,21 @@ public final class GuildAcceptCommand {
         String guildName = StringArgumentType.getString(context, "guild_name");
         guildService.acceptInvitation(sender, guildName)
                 .thenAccept(result -> {
-                    switch (result.legacy()) {
-                        case JOINED_GUILD -> sender.sendMessage(StringUtils.deserialize(
-                                GuildProxyConstants.ACCEPT_SUCCESS,
-                                Placeholder.unparsed("guild_name", guildName)));
-                        case NO_INVITATION_FOUND -> sender.sendMessage(StringUtils.deserialize(
-                                GuildProxyConstants.ACCEPT_ERROR_NO_INVITATION,
-                                Placeholder.unparsed("guild_name", guildName)));
-                        case GUILD_FULL ->
+                    switch (result) {
+                        case GuildResults.AcceptInvitation.Joined joined ->
+                                sender.sendMessage(StringUtils.deserialize(
+                                        GuildProxyConstants.ACCEPT_SUCCESS,
+                                        Placeholder.unparsed("guild_name", joined.guildName())));
+                        case GuildResults.AcceptInvitation.NoInvitationFound ignored ->
+                                sender.sendMessage(StringUtils.deserialize(
+                                        GuildProxyConstants.ACCEPT_ERROR_NO_INVITATION,
+                                        Placeholder.unparsed("guild_name", guildName)));
+                        case GuildResults.AcceptInvitation.GuildFull ignored ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ACCEPT_ERROR_GUILD_FULL));
-                        case ALREADY_IN_GUILD ->
+                        case GuildResults.AcceptInvitation.AlreadyInGuild ignored ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_ALREADY_IN_GUILD));
-                        default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                        case GuildResults.AcceptInvitation.GuildNotFound ignored ->
+                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 })
                 .exceptionally(throwable -> {

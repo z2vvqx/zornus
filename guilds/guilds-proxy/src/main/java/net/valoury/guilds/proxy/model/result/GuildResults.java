@@ -96,22 +96,22 @@ public final class GuildResults {
     }
 
     public sealed interface SendInvitation {
-        static @NonNull SendInvitation from(@NonNull GuildResult result) {
+        static @NonNull SendInvitation from(@NonNull GuildResult result, @NonNull String targetName) {
             return switch (result) {
-                case INVITATION_SENT -> new Sent();
+                case INVITATION_SENT -> new Sent(targetName);
                 case NOT_IN_GUILD -> new NotInGuild();
                 case NOT_LEADER -> new NotLeader();
                 case PLAYER_NOT_FOUND -> new PlayerNotFound();
                 case CANNOT_INVITE_SELF -> new CannotInviteSelf();
-                case TARGET_ALREADY_IN_GUILD -> new TargetAlreadyInGuild();
-                case TARGET_IN_ANOTHER_GUILD -> new TargetInAnotherGuild();
+                case TARGET_ALREADY_IN_GUILD -> new TargetAlreadyInGuild(targetName);
+                case TARGET_IN_ANOTHER_GUILD -> new TargetInAnotherGuild(targetName);
                 case GUILD_FULL -> new GuildFull();
-                case ALREADY_INVITED -> new AlreadyInvited();
+                case ALREADY_INVITED -> new AlreadyInvited(targetName);
                 case SENDER_INVITATION_LIMIT_REACHED -> new SenderLimitReached();
-                case RECEIVER_INVITATION_LIMIT_REACHED -> new ReceiverLimitReached();
-                case INVITATION_COOLDOWN_ACTIVE -> new CooldownActive();
-                case INVITES_DISABLED -> new InvitesDisabled();
-                case INVITES_FRIENDS_ONLY -> new InvitesFriendsOnly();
+                case RECEIVER_INVITATION_LIMIT_REACHED -> new ReceiverLimitReached(targetName);
+                case INVITATION_COOLDOWN_ACTIVE -> new CooldownActive(targetName);
+                case INVITES_DISABLED -> new InvitesDisabled(targetName);
+                case INVITES_FRIENDS_ONLY -> new InvitesFriendsOnly(targetName);
                 case GUILD_NOT_FOUND -> new GuildNotFound();
                 default -> throw unexpected("send guild invitation", result);
             };
@@ -137,7 +137,7 @@ public final class GuildResults {
             };
         }
 
-        record Sent() implements SendInvitation {
+        record Sent(@NonNull String targetName) implements SendInvitation {
         }
 
         record NotInGuild() implements SendInvitation {
@@ -152,31 +152,31 @@ public final class GuildResults {
         record CannotInviteSelf() implements SendInvitation {
         }
 
-        record TargetAlreadyInGuild() implements SendInvitation {
+        record TargetAlreadyInGuild(@NonNull String targetName) implements SendInvitation {
         }
 
-        record TargetInAnotherGuild() implements SendInvitation {
+        record TargetInAnotherGuild(@NonNull String targetName) implements SendInvitation {
         }
 
         record GuildFull() implements SendInvitation {
         }
 
-        record AlreadyInvited() implements SendInvitation {
+        record AlreadyInvited(@NonNull String targetName) implements SendInvitation {
         }
 
         record SenderLimitReached() implements SendInvitation {
         }
 
-        record ReceiverLimitReached() implements SendInvitation {
+        record ReceiverLimitReached(@NonNull String targetName) implements SendInvitation {
         }
 
-        record CooldownActive() implements SendInvitation {
+        record CooldownActive(@NonNull String targetName) implements SendInvitation {
         }
 
-        record InvitesDisabled() implements SendInvitation {
+        record InvitesDisabled(@NonNull String targetName) implements SendInvitation {
         }
 
-        record InvitesFriendsOnly() implements SendInvitation {
+        record InvitesFriendsOnly(@NonNull String targetName) implements SendInvitation {
         }
 
         record GuildNotFound() implements SendInvitation {
@@ -184,17 +184,6 @@ public final class GuildResults {
     }
 
     public sealed interface AcceptInvitation {
-        static @NonNull AcceptInvitation from(@NonNull GuildResult result) {
-            return switch (result) {
-                case JOINED_GUILD -> new Joined();
-                case NO_INVITATION_FOUND -> new NoInvitationFound();
-                case GUILD_FULL -> new GuildFull();
-                case ALREADY_IN_GUILD -> new AlreadyInGuild();
-                case GUILD_NOT_FOUND -> new GuildNotFound();
-                default -> throw unexpected("accept guild invitation", result);
-            };
-        }
-
         default @NonNull GuildResult legacy() {
             return switch (this) {
                 case Joined ignored -> GuildResult.JOINED_GUILD;
@@ -205,7 +194,7 @@ public final class GuildResults {
             };
         }
 
-        record Joined() implements AcceptInvitation {
+        record Joined(@NonNull String guildName) implements AcceptInvitation {
         }
 
         record NoInvitationFound() implements AcceptInvitation {
