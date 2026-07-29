@@ -20,10 +20,6 @@ commands:
     permission: valoury.command.trash
   stack:
     description: Stacks matching potions
-  disenchant:
-    description: Removes one enchantment from the held item
-    aliases: [de]
-    permission: valoury.command.disenchant
   duel:
     description: Challenges another player to a duel
     usage: /duel <player|accept|reject>

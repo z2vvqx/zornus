@@ -55,7 +55,7 @@ public final class BloodstoneServerConstants {
     public static final String ENCHANTER_HELD_ITEM_CHANGED = "The held item changed before enchanting began.";
     public static final String DISENCHANTER_HELD_ITEM_CHANGED = "The held item changed before disenchanting began.";
     public static final String ENCHANTER_ALREADY_PRESENT = UNABLE_TO_PROCEED_PREFIX + "enchantment already exists.";
-    public static final String DISENCHANTER_NO_ENCHANTMENTS = UNABLE_TO_PROCEED_PREFIX + "item has no enchantments.";
+    public static final String DISENCHANTER_ENCHANTMENT_MISSING = UNABLE_TO_PROCEED_PREFIX + "item doesn't have this enchantment.";
     public static final String ENCHANTER_HELD_ITEM_RECOVERY = "The held item changed before enchanting began; the reserved item will be recovered.";
     public static final String DISENCHANTER_HELD_ITEM_RECOVERY = "The held item changed before disenchanting began; the reserved item will be recovered.";
     public static final String ENCHANTER_COOLDOWN_ERROR_KEY = "enchanter-cooldown";
@@ -81,9 +81,6 @@ public final class BloodstoneServerConstants {
     public static final String POTION_ALREADY_STACKED = "These potions are already stacked!";
     public static final String POTION_STACK_LIMIT = "Stacking these potions would exceed the safe stack limit!";
     public static final String POTIONS_STACKED = MESSAGE_PREFIX + "<green>Stacked all potions of the held type.</green>";
-    public static final String DISENCHANT_SUCCESS_FORMAT = MESSAGE_PREFIX + "<green>Removed <white><enchantment></white> from the held item.</green>";
-    public static final String DISENCHANT_USAGE = "/disenchant \\<enchantment\\>";
-    public static final String DISENCHANT_EXAMPLE = " <dark_gray>▫</dark_gray> <red>For example: <underlined>/disenchant fire aspect</underlined></red>";
     public static final String BLOOD_EXCHANGE_REFUNDED = "The exchange could not be delivered; your Blood was restored.";
     public static final String BLOOD_ALLOY_EXCHANGE_REFUNDED = "The exchange could not be delivered; your Blood Alloy was restored.";
     public static final String BLOOD_TO_ALLOY_ACTION_BAR_FORMAT = "<red><italic>-<blood> blood</italic></red> <dark_gray>→</dark_gray> <white>+<alloy> blood alloy</white>";

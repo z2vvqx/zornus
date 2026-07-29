@@ -1,6 +1,5 @@
 package net.valoury.bloodstone.server.registrar;
 
-import net.valoury.bloodstone.server.command.BloodstoneDisenchantCommand;
 import net.valoury.bloodstone.server.command.BloodstoneDuelCommand;
 import net.valoury.bloodstone.server.command.BloodstoneMenuCommand;
 import net.valoury.bloodstone.server.command.BloodstoneStackCommand;
@@ -43,8 +42,6 @@ public final class BloodstoneCommandRegistrar {
                 new BloodstoneTrashCommand(menuService, machineService, messageService));
         requireCommand("stack").setExecutor(
                 new BloodstoneStackCommand(menuService, machineService, messageService));
-        requireCommand("disenchant").setExecutor(
-                new BloodstoneDisenchantCommand(menuService, machineService, messageService));
         requireCommand("duel").setExecutor(
                 new BloodstoneDuelCommand(duelService, messageService));
     }

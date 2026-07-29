@@ -9,7 +9,6 @@ import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.Sound;
-import org.bukkit.enchantments.Enchantment;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
 import org.bukkit.inventory.Inventory;
@@ -17,10 +16,7 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
-import java.util.Arrays;
 import java.util.List;
-import java.util.Locale;
-import java.util.Optional;
 import java.util.Set;
 
 public final class BloodstoneMenuService {
@@ -179,40 +175,6 @@ public final class BloodstoneMenuService {
                 BloodstoneServerConstants.POTIONS_STACKED
         );
         player.playSound(player.getLocation(), Sound.ITEM_PICKUP, 1.0F, 1.0F);
-    }
-
-    public void disenchantHeldItem(Player player, String[] arguments) {
-        ItemStack heldItem = player.getItemInHand();
-        if (heldItem == null || heldItem.getType() == Material.AIR || arguments.length == 0) {
-            sendDisenchantUsage(player);
-            return;
-        }
-
-        String requestedName = String.join(" ", arguments)
-                .trim()
-                .toLowerCase(Locale.ROOT)
-                .replace('-', ' ')
-                .replace('_', ' ');
-        Optional<Enchantment> requested = Arrays.stream(Enchantment.values())
-                .filter(enchantment -> enchantment != null)
-                .filter(enchantment -> enchantment.getName()
-                        .toLowerCase(Locale.ROOT)
-                        .replace('_', ' ')
-                        .equals(requestedName))
-                .findFirst();
-        if (requested.isEmpty() || !heldItem.containsEnchantment(requested.get())) {
-            sendDisenchantUsage(player);
-            return;
-        }
-
-        heldItem.removeEnchantment(requested.get());
-        player.setItemInHand(heldItem);
-        player.playSound(player.getLocation(), Sound.ZOMBIE_UNFECT, 0.8F, 1.6F);
-        BloodstoneText.sendMessage(
-                player,
-                BloodstoneServerConstants.DISENCHANT_SUCCESS_FORMAT,
-                Placeholder.unparsed("enchantment", requestedName)
-        );
     }
 
     public boolean exchangeBloodForAlloy(Player player) {
@@ -594,15 +556,4 @@ public final class BloodstoneMenuService {
         messageService.sendError(player, message);
     }
 
-    private void sendDisenchantUsage(Player player) {
-        if (messageService.sendError(
-                player,
-                BloodstoneServerConstants.DISENCHANT_USAGE
-        )) {
-            BloodstoneText.sendMessage(
-                    player,
-                    BloodstoneServerConstants.DISENCHANT_EXAMPLE
-            );
-        }
-    }
 }

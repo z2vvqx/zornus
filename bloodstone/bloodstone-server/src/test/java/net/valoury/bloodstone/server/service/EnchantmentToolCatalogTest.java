@@ -1,27 +1,63 @@
 package net.valoury.bloodstone.server.service;
 
+import org.bukkit.Material;
 import org.junit.jupiter.api.Test;
 
+import java.util.List;
+
 import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class EnchantmentToolCatalogTest {
 
     @Test
-    void optionInventoryGrowsWithinTheBukkitChestLimit() {
-        assertEquals(27, EnchantmentToolCatalog.inventorySizeFor(1));
-        assertEquals(27, EnchantmentToolCatalog.inventorySizeFor(9));
-        assertEquals(36, EnchantmentToolCatalog.inventorySizeFor(10));
-        assertEquals(45, EnchantmentToolCatalog.inventorySizeFor(19));
-        assertEquals(54, EnchantmentToolCatalog.inventorySizeFor(28));
-        assertEquals(54, EnchantmentToolCatalog.inventorySizeFor(45));
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> EnchantmentToolCatalog.inventorySizeFor(0)
+    void machineCatalogShowsTheCompleteOptionsForEachSupportedItem() {
+        assertOptions(
+                Material.DIAMOND_SWORD,
+                "Sharpness IV",
+                "Fire Aspect II",
+                "Knockback II",
+                "Unbreaking III"
         );
-        assertThrows(
-                IllegalArgumentException.class,
-                () -> EnchantmentToolCatalog.inventorySizeFor(46)
+        assertOptions(
+                Material.DIAMOND_AXE,
+                "Sharpness IV",
+                "Fire Aspect II",
+                "Knockback II",
+                "Unbreaking III"
+        );
+        assertOptions(
+                Material.BOW,
+                "Power V",
+                "Punch II",
+                "Flame I",
+                "Unbreaking III"
+        );
+        assertOptions(
+                Material.DIAMOND_HELMET,
+                "Protection IV",
+                "Unbreaking III",
+                "Aqua Affinity I",
+                "Respiration III"
+        );
+        assertOptions(
+                Material.DIAMOND_CHESTPLATE,
+                "Protection IV",
+                "Unbreaking III",
+                "Thorns III"
+        );
+        assertOptions(
+                Material.DIAMOND_LEGGINGS,
+                "Protection IV",
+                "Unbreaking III"
+        );
+        assertOptions(
+                Material.DIAMOND_BOOTS,
+                "Protection IV",
+                "Unbreaking III",
+                "Depth Strider III",
+                "Feather Falling IV"
         );
     }
 
@@ -35,5 +71,35 @@ final class EnchantmentToolCatalogTest {
                 "disenchant::bow::power",
                 EnchantmentToolAction.DISENCHANT.offerKey("bow::power")
         );
+    }
+
+    @Test
+    void selectionsAreCheckedAgainstTheCurrentHeldItemEnchantments() {
+        assertFalse(EnchantmentToolAction.ENCHANT.isSelectionAvailable(4, 4));
+        assertTrue(EnchantmentToolAction.ENCHANT.isSelectionAvailable(0, 4));
+        assertTrue(EnchantmentToolAction.DISENCHANT.isSelectionAvailable(3, 3));
+        assertFalse(EnchantmentToolAction.DISENCHANT.isSelectionAvailable(0, 3));
+    }
+
+    private static void assertOptions(
+            Material material,
+            String... expectedOptions
+    ) {
+        List<String> actualOptions = EnchantmentToolCatalog.optionsFor(material)
+                .stream()
+                .map(option -> option.displayName() + " " + roman(option.level()))
+                .toList();
+        assertEquals(List.of(expectedOptions), actualOptions);
+    }
+
+    private static String roman(int level) {
+        return switch (level) {
+            case 1 -> "I";
+            case 2 -> "II";
+            case 3 -> "III";
+            case 4 -> "IV";
+            case 5 -> "V";
+            default -> Integer.toString(level);
+        };
     }
 }

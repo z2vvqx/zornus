@@ -98,6 +98,21 @@ enum EnchantmentToolAction {
         return optionItem;
     }
 
+    boolean isSelectionAvailable(int currentLevel, int offeredLevel) {
+        return switch (this) {
+            case ENCHANT -> currentLevel != offeredLevel;
+            case DISENCHANT -> currentLevel > 0;
+        };
+    }
+
+    String unavailableSelectionMessage() {
+        return switch (this) {
+            case ENCHANT -> BloodstoneServerConstants.ENCHANTER_ALREADY_PRESENT;
+            case DISENCHANT ->
+                    BloodstoneServerConstants.DISENCHANTER_ENCHANTMENT_MISSING;
+        };
+    }
+
     ItemStack transform(
             ItemStack original,
             Enchantment enchantment,

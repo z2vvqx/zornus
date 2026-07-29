@@ -137,14 +137,10 @@ public final class BloodstoneEnchanterService {
         }
 
         List<EnchantmentToolCatalog.Option> options =
-                EnchantmentToolCatalog.optionsFor(heldItem, action);
-        if (options.isEmpty()) {
-            reject(player, BloodstoneServerConstants.DISENCHANTER_NO_ENCHANTMENTS);
-            return;
-        }
+                EnchantmentToolCatalog.optionsFor(heldItem.getType());
         Inventory inventory = Bukkit.createInventory(
                 null,
-                EnchantmentToolCatalog.inventorySizeFor(options.size()),
+                27,
                 action.legacyMenuTitle()
         );
         for (EnchantmentToolCatalog.Option option : options) {
@@ -171,7 +167,6 @@ public final class BloodstoneEnchanterService {
         event.setCancelled(true);
         EnchanterContext context = contexts.get(player.getUniqueId());
         if (context == null
-                || context.menuInventory() != event.getView().getTopInventory()
                 || !context.action().legacyMenuTitle().equals(event.getView().getTitle())) {
             player.closeInventory();
             return;
@@ -260,9 +255,12 @@ public final class BloodstoneEnchanterService {
             reject(player, context.action().heldItemChangedMessage());
             return;
         }
-        if (context.action() == EnchantmentToolAction.ENCHANT
-                && current.getEnchantmentLevel(option.enchantment()) == option.level()) {
-            reject(player, BloodstoneServerConstants.ENCHANTER_ALREADY_PRESENT);
+        int currentLevel = current.getEnchantmentLevel(option.enchantment());
+        if (!context.action().isSelectionAvailable(currentLevel, option.level())) {
+            reject(
+                    player,
+                    context.action().unavailableSelectionMessage()
+            );
             return;
         }
         Duration cooldown = context.rank().enchanterCooldown().orElseThrow();

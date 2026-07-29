@@ -6,10 +6,8 @@ import org.bukkit.enchantments.Enchantment;
 import org.bukkit.inventory.ItemStack;
 
 import java.util.ArrayList;
-import java.util.Comparator;
 import java.util.LinkedHashMap;
 import java.util.List;
-import java.util.Locale;
 import java.util.Map;
 import java.util.Set;
 
@@ -35,24 +33,8 @@ final class EnchantmentToolCatalog {
         return SUPPORTED_ITEMS.contains(material);
     }
 
-    static List<Option> optionsFor(
-            ItemStack item,
-            EnchantmentToolAction action
-    ) {
-        return switch (action) {
-            case ENCHANT -> enchantmentOptionsFor(item.getType());
-            case DISENCHANT -> disenchantmentOptionsFor(item);
-        };
-    }
-
-    static int inventorySizeFor(int optionCount) {
-        if (optionCount < 1 || optionCount > 45) {
-            throw new IllegalArgumentException(
-                    "Enchantment option count must be between 1 and 45"
-            );
-        }
-        int optionRows = Math.max(1, (optionCount + 8) / 9);
-        return Math.min(54, Math.max(27, (optionRows + 2) * 9));
+    static List<Option> optionsFor(Material material) {
+        return enchantmentOptionsFor(material);
     }
 
     private static List<Option> enchantmentOptionsFor(Material material) {
@@ -115,30 +97,6 @@ final class EnchantmentToolCatalog {
         return List.copyOf(options);
     }
 
-    private static List<Option> disenchantmentOptionsFor(ItemStack item) {
-        List<Map.Entry<Enchantment, Integer>> enchantments =
-                item.getEnchantments().entrySet().stream()
-                        .sorted(Comparator.comparing(entry ->
-                                enchantmentKey(entry.getKey())))
-                        .toList();
-        int firstSlot = enchantments.size() <= 9
-                ? 9 + (9 - enchantments.size()) / 2
-                : 9;
-        List<Option> options = new ArrayList<>(enchantments.size());
-        for (int index = 0; index < enchantments.size(); index++) {
-            Map.Entry<Enchantment, Integer> entry = enchantments.get(index);
-            options.add(new Option(
-                    firstSlot + index,
-                    itemSlotKey(item.getType())
-                            + "::"
-                            + enchantmentKey(entry.getKey()),
-                    entry.getKey(),
-                    entry.getValue()
-            ));
-        }
-        return List.copyOf(options);
-    }
-
     private static String itemSlotKey(Material material) {
         return switch (material) {
             case DIAMOND_SWORD -> "sword";
@@ -157,6 +115,15 @@ final class EnchantmentToolCatalog {
     private static String enchantmentKey(Enchantment enchantment) {
         if (enchantment == Enchantment.DAMAGE_ALL) {
             return "sharpness";
+        }
+        if (enchantment == Enchantment.FIRE_ASPECT) {
+            return "fire_aspect";
+        }
+        if (enchantment == Enchantment.KNOCKBACK) {
+            return "knockback";
+        }
+        if (enchantment == Enchantment.DURABILITY) {
+            return "durability";
         }
         if (enchantment == Enchantment.ARROW_DAMAGE) {
             return "power";
@@ -179,7 +146,15 @@ final class EnchantmentToolCatalog {
         if (enchantment == Enchantment.PROTECTION_FALL) {
             return "feather_falling";
         }
-        return enchantment.getName().toLowerCase(Locale.ROOT);
+        if (enchantment == Enchantment.THORNS) {
+            return "thorns";
+        }
+        if (enchantment == Enchantment.DEPTH_STRIDER) {
+            return "depth_strider";
+        }
+        throw new IllegalArgumentException(
+                "Unsupported enchantment tool option ID " + enchantment.getId()
+        );
     }
 
     record Option(
@@ -189,15 +164,14 @@ final class EnchantmentToolCatalog {
             int level
     ) {
         ItemStack displayItem(EnchantmentToolAction action) {
-            String displayName = enchantment.getName()
-                    .toLowerCase(Locale.ROOT)
-                    .replace('_', ' ');
-            displayName = Character.toUpperCase(displayName.charAt(0))
-                    + displayName.substring(1);
             return action.optionItem().create(
-                    Placeholder.unparsed("enchantment", displayName),
+                    Placeholder.unparsed("enchantment", displayName()),
                     Placeholder.unparsed("level", roman(level))
             );
+        }
+
+        String displayName() {
+            return EnchantmentDisplayNames.displayName(enchantment);
         }
 
         private static String roman(int value) {
