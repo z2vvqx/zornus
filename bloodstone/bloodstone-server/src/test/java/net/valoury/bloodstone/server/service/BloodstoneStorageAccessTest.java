@@ -17,19 +17,19 @@ final class BloodstoneStorageAccessTest {
         assertTrue(BloodstoneStorageAccess.isEligible(
                 BloodstoneRank.DEFAULT, StorageType.DEFAULT, false));
         assertFalse(BloodstoneStorageAccess.isEligible(
-                BloodstoneRank.DEFAULT, StorageType.IRON, false));
+                BloodstoneRank.DEFAULT, StorageType.LEGATE, false));
         assertTrue(BloodstoneStorageAccess.isEligible(
-                BloodstoneRank.GOLD, StorageType.IRON, false));
+                BloodstoneRank.JUSTICAR, StorageType.LEGATE, false));
         assertTrue(BloodstoneStorageAccess.isEligible(
-                BloodstoneRank.GOLD, StorageType.GOLD, false));
+                BloodstoneRank.JUSTICAR, StorageType.JUSTICAR, false));
         assertFalse(BloodstoneStorageAccess.isEligible(
-                BloodstoneRank.GOLD, StorageType.DIAMOND, false));
+                BloodstoneRank.JUSTICAR, StorageType.REGENT, false));
         assertFalse(BloodstoneStorageAccess.isEligible(
-                BloodstoneRank.DIAMOND, StorageType.EMERALD, false));
+                BloodstoneRank.REGENT, StorageType.ARCHON, false));
         assertTrue(BloodstoneStorageAccess.isEligible(
-                BloodstoneRank.EMERALD, StorageType.EMERALD, false));
+                BloodstoneRank.ARCHON, StorageType.ARCHON, false));
         assertFalse(BloodstoneStorageAccess.isEligible(
-                BloodstoneRank.EMERALD, StorageType.EXTRA, false));
+                BloodstoneRank.ARCHON, StorageType.EXTRA, false));
         assertTrue(BloodstoneStorageAccess.isEligible(
                 BloodstoneRank.DEFAULT, StorageType.EXTRA, true));
     }
@@ -38,8 +38,21 @@ final class BloodstoneStorageAccessTest {
     void canonicalStorageKeyContainsOnlyPlayerAndType() {
         UUID playerId = UUID.randomUUID();
         assertEquals(
-                new BloodstoneStorageAccess.StorageKey(playerId, StorageType.GOLD),
-                new BloodstoneStorageAccess.StorageKey(playerId, StorageType.GOLD)
+                new BloodstoneStorageAccess.StorageKey(playerId, StorageType.JUSTICAR),
+                new BloodstoneStorageAccess.StorageKey(playerId, StorageType.JUSTICAR)
         );
+    }
+
+    @Test
+    void replacementNamesPreserveExistingPersistenceKeys() {
+        assertEquals("Legate", StorageType.LEGATE.displayName());
+        assertEquals("Justicar", StorageType.JUSTICAR.displayName());
+        assertEquals("Regent", StorageType.REGENT.displayName());
+        assertEquals("Archon", StorageType.ARCHON.displayName());
+
+        assertEquals("IRON", StorageType.LEGATE.persistenceKey());
+        assertEquals("GOLD", StorageType.JUSTICAR.persistenceKey());
+        assertEquals("DIAMOND", StorageType.REGENT.persistenceKey());
+        assertEquals("EMERALD", StorageType.ARCHON.persistenceKey());
     }
 }

@@ -1596,7 +1596,7 @@ public final class BloodstonePostgresStorage implements BloodstoneStorage {
                             ON CONFLICT (player_id, storage_type) DO NOTHING
                             """)) {
                         statement.setObject(1, playerId);
-                        statement.setString(2, storageType.name());
+                        statement.setString(2, storageType.persistenceKey());
                         statement.executeUpdate();
                     }
 
@@ -1616,7 +1616,7 @@ public final class BloodstonePostgresStorage implements BloodstoneStorage {
                         statement.setObject(1, sessionToken);
                         setInstant(statement, 2, leaseExpiresAt);
                         statement.setObject(3, playerId);
-                        statement.setString(4, storageType.name());
+                        statement.setString(4, storageType.persistenceKey());
                         setInstant(statement, 5, now);
                         statement.setObject(6, sessionToken);
                         try (ResultSet resultSet = statement.executeQuery()) {
@@ -1644,7 +1644,7 @@ public final class BloodstonePostgresStorage implements BloodstoneStorage {
                             WHERE player_id = ? AND storage_type = ?
                             """)) {
                         statement.setObject(1, playerId);
-                        statement.setString(2, storageType.name());
+                        statement.setString(2, storageType.persistenceKey());
                         try (ResultSet resultSet = statement.executeQuery()) {
                             if (!resultSet.next()) {
                                 throw new SQLException("Storage row disappeared during open");

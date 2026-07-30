@@ -219,10 +219,10 @@ public final class BloodstoneServerConstants {
     public static final String STORAGE_MENU_TITLE = "Bloodstone: Storages";
     public static final int STORAGE_MENU_ROWS = 3;
     public static final int DEFAULT_STORAGE_SLOT = 10;
-    public static final int IRON_STORAGE_SLOT = 11;
-    public static final int GOLD_STORAGE_SLOT = 12;
-    public static final int DIAMOND_STORAGE_SLOT = 13;
-    public static final int EMERALD_STORAGE_SLOT = 14;
+    public static final int LEGATE_STORAGE_SLOT = 11;
+    public static final int JUSTICAR_STORAGE_SLOT = 12;
+    public static final int REGENT_STORAGE_SLOT = 13;
+    public static final int ARCHON_STORAGE_SLOT = 14;
     public static final int EXTRA_STORAGE_SLOT = 15;
     public static final int GUILD_STASH_SLOT = 16;
     public static final String STORAGE_INVENTORY_TITLE_FORMAT = "Storages: <storage>";

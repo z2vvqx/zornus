@@ -98,29 +98,29 @@ public final class BloodstoneStorageService {
                 storageButton(StorageType.DEFAULT, true)
         );
         menu.setItem(
-                BloodstoneServerConstants.IRON_STORAGE_SLOT,
+                BloodstoneServerConstants.LEGATE_STORAGE_SLOT,
                 storageButton(
-                        StorageType.IRON,
-                        rank.ordinal() >= BloodstoneRank.IRON.ordinal()
+                        StorageType.LEGATE,
+                        rank.ordinal() >= BloodstoneRank.LEGATE.ordinal()
                 )
         );
         menu.setItem(
-                BloodstoneServerConstants.GOLD_STORAGE_SLOT,
+                BloodstoneServerConstants.JUSTICAR_STORAGE_SLOT,
                 storageButton(
-                        StorageType.GOLD,
-                        rank.ordinal() >= BloodstoneRank.GOLD.ordinal()
+                        StorageType.JUSTICAR,
+                        rank.ordinal() >= BloodstoneRank.JUSTICAR.ordinal()
                 )
         );
         menu.setItem(
-                BloodstoneServerConstants.DIAMOND_STORAGE_SLOT,
+                BloodstoneServerConstants.REGENT_STORAGE_SLOT,
                 storageButton(
-                        StorageType.DIAMOND,
-                        rank.ordinal() >= BloodstoneRank.DIAMOND.ordinal()
+                        StorageType.REGENT,
+                        rank.ordinal() >= BloodstoneRank.REGENT.ordinal()
                 )
         );
         menu.setItem(
-                BloodstoneServerConstants.EMERALD_STORAGE_SLOT,
-                storageButton(StorageType.EMERALD, rank == BloodstoneRank.EMERALD)
+                BloodstoneServerConstants.ARCHON_STORAGE_SLOT,
+                storageButton(StorageType.ARCHON, rank == BloodstoneRank.ARCHON)
         );
         boolean extraUnlocked = isExtraUnlocked(player.getUniqueId());
         menu.setItem(
@@ -158,10 +158,10 @@ public final class BloodstoneStorageService {
             }
             StorageType type = switch (event.getRawSlot()) {
                 case BloodstoneServerConstants.DEFAULT_STORAGE_SLOT -> StorageType.DEFAULT;
-                case BloodstoneServerConstants.IRON_STORAGE_SLOT -> StorageType.IRON;
-                case BloodstoneServerConstants.GOLD_STORAGE_SLOT -> StorageType.GOLD;
-                case BloodstoneServerConstants.DIAMOND_STORAGE_SLOT -> StorageType.DIAMOND;
-                case BloodstoneServerConstants.EMERALD_STORAGE_SLOT -> StorageType.EMERALD;
+                case BloodstoneServerConstants.LEGATE_STORAGE_SLOT -> StorageType.LEGATE;
+                case BloodstoneServerConstants.JUSTICAR_STORAGE_SLOT -> StorageType.JUSTICAR;
+                case BloodstoneServerConstants.REGENT_STORAGE_SLOT -> StorageType.REGENT;
+                case BloodstoneServerConstants.ARCHON_STORAGE_SLOT -> StorageType.ARCHON;
                 case BloodstoneServerConstants.EXTRA_STORAGE_SLOT -> StorageType.EXTRA;
                 default -> null;
             };

@@ -103,10 +103,10 @@ final class BloodstoneCatalogTest {
     @Test
     void rankEconomyAndResistanceDurationStayBound() {
         assertEquals(3, BloodstoneRank.DEFAULT.bloodPerQualifyingHit());
-        assertEquals(4, BloodstoneRank.IRON.bloodPerQualifyingHit());
-        assertEquals(5, BloodstoneRank.GOLD.bloodPerQualifyingHit());
-        assertEquals(6, BloodstoneRank.DIAMOND.bloodPerQualifyingHit());
-        assertEquals(7, BloodstoneRank.EMERALD.bloodPerQualifyingHit());
+        assertEquals(4, BloodstoneRank.LEGATE.bloodPerQualifyingHit());
+        assertEquals(5, BloodstoneRank.JUSTICAR.bloodPerQualifyingHit());
+        assertEquals(6, BloodstoneRank.REGENT.bloodPerQualifyingHit());
+        assertEquals(7, BloodstoneRank.ARCHON.bloodPerQualifyingHit());
         assertEquals(3_600, new BloodstoneItemService().createResistanceEffect().getDuration());
         assertEquals(Map.ofEntries(
                         Map.entry(BloodstoneItemService.ShopProduct.SHARPNESS_IV_SWORD, 2),
