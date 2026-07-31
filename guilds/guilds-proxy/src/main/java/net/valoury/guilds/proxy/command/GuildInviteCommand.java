@@ -84,8 +84,9 @@ public final class GuildInviteCommand {
                             Placeholder.unparsed("target", sent.targetName())));
             case GuildResults.SendInvitation.NotInGuild ignored ->
                     sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.INVITE_ERROR_NOT_IN_GUILD));
-            case GuildResults.SendInvitation.NotLeader ignored ->
-                    sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_LEADER));
+            case GuildResults.SendInvitation.InsufficientRank ignored ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.ERROR_INSUFFICIENT_RANK));
             case GuildResults.SendInvitation.PlayerNotFound ignored ->
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
             case GuildResults.SendInvitation.CannotInviteSelf ignored ->

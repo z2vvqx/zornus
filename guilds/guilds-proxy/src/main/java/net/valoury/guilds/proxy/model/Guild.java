@@ -13,15 +13,23 @@ public record Guild(
         @NonNull String guildColor,
         @NonNull UUID leaderId,
         @NonNull Instant createdAt,
-        @NonNull Set<UUID> memberIds
+        @NonNull Map<UUID, GuildRank> memberRanks
 ) {
 
     public Guild {
-        memberIds = Set.copyOf(memberIds);
+        memberRanks = Map.copyOf(memberRanks);
+        long leaderRankCount = memberRanks.values().stream()
+                .filter(rank -> rank == GuildRank.LEADER)
+                .count();
+        if (memberRanks.get(leaderId) != GuildRank.LEADER || leaderRankCount != 1) {
+            throw new IllegalArgumentException(
+                    "Guild must have exactly one Leader matching its leader identifier");
+        }
     }
 
     public Guild(@NonNull UUID leaderId, @NonNull String guildName, @NonNull String guildTag, @NonNull String guildColor) {
-        this(UUID.randomUUID(), guildName, guildTag, guildColor, leaderId, Instant.now(), Set.of(leaderId));
+        this(UUID.randomUUID(), guildName, guildTag, guildColor, leaderId, Instant.now(),
+                Map.of(leaderId, GuildRank.LEADER));
     }
 
     public boolean isLeader(@NonNull UUID playerId) {
@@ -29,20 +37,24 @@ public record Guild(
     }
 
     public boolean isMember(@NonNull UUID playerId) {
-        return memberIds.contains(playerId);
+        return memberRanks.containsKey(playerId);
     }
 
     public @NonNull Set<UUID> getMemberIds() {
-        return memberIds;
+        return memberRanks.keySet();
+    }
+
+    public @NonNull Optional<GuildRank> findMemberRank(@NonNull UUID playerId) {
+        return Optional.ofNullable(memberRanks.get(playerId));
     }
 
     public boolean isFull() {
-        return memberIds.size() >= GuildProxyConstants.MAX_GUILD_SIZE;
+        return memberRanks.size() >= GuildProxyConstants.MAX_GUILD_SIZE;
     }
 
     public @NonNull List<UUID> getNonLeaderMembers() {
         List<UUID> nonLeaders = new ArrayList<>();
-        for (UUID memberId : memberIds) {
+        for (UUID memberId : memberRanks.keySet()) {
             if (!memberId.equals(leaderId)) {
                 nonLeaders.add(memberId);
             }

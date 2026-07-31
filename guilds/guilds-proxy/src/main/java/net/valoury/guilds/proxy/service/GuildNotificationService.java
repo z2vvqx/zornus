@@ -5,12 +5,18 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import net.valoury.shared.model.PlayerRecord;
 import net.valoury.guilds.proxy.GuildProxyConstants;
 import net.valoury.guilds.proxy.model.Guild;
+import net.valoury.guilds.proxy.model.GuildRank;
+import net.valoury.guilds.proxy.model.GuildRankChangeDirection;
 import net.valoury.guilds.proxy.model.GuildSettings;
 import net.valoury.guilds.proxy.storage.GuildStorage;
+import net.valoury.guilds.proxy.utilities.GuildColorFormatter;
 import net.valoury.shared.utilities.StringUtils;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import net.luckperms.api.LuckPerms;
+import net.valoury.shared.utilities.PlayerNameFormatter;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,10 +29,16 @@ public final class GuildNotificationService {
     private static final Logger LOGGER = LoggerFactory.getLogger(GuildNotificationService.class);
     private final @NonNull GuildStorage storage;
     private final @NonNull ProxyServer proxyServer;
+    private final @NonNull LuckPerms luckPerms;
 
-    public GuildNotificationService(@NonNull GuildStorage storage, @NonNull ProxyServer proxyServer) {
+    public GuildNotificationService(
+            @NonNull GuildStorage storage,
+            @NonNull ProxyServer proxyServer,
+            @NonNull LuckPerms luckPerms
+    ) {
         this.storage = storage;
         this.proxyServer = proxyServer;
+        this.luckPerms = luckPerms;
     }
 
     private CompletableFuture<String> resolvePlayerName(@NonNull UUID playerId) {
@@ -115,12 +127,42 @@ public final class GuildNotificationService {
         broadcastToGuild(guild, message);
     }
 
+    public void notifyMemberRankChanged(
+            @NonNull Guild guild,
+            @NonNull String memberName,
+            @NonNull String actorName,
+            @NonNull GuildRank newRank,
+            @NonNull GuildRankChangeDirection direction
+    ) {
+        String template = direction == GuildRankChangeDirection.PROMOTION
+                ? GuildProxyConstants.NOTIFICATION_MEMBER_PROMOTED
+                : GuildProxyConstants.NOTIFICATION_MEMBER_DEMOTED;
+        Component message = StringUtils.deserialize(
+                template,
+                TagResolver.resolver(
+                        Placeholder.unparsed("member", memberName),
+                        Placeholder.unparsed("actor", actorName),
+                        Placeholder.unparsed("rank", newRank.displayName())
+                )
+        );
+        broadcastToGuild(guild, message);
+    }
+
     public void sendGuildChat(@NonNull Guild guild, @NonNull Player sender, @NonNull String message,
                               @NonNull Map<UUID, GuildSettings> settingsMap) {
+        GuildRank senderRank = guild.findMemberRank(sender.getUniqueId())
+                .orElse(GuildRank.OUTCAST);
+        Component rankTag = senderRank.chatTagInitial()
+                .<Component>map(initial -> Component.text("[" + initial + "] ", NamedTextColor.GRAY))
+                .orElseGet(Component::empty);
         Component componentMessage = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_CHAT_FORMAT,
                 TagResolver.resolver(
-                        Placeholder.unparsed("guild", guild.guildName()),
-                        Placeholder.unparsed("sender", sender.getUsername()),
+                        Placeholder.component(
+                                "guild",
+                                GuildColorFormatter.createColoredText(guild.guildName(), guild.guildColor())
+                        ),
+                        Placeholder.component("playername", resolvePlayerName(sender)),
+                        Placeholder.component("rank_tag", rankTag),
                         Placeholder.unparsed("message", message)));
 
         for (UUID memberId : guild.getMemberIds()) {
@@ -130,6 +172,23 @@ public final class GuildNotificationService {
                     member.sendMessage(componentMessage);
                 }
             });
+        }
+    }
+
+    private @NonNull Component resolvePlayerName(@NonNull Player player) {
+        Component username = Component.text(player.getUsername());
+        try {
+            String suffix = luckPerms.getPlayerAdapter(Player.class)
+                    .getMetaData(player)
+                    .getSuffix();
+            return PlayerNameFormatter.formatSuffixBeforeName(suffix, username);
+        } catch (RuntimeException exception) {
+            LOGGER.warn(
+                    "Failed to resolve LuckPerms suffix for {}; using username without suffix",
+                    player.getUniqueId(),
+                    exception
+            );
+            return username;
         }
     }
 

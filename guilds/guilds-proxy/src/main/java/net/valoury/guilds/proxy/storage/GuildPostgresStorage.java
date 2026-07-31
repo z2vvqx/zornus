@@ -69,6 +69,30 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
         }
     }
 
+    private static boolean columnExists(
+            Connection connection,
+            String tableName,
+            String columnName
+    ) throws SQLException {
+        String sql = """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_schema = current_schema()
+                      AND table_name = ?
+                      AND column_name = ?
+                )
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, tableName);
+            statement.setString(2, columnName);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getBoolean(1);
+            }
+        }
+    }
+
     private static boolean isUniqueConstraintViolation(
             SQLException exception,
             String expectedConstraintName
@@ -129,6 +153,10 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
     private void initializeSchema() {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
             if (schemaExists(connection, "guilds")) {
+                if (!columnExists(connection, "guild_members", "guild_rank")) {
+                    throw new IllegalStateException(
+                            "Existing guild schema is missing required column guild_members.guild_rank");
+                }
                 return;
             }
             // STEP 1: Create guild_players table
@@ -149,6 +177,10 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     CREATE TABLE IF NOT EXISTS guild_members (
                         guild_id UUID NOT NULL,
                         player_id UUID NOT NULL UNIQUE,
+                        guild_rank VARCHAR(16) NOT NULL,
+                        CONSTRAINT chk_guild_members_rank CHECK (
+                            guild_rank IN ('Leader', 'Director', 'Officer', 'Associate', 'Outcast')
+                        ),
                         PRIMARY KEY (guild_id, player_id)
                     )
                     """);
@@ -299,10 +331,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     }
 
                     // 2. Insert leader into guild_members
-                    String insertMemberSql = "INSERT INTO guild_members (guild_id, player_id) VALUES (?, ?)";
+                    String insertMemberSql =
+                            "INSERT INTO guild_members (guild_id, player_id, guild_rank) VALUES (?, ?, ?)";
                     try (PreparedStatement statement = connection.prepareStatement(insertMemberSql)) {
                         statement.setObject(1, guildId);
                         statement.setObject(2, leaderId);
+                        statement.setString(3, GuildRank.LEADER.displayName());
                         statement.executeUpdate();
                     }
 
@@ -340,7 +374,13 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     }
 
                     // 1. Lock guild_members first
-                    String lockMembersSql = "SELECT 1 FROM guild_members WHERE guild_id = ? FOR UPDATE";
+                    String lockMembersSql = """
+                            SELECT player_id
+                            FROM guild_members
+                            WHERE guild_id = ?
+                            ORDER BY player_id
+                            FOR UPDATE
+                            """;
                     try (PreparedStatement statement = connection.prepareStatement(lockMembersSql)) {
                         statement.setObject(1, guildId);
                         statement.executeQuery();
@@ -422,7 +462,13 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 connection.setAutoCommit(false);
                 try {
                     // 1. Lock guild_members rows first
-                    String lockSql = "SELECT 1 FROM guild_members WHERE guild_id = ? FOR UPDATE";
+                    String lockSql = """
+                            SELECT player_id
+                            FROM guild_members
+                            WHERE guild_id = ?
+                            ORDER BY player_id
+                            FOR UPDATE
+                            """;
                     try (PreparedStatement statement = connection.prepareStatement(lockSql)) {
                         statement.setObject(1, guildId);
                         statement.executeQuery();
@@ -453,21 +499,52 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         }
                     }
 
-                    boolean isRequesterLeader = requesterId.equals(currentLeaderId);
-                    boolean isTargetLeader = memberId.equals(currentLeaderId);
-
-                    // If target is the leader, only they can transfer leadership (not kick themselves)
-                    if (isTargetLeader) {
-                        connection.rollback();
-                        return isRequesterLeader
-                                ? new RemoveMemberOutcome.CannotRemoveLeader()
-                                : new RemoveMemberOutcome.NotLeader();
+                    GuildRank requesterRank = null;
+                    GuildRank targetRank = null;
+                    String ranksSql = """
+                            SELECT player_id, guild_rank
+                            FROM guild_members
+                            WHERE guild_id = ? AND player_id IN (?, ?)
+                            """;
+                    try (PreparedStatement statement = connection.prepareStatement(ranksSql)) {
+                        statement.setObject(1, guildId);
+                        statement.setObject(2, requesterId);
+                        statement.setObject(3, memberId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            while (resultSet.next()) {
+                                UUID playerId = resultSet.getObject("player_id", UUID.class);
+                                GuildRank rank = GuildRank.fromStoredName(
+                                        resultSet.getString("guild_rank"));
+                                if (playerId.equals(requesterId)) {
+                                    requesterRank = rank;
+                                }
+                                if (playerId.equals(memberId)) {
+                                    targetRank = rank;
+                                }
+                            }
+                        }
                     }
 
-                    // If requester is not the leader, they can only remove themselves
-                    if (!isRequesterLeader && !requesterId.equals(memberId)) {
+                    if (targetRank == null) {
                         connection.rollback();
-                        return new RemoveMemberOutcome.NotLeader();
+                        return new RemoveMemberOutcome.MemberNotFound();
+                    }
+
+                    boolean requesterLeaving = requesterId.equals(memberId);
+                    boolean targetIsLeader =
+                            memberId.equals(currentLeaderId) || targetRank == GuildRank.LEADER;
+
+                    if (targetIsLeader) {
+                        connection.rollback();
+                        return requesterLeaving
+                                ? new RemoveMemberOutcome.CannotRemoveLeader()
+                                : new RemoveMemberOutcome.InsufficientRank();
+                    }
+
+                    if (!requesterLeaving
+                            && (requesterRank == null || !requesterRank.canKick(targetRank))) {
+                        connection.rollback();
+                        return new RemoveMemberOutcome.InsufficientRank();
                     }
 
                     // 4. Delete the member
@@ -519,25 +596,56 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
         return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
-                connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
                 try {
-                    // 1. Verify sender is still leader of the guild
-                    String checkLeaderSql = "SELECT leader_id FROM guilds WHERE guild_id = ?";
-                    UUID actualLeaderId;
-                    try (PreparedStatement statement = connection.prepareStatement(checkLeaderSql)) {
+                    // 1. Verify the guild and the sender's current invitation capability.
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            "SELECT 1 FROM guilds WHERE guild_id = ?")) {
                         statement.setObject(1, guildId);
                         try (ResultSet resultSet = statement.executeQuery()) {
                             if (!resultSet.next()) {
                                 connection.rollback();
                                 return new SendInvitationOutcome.GuildNoLongerExists();
                             }
-                            actualLeaderId = (UUID) resultSet.getObject("leader_id");
                         }
                     }
 
-                    if (!actualLeaderId.equals(senderId)) {
+                    String checkSenderRankSql = """
+                            SELECT guild_rank
+                            FROM guild_members
+                            WHERE guild_id = ? AND player_id = ?
+                            FOR UPDATE
+                            """;
+                    GuildRank senderRank;
+                    try (PreparedStatement statement = connection.prepareStatement(checkSenderRankSql)) {
+                        statement.setObject(1, guildId);
+                        statement.setObject(2, senderId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (!resultSet.next()) {
+                                connection.rollback();
+                                return new SendInvitationOutcome.SenderInsufficientRank();
+                            }
+                            senderRank = GuildRank.fromStoredName(resultSet.getString("guild_rank"));
+                        }
+                    }
+
+                    if (!senderRank.canManageInvitations()) {
                         connection.rollback();
-                        return new SendInvitationOutcome.SenderNoLongerLeader();
+                        return new SendInvitationOutcome.SenderInsufficientRank();
+                    }
+
+                    /*
+                     * Serialize invitation sends for this guild so two authorized
+                     * members cannot both create an invitation for the same target.
+                     */
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            "SELECT 1 FROM guilds WHERE guild_id = ? FOR UPDATE")) {
+                        statement.setObject(1, guildId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (!resultSet.next()) {
+                                connection.rollback();
+                                return new SendInvitationOutcome.GuildNoLongerExists();
+                            }
+                        }
                     }
 
                     // 2. Check target privacy settings
@@ -661,11 +769,11 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     }
 
                     // 8. Check if already invited
-                    String checkExistingInviteSql = "SELECT 1 FROM guild_invitations WHERE guild_id = ? AND sender_id = ? AND target_id = ?";
+                    String checkExistingInviteSql =
+                            "SELECT 1 FROM guild_invitations WHERE guild_id = ? AND target_id = ?";
                     try (PreparedStatement statement = connection.prepareStatement(checkExistingInviteSql)) {
                         statement.setObject(1, guildId);
-                        statement.setObject(2, senderId);
-                        statement.setObject(3, targetId);
+                        statement.setObject(2, targetId);
                         try (ResultSet resultSet = statement.executeQuery()) {
                             if (resultSet.next()) {
                                 connection.rollback();
@@ -702,7 +810,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     return new SendInvitationOutcome.Sent();
                 } catch (SQLException exception) {
                     connection.rollback();
-                    if ("23505".equals(exception.getSQLState()) || "40001".equals(exception.getSQLState())) {
+                    if ("23505".equals(exception.getSQLState())) {
                         return new SendInvitationOutcome.AlreadyInvited();
                     }
                     throw new RuntimeException("Failed to send invitation", exception);
@@ -710,6 +818,60 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to send invitation", exception);
             }
+        });
+    }
+
+    @Override
+    public CompletableFuture<RevokeInvitationOutcome> tryRevokeInvitation(
+            @NonNull UUID guildId,
+            @NonNull UUID requesterId,
+            @NonNull UUID targetId
+    ) {
+        return databaseExecutor.supply(() -> {
+            String sql = """
+                    WITH requester AS (
+                        SELECT guild_rank
+                        FROM guild_members
+                        WHERE guild_id = ? AND player_id = ?
+                        FOR UPDATE
+                    ),
+                    deleted_invitation AS (
+                        DELETE FROM guild_invitations
+                        WHERE guild_id = ?
+                          AND target_id = ?
+                          AND EXISTS (
+                              SELECT 1
+                              FROM requester
+                              WHERE guild_rank IN ('Leader', 'Director', 'Officer', 'Associate')
+                          )
+                        RETURNING 1
+                    )
+                    SELECT
+                        EXISTS (SELECT 1 FROM guilds WHERE guild_id = ?) AS guild_exists,
+                        (SELECT guild_rank FROM requester) AS requester_rank,
+                        EXISTS (SELECT 1 FROM deleted_invitation) AS invitation_deleted
+                    """;
+            return executeQuery(sql, statement -> {
+                statement.setObject(1, guildId);
+                statement.setObject(2, requesterId);
+                statement.setObject(3, guildId);
+                statement.setObject(4, targetId);
+                statement.setObject(5, guildId);
+            }, resultSet -> {
+                resultSet.next();
+                if (!resultSet.getBoolean("guild_exists")) {
+                    return new RevokeInvitationOutcome.GuildNotFound();
+                }
+                String requesterRank = resultSet.getString("requester_rank");
+                if (requesterRank == null
+                        || !GuildRank.fromStoredName(requesterRank)
+                        .canManageInvitations()) {
+                    return new RevokeInvitationOutcome.InsufficientRank();
+                }
+                return resultSet.getBoolean("invitation_deleted")
+                        ? new RevokeInvitationOutcome.Revoked()
+                        : new RevokeInvitationOutcome.InvitationNotFound();
+            }, "revoke guild invitation");
         });
     }
 
@@ -773,10 +935,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     }
 
                     // 4. Insert player into guild_members
-                    String insertMemberSql = "INSERT INTO guild_members (guild_id, player_id) VALUES (?, ?)";
+                    String insertMemberSql =
+                            "INSERT INTO guild_members (guild_id, player_id, guild_rank) VALUES (?, ?, ?)";
                     try (PreparedStatement statement = connection.prepareStatement(insertMemberSql)) {
                         statement.setObject(1, guildId);
                         statement.setObject(2, targetId);
+                        statement.setString(3, GuildRank.OUTCAST.displayName());
                         statement.executeUpdate();
                     }
 
@@ -810,18 +974,27 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
-                    // 1. Verify target is still a guild member with FOR UPDATE
-                    String checkMemberSql = "SELECT 1 FROM guild_members WHERE guild_id = ? AND player_id = ? FOR UPDATE";
-                    boolean isMember;
-                    try (PreparedStatement statement = connection.prepareStatement(checkMemberSql)) {
+                    // 1. Lock both affected memberships in stable order.
+                    String checkMembersSql = """
+                            SELECT player_id
+                            FROM guild_members
+                            WHERE guild_id = ? AND player_id IN (?, ?)
+                            ORDER BY player_id
+                            FOR UPDATE
+                            """;
+                    Set<UUID> memberIds = new HashSet<>();
+                    try (PreparedStatement statement = connection.prepareStatement(checkMembersSql)) {
                         statement.setObject(1, guildId);
                         statement.setObject(2, newLeaderId);
+                        statement.setObject(3, oldLeaderId);
                         try (ResultSet resultSet = statement.executeQuery()) {
-                            isMember = resultSet.next();
+                            while (resultSet.next()) {
+                                memberIds.add(resultSet.getObject("player_id", UUID.class));
+                            }
                         }
                     }
 
-                    if (!isMember) {
+                    if (!memberIds.contains(newLeaderId)) {
                         String checkGuildSql = "SELECT 1 FROM guilds WHERE guild_id = ?";
                         try (PreparedStatement statement = connection.prepareStatement(checkGuildSql)) {
                             statement.setObject(1, guildId);
@@ -834,6 +1007,10 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         }
                         connection.rollback();
                         return new TransferLeadershipOutcome.TargetNotMember();
+                    }
+                    if (!memberIds.contains(oldLeaderId)) {
+                        connection.rollback();
+                        return new TransferLeadershipOutcome.GuildNotFound();
                     }
 
                     // 2. Verify old leader and update leader_id
@@ -851,7 +1028,31 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         return new TransferLeadershipOutcome.GuildNotFound();
                     }
 
-                    // 3. Delete confirmation for old leader
+                    // 3. Keep the membership ranks aligned with the leadership record.
+                    String updateRanksSql = """
+                            UPDATE guild_members
+                            SET guild_rank = CASE
+                                WHEN player_id = ? THEN ?
+                                WHEN player_id = ? THEN ?
+                                ELSE guild_rank
+                            END
+                            WHERE guild_id = ? AND player_id IN (?, ?)
+                            """;
+                    try (PreparedStatement statement = connection.prepareStatement(updateRanksSql)) {
+                        statement.setObject(1, newLeaderId);
+                        statement.setString(2, GuildRank.LEADER.displayName());
+                        statement.setObject(3, oldLeaderId);
+                        statement.setString(4, GuildRank.DIRECTOR.displayName());
+                        statement.setObject(5, guildId);
+                        statement.setObject(6, newLeaderId);
+                        statement.setObject(7, oldLeaderId);
+                        if (statement.executeUpdate() != 2) {
+                            connection.rollback();
+                            return new TransferLeadershipOutcome.TargetNotMember();
+                        }
+                    }
+
+                    // 4. Delete confirmation for old leader
                     String deleteConfirmationSql = "DELETE FROM guild_confirmations WHERE player_id = ?";
                     try (PreparedStatement statement = connection.prepareStatement(deleteConfirmationSql)) {
                         statement.setObject(1, oldLeaderId);
@@ -868,6 +1069,23 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 throw new RuntimeException("Failed to transfer leadership", exception);
             }
         });
+    }
+
+    @Override
+    public CompletableFuture<GuildRankChangeOutcome> tryChangeMemberRank(
+            @NonNull UUID guildId,
+            @NonNull UUID actorId,
+            @NonNull UUID targetId,
+            @NonNull GuildRankChangeDirection direction
+    ) {
+        return databaseExecutor.supply(() ->
+                GuildRankPostgresOperations.changeMemberRank(
+                        dataSource,
+                        guildId,
+                        actorId,
+                        targetId,
+                        direction
+                ));
     }
 
     @Override
@@ -951,7 +1169,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
     private Optional<Guild> fetchGuildSync(@NonNull UUID guildId) {
         String sql = """
                 SELECT g.guild_id, g.guild_name, g.guild_tag, g.guild_color, g.leader_id, g.created_at,
-                       gm.player_id
+                       gm.player_id, gm.guild_rank
                 FROM guilds g
                 LEFT JOIN guild_members gm ON g.guild_id = gm.guild_id
                 WHERE g.guild_id = ?
@@ -975,7 +1193,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
         return databaseExecutor.supply(() -> {
             String sql = """
                     SELECT g.guild_id, g.guild_name, g.guild_tag, g.guild_color, g.leader_id, g.created_at,
-                           gm.player_id
+                           gm.player_id, gm.guild_rank
                     FROM guilds g
                     LEFT JOIN guild_members gm ON g.guild_id = gm.guild_id
                     WHERE LOWER(g.guild_name) = LOWER(?)
@@ -1003,7 +1221,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
     private Optional<Guild> fetchGuildByPlayerSync(@NonNull UUID playerId) {
         String sql = """
                 SELECT g.guild_id, g.guild_name, g.guild_tag, g.guild_color, g.leader_id, g.created_at,
-                       gm.player_id
+                       gm.player_id, gm.guild_rank
                 FROM guild_members gm_leader
                 JOIN guilds g ON gm_leader.guild_id = g.guild_id
                 LEFT JOIN guild_members gm ON g.guild_id = gm.guild_id
@@ -1239,16 +1457,18 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<Boolean> updateGuildColor(@NonNull UUID guildId, @NonNull UUID leaderId,
-                                                       @NonNull String guildColor) {
-        return databaseExecutor.supply(() -> {
-            String sql = "UPDATE guilds SET guild_color = ? WHERE guild_id = ? AND leader_id = ?";
-            return executeUpdate(sql, statement -> {
-                statement.setString(1, guildColor);
-                statement.setObject(2, guildId);
-                statement.setObject(3, leaderId);
-            }, "update guild color") == 1;
-        });
+    public CompletableFuture<UpdateGuildColorOutcome> updateGuildColor(
+            @NonNull UUID guildId,
+            @NonNull UUID requesterId,
+            @NonNull String guildColor
+    ) {
+        return databaseExecutor.supply(() ->
+                GuildRankPostgresOperations.updateGuildColor(
+                        dataSource,
+                        guildId,
+                        requesterId,
+                        guildColor
+                ));
     }
 
     @Override
@@ -1289,6 +1509,39 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 }
             } catch (SQLException exception) {
                 throw new RuntimeException("Failed to fetch player by username", exception);
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<Optional<PlayerRecord>> fetchGuildMemberByUsername(
+            @NonNull UUID guildId,
+            @NonNull String username
+    ) {
+        return databaseExecutor.supply(() -> {
+            String sql = """
+                    SELECT gp.player_id, gp.username
+                    FROM guild_members gm
+                    JOIN guild_players gp ON gp.player_id = gm.player_id
+                    WHERE gm.guild_id = ? AND LOWER(gp.username) = LOWER(?)
+                    ORDER BY gp.last_joined_at DESC, gp.player_id
+                    LIMIT 1
+                    """;
+            try (Connection connection = dataSource.getConnection();
+                 PreparedStatement statement = connection.prepareStatement(sql)) {
+                statement.setObject(1, guildId);
+                statement.setString(2, username);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    if (resultSet.next()) {
+                        return Optional.of(new PlayerRecord(
+                                resultSet.getObject("player_id", UUID.class),
+                                resultSet.getString("username")
+                        ));
+                    }
+                    return Optional.empty();
+                }
+            } catch (SQLException exception) {
+                throw new RuntimeException("Failed to fetch guild member by username", exception);
             }
         });
     }
@@ -1478,15 +1731,23 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
         Timestamp createdTimestamp = resultSet.getTimestamp("created_at");
         Instant createdAt = createdTimestamp != null ? createdTimestamp.toInstant() : Instant.now();
 
-        Set<UUID> memberIds = new HashSet<>();
+        Map<UUID, GuildRank> memberRanks = new HashMap<>();
         do {
             UUID memberId = (UUID) resultSet.getObject("player_id");
             if (memberId != null) {
-                memberIds.add(memberId);
+                memberRanks.put(memberId, GuildRank.fromStoredName(resultSet.getString("guild_rank")));
             }
         } while (resultSet.next());
 
-        return Optional.of(new Guild(guildId, guildName, guildTag, guildColor, leaderId, createdAt, memberIds));
+        return Optional.of(new Guild(
+                guildId,
+                guildName,
+                guildTag,
+                guildColor,
+                leaderId,
+                createdAt,
+                memberRanks
+        ));
     }
 
     @Contract("_ -> new")

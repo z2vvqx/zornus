@@ -29,6 +29,8 @@ public final class GuildProxyConstants {
     public static final String USAGE_CHAT = "<red><click:suggest_command:'/guild chat '>/guild chat <message_array></click></red>";
     public static final String USAGE_INVITE = "<red><click:suggest_command:'/guild invite '>/guild invite <player_name></click></red>";
     public static final String USAGE_KICK = "<red><click:suggest_command:'/guild kick '>/guild kick <member_name></click></red>";
+    public static final String USAGE_PROMOTE = "<red><click:suggest_command:'/guild promote '>/guild promote <member_name></click></red>";
+    public static final String USAGE_DEMOTE = "<red><click:suggest_command:'/guild demote '>/guild demote <member_name></click></red>";
     public static final String USAGE_REJECT = "<red><click:suggest_command:'/guild reject '>/guild reject <guild_name></click></red>";
     public static final String USAGE_TRANSFER = "<red><click:suggest_command:'/guild transfer '>/guild transfer <member_name></click></red>";
     public static final String USAGE_UNINVITE = "<red><click:suggest_command:'/guild revoke '>/guild revoke <player_name></click></red>";
@@ -42,6 +44,7 @@ public final class GuildProxyConstants {
     public static final String ERROR_NOT_IN_GUILD = "<red>You are not in a guild.</red>";
     public static final String ERROR_ALREADY_IN_GUILD = "<red>You are already in a guild. Use <yellow>/guild leave</yellow> first.</red>";
     public static final String ERROR_NOT_LEADER = "<red>Only the guild leader can perform this action.</red>";
+    public static final String ERROR_INSUFFICIENT_RANK = "<red>Your guild rank cannot perform this action.</red>";
     public static final String ERROR_SENDER_INVITATION_LIMIT_REACHED = "<red>You have reached the maximum number of pending guild invitations.</red>";
     public static final String ERROR_RECEIVER_INVITATION_LIMIT_REACHED = "<red><yellow><target></yellow> has reached the maximum number of pending guild invitations.</red>";
     public static final String ERROR_INVITATION_COOLDOWN = "<red>You must wait <yellow><time_remaining></yellow> before sending another guild invitation to <yellow><target></yellow>.</red>";
@@ -86,6 +89,13 @@ public final class GuildProxyConstants {
     public static final String KICK_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to kick members.</red>";
     public static final String KICK_ERROR_PLAYER_NOT_IN_GUILD = "<red><yellow><target></yellow> is not in your guild.</red>";
     public static final String KICK_ERROR_CANNOT_KICK_LEADER = "<red>You cannot kick the guild leader.</red>";
+    public static final String KICK_ERROR_CANNOT_KICK_SELF = "<red>You cannot kick yourself. Use <yellow>/guild leave</yellow> instead.</red>";
+
+    public static final String RANK_ERROR_CANNOT_CHANGE_SELF = "<red>You cannot change your own guild rank.</red>";
+    public static final String RANK_ERROR_CANNOT_MANAGE = "<red>You can only manage members below your rank.</red>";
+    public static final String RANK_ERROR_PROMOTION_MATCHES_ACTOR = "<red>You cannot promote a member to the same rank as you.</red>";
+    public static final String RANK_ERROR_ALREADY_HIGHEST = "<red><target> already has the highest available rank.</red>";
+    public static final String RANK_ERROR_ALREADY_LOWEST = "<red><target> already has the lowest available rank.</red>";
 
     public static final String TRANSFER_SUCCESS = "<green>Leadership transferred to <yellow><target></yellow>.</green>";
     public static final String TRANSFER_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to transfer leadership.</red>";
@@ -110,10 +120,16 @@ public final class GuildProxyConstants {
 
     public static final String LIST_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to view the member list.</red>";
 
-    public static final String UI_LIST_MEMBER_LEADER = "<status> <#2DA0ED><member></#2DA0ED> <#A78BFA>★</#A78BFA>";
-    public static final String UI_LIST_MEMBER_NORMAL = "<status> <#2DA0ED><member></#2DA0ED>";
+    public static final String UI_LIST_RANK_LEADER = "<#2DA0ED><bold>LEADER:</bold></#2DA0ED>";
+    public static final String UI_LIST_RANK_DIRECTOR = "<#2DA0ED><bold>DIRECTOR:</bold></#2DA0ED>";
+    public static final String UI_LIST_RANK_OFFICER = "<#2DA0ED><bold>OFFICER:</bold></#2DA0ED>";
+    public static final String UI_LIST_RANK_ASSOCIATE = "<#2DA0ED><bold>ASSOCIATE:</bold></#2DA0ED>";
+    public static final String UI_LIST_RANK_OUTCAST = "<#2DA0ED><bold>OUTCAST:</bold></#2DA0ED>";
+    public static final String UI_LIST_MEMBER = "<#2DA0ED><member></#2DA0ED> <status>";
     public static final String UI_LIST_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /guild list <page></gray>";
-    public static final String UI_INFO = "<#2DA0ED><guild_name></#2DA0ED> <guild_tag_display> <dark_gray>-</dark_gray> <white><member_count>/<maximum_size> members</white>";
+    public static final String UI_INFO_LEADER = "<white>Leader: </white><#2DA0ED><leader></#2DA0ED>";
+    public static final String UI_INFO_CREATION_DATE = "<white>Creation date: </white><#2DA0ED><creation_date></#2DA0ED>";
+    public static final String UI_INFO_MEMBERS = "<white>Members: </white><#2DA0ED><member_count>/<maximum_size></#2DA0ED>";
     public static final String UI_HELP_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /guild help <page></gray>";
     public static final String UI_REQUESTS_INCOMING_EMPTY = "<yellow>You do not have any incoming guild invitations.</yellow>";
     public static final String UI_REQUESTS_OUTGOING_EMPTY = "<yellow>You do not have any outgoing guild invitations.</yellow>";
@@ -130,7 +146,9 @@ public final class GuildProxyConstants {
     public static final String NOTIFICATION_INVITE_SENT_ANNOUNCEMENT = "<green><sender> invited <target> to the guild.</green>";
     public static final String NOTIFICATION_GUILD_DISBANDED = "<red>The guild has been disbanded by <leader>.</red>";
     public static final String NOTIFICATION_GUILD_RENAMED = "<yellow>The guild has been renamed from <old_name> to <new_name>.</yellow>";
-    public static final String NOTIFICATION_CHAT_FORMAT = "<dark_aqua>[<guild>] <sender>: <message></dark_aqua>";
+    public static final String NOTIFICATION_MEMBER_PROMOTED = "<green><member> was promoted to <gold><rank></gold> by <actor>.</green>";
+    public static final String NOTIFICATION_MEMBER_DEMOTED = "<green><member> was demoted to <gold><rank></gold> by <actor>.</green>";
+    public static final String NOTIFICATION_CHAT_FORMAT = "<dark_aqua>[</dark_aqua><guild><dark_aqua>] </dark_aqua><playername> <rank_tag><dark_aqua>» </dark_aqua><white><message></white>";
 
     public static final List<String> HELP_COMMANDS = Arrays.asList(
             "<click:suggest_command:'/guild help '><#2DA0ED>help [page]</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Shows this help menu</white>",
@@ -142,6 +160,8 @@ public final class GuildProxyConstants {
             "<click:suggest_command:'/guild reject '><#2DA0ED>reject <guild></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Rejects a guild invitation</white>",
             "<click:suggest_command:'/guild leave'><#2DA0ED>leave</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Leaves your current guild</white>",
             "<click:suggest_command:'/guild kick '><#2DA0ED>kick <member></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Kicks a member</white>",
+            "<click:suggest_command:'/guild promote '><#2DA0ED>promote <member></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Promotes a member</white>",
+            "<click:suggest_command:'/guild demote '><#2DA0ED>demote <member></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Demotes a member</white>",
             "<click:suggest_command:'/guild transfer '><#2DA0ED>transfer <member></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Transfers leadership</white>",
             "<click:suggest_command:'/guild rename '><#2DA0ED>rename <name></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Renames the guild</white>",
             "<click:suggest_command:'/guild tag '><#2DA0ED>tag <tag></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Changes the guild tag</white>",

@@ -60,8 +60,9 @@ public final class GuildColorCommand {
                                         GuildColorFormatter.createColoredText(guildColor, guildColor))));
                         case NOT_IN_GUILD ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_IN_GUILD));
-                        case NOT_LEADER ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_LEADER));
+                        case INSUFFICIENT_RANK ->
+                                sender.sendMessage(StringUtils.deserialize(
+                                        GuildProxyConstants.ERROR_INSUFFICIENT_RANK));
                         case INVALID_GUILD_COLOR ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_INVALID_GUILD_COLOR));
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));

@@ -10,6 +10,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.valoury.guilds.proxy.GuildProxyConstants;
+import net.valoury.guilds.proxy.model.result.GuildResults;
 import net.valoury.guilds.proxy.service.GuildService;
 import net.valoury.shared.SharedConstants;
 import net.valoury.shared.utilities.StringUtils;
@@ -63,23 +64,7 @@ public final class GuildRevokeCommand {
 
         String targetName = StringArgumentType.getString(context, "player_name");
         guildService.revokeInvitation(sender, targetName)
-                .thenAccept(result -> {
-                    switch (result.legacy()) {
-                        case INVITATION_REVOKED -> sender.sendMessage(StringUtils.deserialize(
-                                GuildProxyConstants.UNINVITE_SUCCESS,
-                                Placeholder.unparsed("target", targetName)));
-                        case NO_INVITATION_FOUND -> sender.sendMessage(StringUtils.deserialize(
-                                GuildProxyConstants.UNINVITE_ERROR_NO_INVITATION,
-                                Placeholder.unparsed("target", targetName)));
-                        case NOT_IN_GUILD ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.UNINVITE_ERROR_NOT_IN_GUILD));
-                        case NOT_LEADER ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_LEADER));
-                        case PLAYER_NOT_FOUND ->
-                                sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
-                        default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    }
-                })
+                .thenAccept(result -> handleRevokeResult(sender, result))
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to revoke guild invitation for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
@@ -87,5 +72,31 @@ public final class GuildRevokeCommand {
                 });
 
         return Command.SINGLE_SUCCESS;
+    }
+
+    private static void handleRevokeResult(
+            @NonNull Player sender,
+            GuildResults.RevokeInvitation result
+    ) {
+        switch (result) {
+            case GuildResults.RevokeInvitation.Revoked revoked ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.UNINVITE_SUCCESS,
+                            Placeholder.unparsed("target", revoked.targetName())));
+            case GuildResults.RevokeInvitation.NoInvitationFound noInvitationFound ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.UNINVITE_ERROR_NO_INVITATION,
+                            Placeholder.unparsed("target", noInvitationFound.targetName())));
+            case GuildResults.RevokeInvitation.NotInGuild ignored ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.UNINVITE_ERROR_NOT_IN_GUILD));
+            case GuildResults.RevokeInvitation.InsufficientRank ignored ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.ERROR_INSUFFICIENT_RANK));
+            case GuildResults.RevokeInvitation.PlayerNotFound ignored ->
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
+            case GuildResults.RevokeInvitation.GuildNotFound ignored ->
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+        }
     }
 }

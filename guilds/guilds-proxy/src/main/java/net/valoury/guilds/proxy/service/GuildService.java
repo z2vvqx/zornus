@@ -3,11 +3,13 @@ package net.valoury.guilds.proxy.service;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.valoury.friends.api.FriendshipService;
+import net.luckperms.api.LuckPerms;
 import net.valoury.shared.model.PlayerRecord;
 import net.valoury.guilds.proxy.GuildProxyConstants;
 import net.valoury.guilds.proxy.model.*;
 import net.valoury.guilds.proxy.model.result.GuildInfoResult;
 import net.valoury.guilds.proxy.model.result.GuildListResult;
+import net.valoury.guilds.proxy.model.result.GuildRankChangeResult;
 import net.valoury.guilds.proxy.model.result.GuildRequestsResult;
 import net.valoury.guilds.proxy.model.result.GuildResults;
 import net.valoury.guilds.proxy.storage.*;
@@ -21,7 +23,6 @@ import org.slf4j.LoggerFactory;
 import java.time.Instant;
 import java.util.*;
 import java.util.concurrent.CompletableFuture;
-import java.util.function.Function;
 import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
@@ -42,12 +43,13 @@ public final class GuildService implements AutoCloseable {
     public GuildService(
             @NonNull GuildStorage storage,
             @NonNull ProxyServer proxyServer,
-            @NonNull FriendshipService friendshipService
+            @NonNull FriendshipService friendshipService,
+            @NonNull LuckPerms luckPerms
     ) {
         this.storage = storage;
         this.proxyServer = proxyServer;
         this.friendshipService = friendshipService;
-        this.notificationService = new GuildNotificationService(storage, proxyServer);
+        this.notificationService = new GuildNotificationService(storage, proxyServer, luckPerms);
     }
 
     @Override
@@ -160,8 +162,11 @@ public final class GuildService implements AutoCloseable {
                                     return CompletableFuture.completedFuture(new GuildResults.SendInvitation.NotInGuild());
                                 }
                                 Guild guild = guildOptional.get();
-                                if (!guild.isLeader(senderId)) {
-                                    return CompletableFuture.completedFuture(new GuildResults.SendInvitation.NotLeader());
+                                GuildRank senderRank = guild.findMemberRank(senderId)
+                                        .orElse(GuildRank.OUTCAST);
+                                if (!senderRank.canManageInvitations()) {
+                                    return CompletableFuture.completedFuture(
+                                            new GuildResults.SendInvitation.InsufficientRank());
                                 }
                                 return executeSendInvitation(sender, targetId, targetPlayerName, guild)
                                         .thenApply(result ->
@@ -201,7 +206,8 @@ public final class GuildService implements AutoCloseable {
                     case SendInvitationOutcome.InvitesDisabled invitesDisabled ->
                             "friend".equals(invitesDisabled.privacy()) ? GuildResult.INVITES_FRIENDS_ONLY : GuildResult.INVITES_DISABLED;
                     case SendInvitationOutcome.AlreadyInvited alreadyInvited -> GuildResult.ALREADY_INVITED;
-                    case SendInvitationOutcome.SenderNoLongerLeader senderNoLongerLeader -> GuildResult.NOT_LEADER;
+                    case SendInvitationOutcome.SenderInsufficientRank senderInsufficientRank ->
+                            GuildResult.INSUFFICIENT_RANK;
                     case SendInvitationOutcome.GuildNoLongerExists guildNoLongerExists -> GuildResult.GUILD_NOT_FOUND;
                 });
     }
@@ -291,12 +297,9 @@ public final class GuildService implements AutoCloseable {
     }
 
     public @NonNull CompletableFuture<GuildResults.RevokeInvitation> revokeInvitation(@NonNull Player sender, @Nullable String targetUsername) {
-        return revokeInvitationLegacy(sender, targetUsername).thenApply(GuildResults.RevokeInvitation::from);
-    }
-
-    private @NonNull CompletableFuture<GuildResult> revokeInvitationLegacy(@NonNull Player sender, @Nullable String targetUsername) {
         if (targetUsername == null) {
-            return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
+            return CompletableFuture.completedFuture(
+                    new GuildResults.RevokeInvitation.PlayerNotFound());
         }
 
         UUID senderId = sender.getUniqueId();
@@ -304,37 +307,45 @@ public final class GuildService implements AutoCloseable {
         return storage.getPlayerGuild(senderId)
                 .thenCompose(guildOptional -> {
                     if (guildOptional.isEmpty()) {
-                        return CompletableFuture.completedFuture(GuildResult.NOT_IN_GUILD);
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.RevokeInvitation.NotInGuild());
                     }
                     Guild guild = guildOptional.get();
-                    if (!guild.isLeader(senderId)) {
-                        return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
+                    GuildRank senderRank = guild.findMemberRank(senderId)
+                            .orElse(GuildRank.OUTCAST);
+                    if (!senderRank.canManageInvitations()) {
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.RevokeInvitation.InsufficientRank());
                     }
-                    return findAndRevokeInvitation(targetUsername, guild.guildId());
+                    return findAndRevokeInvitation(targetUsername, guild.guildId(), senderId);
                 });
     }
 
-    private @NonNull CompletableFuture<GuildResult> findAndRevokeInvitation(@NonNull String targetUsername, @NonNull UUID guildId) {
+    private @NonNull CompletableFuture<GuildResults.RevokeInvitation> findAndRevokeInvitation(
+            @NonNull String targetUsername,
+            @NonNull UUID guildId,
+            @NonNull UUID requesterId
+    ) {
         return resolveTargetPlayer(targetUsername)
                 .thenCompose(targetOptional -> {
                     if (targetOptional.isEmpty()) {
-                        return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.RevokeInvitation.PlayerNotFound());
                     }
-                    UUID targetId = targetOptional.get().playerUuid();
-
-                    // Find invitation by the target for this guild
-                    return storage.fetchIncomingInvitations(targetId)
-                            .thenCompose(invitations -> {
-                                Optional<GuildInvitation> invitationOpt = invitations.stream()
-                                        .filter(inv -> inv.guildId().equals(guildId))
-                                        .findFirst();
-
-                                if (invitationOpt.isEmpty()) {
-                                    return CompletableFuture.completedFuture(GuildResult.NO_INVITATION_FOUND);
-                                }
-                                GuildInvitation invitation = invitationOpt.get();
-                                return storage.removePendingInvitation(invitation.guildId(), invitation.senderId(), targetId)
-                                        .thenApply(removed -> removed ? GuildResult.INVITATION_REVOKED : GuildResult.NO_INVITATION_FOUND);
+                    PlayerRecord target = targetOptional.get();
+                    UUID targetId = target.playerUuid();
+                    return storage.tryRevokeInvitation(guildId, requesterId, targetId)
+                            .thenApply(outcome -> switch (outcome) {
+                                case RevokeInvitationOutcome.Revoked ignored ->
+                                        new GuildResults.RevokeInvitation.Revoked(
+                                                target.username());
+                                case RevokeInvitationOutcome.InvitationNotFound ignored ->
+                                        new GuildResults.RevokeInvitation.NoInvitationFound(
+                                                target.username());
+                                case RevokeInvitationOutcome.InsufficientRank ignored ->
+                                        new GuildResults.RevokeInvitation.InsufficientRank();
+                                case RevokeInvitationOutcome.GuildNotFound ignored ->
+                                        new GuildResults.RevokeInvitation.GuildNotFound();
                             });
                 });
     }
@@ -387,12 +398,9 @@ public final class GuildService implements AutoCloseable {
     }
 
     public @NonNull CompletableFuture<GuildResults.KickMember> kickMember(@NonNull Player sender, @Nullable String targetUsername) {
-        return kickMemberLegacy(sender, targetUsername).thenApply(GuildResults.KickMember::from);
-    }
-
-    private @NonNull CompletableFuture<GuildResult> kickMemberLegacy(@NonNull Player sender, @Nullable String targetUsername) {
         if (targetUsername == null) {
-            return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
+            return CompletableFuture.completedFuture(
+                    new GuildResults.KickMember.PlayerNotFound());
         }
 
         UUID senderId = sender.getUniqueId();
@@ -400,45 +408,260 @@ public final class GuildService implements AutoCloseable {
         return storage.getPlayerGuild(senderId)
                 .thenCompose(guildOptional -> {
                     if (guildOptional.isEmpty()) {
-                        return CompletableFuture.completedFuture(GuildResult.NOT_IN_GUILD);
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.KickMember.NotInGuild());
                     }
                     Guild guild = guildOptional.get();
-                    if (!guild.isLeader(senderId)) {
-                        return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
+                    GuildRank senderRank = guild.findMemberRank(senderId)
+                            .orElse(GuildRank.OUTCAST);
+                    if (senderRank.hierarchyLevel() < GuildRank.OFFICER.hierarchyLevel()) {
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.KickMember.InsufficientRank());
                     }
-                    return findAndKickMember(targetUsername, guild, sender.getUsername());
+                    return findAndKickMember(
+                            targetUsername,
+                            guild,
+                            senderId,
+                            sender.getUsername()
+                    );
                 });
     }
 
-    private @NonNull CompletableFuture<GuildResult> findAndKickMember(@NonNull String targetUsername, @NonNull Guild guild, @NonNull String kickerName) {
-        return resolveTargetPlayer(targetUsername)
+    private @NonNull CompletableFuture<GuildResults.KickMember> findAndKickMember(
+            @NonNull String targetUsername,
+            @NonNull Guild guild,
+            @NonNull UUID requesterId,
+            @NonNull String kickerName
+    ) {
+        return storage.fetchGuildMemberByUsername(guild.guildId(), targetUsername)
                 .thenCompose(targetOptional -> {
                     if (targetOptional.isEmpty()) {
-                        return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
+                        return resolveTargetPlayer(targetUsername)
+                                .thenApply(resolvedTarget -> resolvedTarget.isPresent()
+                                        ? new GuildResults.KickMember.PlayerNotInGuild(
+                                                resolvedTarget.get().username())
+                                        : new GuildResults.KickMember.PlayerNotFound());
                     }
-                    UUID targetId = targetOptional.get().playerUuid();
 
-                    if (!guild.isMember(targetId)) {
-                        return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_IN_GUILD);
+                    PlayerRecord target = targetOptional.get();
+                    UUID targetId = target.playerUuid();
+
+                    if (requesterId.equals(targetId)) {
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.KickMember.CannotRemoveSelf());
                     }
 
-                    String targetName = targetOptional.get().username();
+                    GuildRank requesterRank = guild.findMemberRank(requesterId)
+                            .orElse(GuildRank.OUTCAST);
+                    Optional<GuildRank> targetRank = guild.findMemberRank(targetId);
+                    if (targetRank.isPresent() && !requesterRank.canKick(targetRank.get())) {
+                        return CompletableFuture.completedFuture(
+                                targetRank.get() == GuildRank.LEADER
+                                        ? new GuildResults.KickMember.CannotRemoveLeader()
+                                        : new GuildResults.KickMember.InsufficientRank()
+                        );
+                    }
 
-                    return storage.tryRemoveMember(guild.guildId(), targetId, guild.leaderId())
+                    return storage.tryRemoveMember(guild.guildId(), targetId, requesterId)
                             .thenApply(outcome -> switch (outcome) {
                                 case RemoveMemberOutcome.MemberRemoved memberRemoved -> {
-                                    notificationService.notifyMemberKicked(guild, targetId, targetName, kickerName);
-                                    yield GuildResult.MEMBER_REMOVED;
+                                    notificationService.notifyMemberKicked(
+                                            guild,
+                                            targetId,
+                                            target.username(),
+                                            kickerName
+                                    );
+                                    yield new GuildResults.KickMember.Removed(
+                                            target.username());
                                 }
                                 case RemoveMemberOutcome.GuildDisbanded guildDisbanded ->
-                                        GuildResult.LEFT_GUILD_DISBANDED;
+                                        new GuildResults.KickMember.GuildDisbanded();
                                 case RemoveMemberOutcome.MemberNotFound memberNotFound ->
-                                        GuildResult.PLAYER_NOT_IN_GUILD;
-                                case RemoveMemberOutcome.GuildNotFound guildNotFound -> GuildResult.GUILD_NOT_FOUND;
+                                        new GuildResults.KickMember.PlayerNotInGuild(
+                                                target.username());
+                                case RemoveMemberOutcome.GuildNotFound guildNotFound ->
+                                        new GuildResults.KickMember.GuildNotFound();
                                 case RemoveMemberOutcome.CannotRemoveLeader cannotRemoveLeader ->
-                                        GuildResult.CANNOT_REMOVE_LEADER;
-                                case RemoveMemberOutcome.NotLeader notLeader -> GuildResult.NOT_LEADER;
+                                        new GuildResults.KickMember.CannotRemoveLeader();
+                                case RemoveMemberOutcome.InsufficientRank insufficientRank ->
+                                        new GuildResults.KickMember.InsufficientRank();
                             });
+                });
+    }
+
+    public @NonNull CompletableFuture<GuildRankChangeResult> promoteMember(
+            @NonNull Player sender,
+            @Nullable String targetUsername
+    ) {
+        return changeMemberRank(sender, targetUsername, GuildRankChangeDirection.PROMOTION);
+    }
+
+    public @NonNull CompletableFuture<GuildRankChangeResult> demoteMember(
+            @NonNull Player sender,
+            @Nullable String targetUsername
+    ) {
+        return changeMemberRank(sender, targetUsername, GuildRankChangeDirection.DEMOTION);
+    }
+
+    private @NonNull CompletableFuture<GuildRankChangeResult> changeMemberRank(
+            @NonNull Player sender,
+            @Nullable String targetUsername,
+            @NonNull GuildRankChangeDirection direction
+    ) {
+        if (targetUsername == null) {
+            return CompletableFuture.completedFuture(new GuildRankChangeResult.PlayerNotFound());
+        }
+
+        UUID actorId = sender.getUniqueId();
+        return storage.getPlayerGuild(actorId)
+                .thenCompose(guildOptional -> {
+                    if (guildOptional.isEmpty()) {
+                        return CompletableFuture.completedFuture(
+                                new GuildRankChangeResult.NotInGuild());
+                    }
+
+                    Guild guild = guildOptional.get();
+                    GuildRank actorRank = guild.findMemberRank(actorId)
+                            .orElse(GuildRank.OUTCAST);
+                    if (!actorRank.canChangeRanks()) {
+                        return CompletableFuture.completedFuture(
+                                new GuildRankChangeResult.InsufficientRank());
+                    }
+
+                    return storage.fetchGuildMemberByUsername(
+                                    guild.guildId(),
+                                    targetUsername
+                            )
+                            .thenCompose(targetOptional -> {
+                                if (targetOptional.isEmpty()) {
+                                    return resolveTargetPlayer(targetUsername)
+                                            .thenApply(resolvedTarget -> resolvedTarget.isPresent()
+                                                    ? new GuildRankChangeResult.PlayerNotInGuild(
+                                                            resolvedTarget.get().username())
+                                                    : new GuildRankChangeResult.PlayerNotFound());
+                                }
+
+                                PlayerRecord target = targetOptional.get();
+                                UUID targetId = target.playerUuid();
+                                if (actorId.equals(targetId)) {
+                                    return CompletableFuture.completedFuture(
+                                            new GuildRankChangeResult.CannotChangeOwnRank());
+                                }
+
+                                Optional<GuildRank> targetRankOptional =
+                                        guild.findMemberRank(targetId);
+                                if (targetRankOptional.isEmpty()) {
+                                    return CompletableFuture.completedFuture(
+                                            new GuildRankChangeResult.PlayerNotInGuild(
+                                                    target.username()));
+                                }
+
+                                GuildRank targetRank = targetRankOptional.get();
+                                Optional<GuildRankChangeResult> deniedResult =
+                                        validateRankChange(
+                                                actorRank,
+                                                targetRank,
+                                                target.username(),
+                                                direction
+                                        );
+                                if (deniedResult.isPresent()) {
+                                    return CompletableFuture.completedFuture(
+                                            deniedResult.get());
+                                }
+
+                                return executeRankChange(
+                                        sender,
+                                        target,
+                                        guild,
+                                        direction
+                                );
+                            });
+                });
+    }
+
+    private @NonNull Optional<GuildRankChangeResult> validateRankChange(
+            @NonNull GuildRank actorRank,
+            @NonNull GuildRank targetRank,
+            @NonNull String targetName,
+            @NonNull GuildRankChangeDirection direction
+    ) {
+        if (!actorRank.isHigherThan(targetRank)) {
+            return Optional.of(new GuildRankChangeResult.CannotManageRank(targetName));
+        }
+
+        if (direction == GuildRankChangeDirection.PROMOTION) {
+            Optional<GuildRank> promotedRank = targetRank.nextHigher();
+            if (promotedRank.isEmpty()) {
+                return Optional.of(
+                        new GuildRankChangeResult.AlreadyHighestRank(targetName));
+            }
+            if (promotedRank.get() == actorRank) {
+                return Optional.of(
+                        new GuildRankChangeResult.PromotionWouldMatchActorRank(targetName));
+            }
+            if (!actorRank.canPromote(targetRank)) {
+                return Optional.of(
+                        new GuildRankChangeResult.CannotManageRank(targetName));
+            }
+            return Optional.empty();
+        }
+
+        if (targetRank.nextLower().isEmpty()) {
+            return Optional.of(
+                    new GuildRankChangeResult.AlreadyLowestRank(targetName));
+        }
+        return actorRank.canDemote(targetRank)
+                ? Optional.empty()
+                : Optional.of(new GuildRankChangeResult.CannotManageRank(targetName));
+    }
+
+    private @NonNull CompletableFuture<GuildRankChangeResult> executeRankChange(
+            @NonNull Player actor,
+            @NonNull PlayerRecord target,
+            @NonNull Guild guild,
+            @NonNull GuildRankChangeDirection direction
+    ) {
+        return storage.tryChangeMemberRank(
+                        guild.guildId(),
+                        actor.getUniqueId(),
+                        target.playerUuid(),
+                        direction
+                )
+                .thenApply(outcome -> switch (outcome) {
+                    case GuildRankChangeOutcome.Changed changed -> {
+                        notificationService.notifyMemberRankChanged(
+                                guild,
+                                target.username(),
+                                actor.getUsername(),
+                                changed.newRank(),
+                                direction
+                        );
+                        yield new GuildRankChangeResult.Changed(
+                                target.username(),
+                                actor.getUsername(),
+                                changed.previousRank(),
+                                changed.newRank()
+                        );
+                    }
+                    case GuildRankChangeOutcome.GuildNotFound ignored ->
+                            new GuildRankChangeResult.GuildNotFound();
+                    case GuildRankChangeOutcome.ActorNotMember ignored ->
+                            new GuildRankChangeResult.NotInGuild();
+                    case GuildRankChangeOutcome.MemberNotFound ignored ->
+                            new GuildRankChangeResult.PlayerNotInGuild(target.username());
+                    case GuildRankChangeOutcome.CannotChangeSelf ignored ->
+                            new GuildRankChangeResult.CannotChangeOwnRank();
+                    case GuildRankChangeOutcome.InsufficientRank ignored ->
+                            new GuildRankChangeResult.InsufficientRank();
+                    case GuildRankChangeOutcome.CannotManageRank ignored ->
+                            new GuildRankChangeResult.CannotManageRank(target.username());
+                    case GuildRankChangeOutcome.PromotionWouldMatchActorRank ignored ->
+                            new GuildRankChangeResult.PromotionWouldMatchActorRank(
+                                    target.username());
+                    case GuildRankChangeOutcome.AlreadyHighestRank ignored ->
+                            new GuildRankChangeResult.AlreadyHighestRank(target.username());
+                    case GuildRankChangeOutcome.AlreadyLowestRank ignored ->
+                            new GuildRankChangeResult.AlreadyLowestRank(target.username());
                 });
     }
 
@@ -456,10 +679,16 @@ public final class GuildService implements AutoCloseable {
                             .filter(memberId -> proxyServer.getPlayer(memberId).isPresent())
                             .collect(Collectors.toUnmodifiableSet());
                     members.sort((a, b) -> {
-                        boolean firstMemberLeader = guild.isLeader(a);
-                        boolean secondMemberLeader = guild.isLeader(b);
-                        if (firstMemberLeader != secondMemberLeader) {
-                            return firstMemberLeader ? -1 : 1;
+                        GuildRank firstMemberRank = guild.findMemberRank(a)
+                                .orElse(GuildRank.OUTCAST);
+                        GuildRank secondMemberRank = guild.findMemberRank(b)
+                                .orElse(GuildRank.OUTCAST);
+                        int rankComparison = Integer.compare(
+                                secondMemberRank.hierarchyLevel(),
+                                firstMemberRank.hierarchyLevel()
+                        );
+                        if (rankComparison != 0) {
+                            return rankComparison;
                         }
 
                         boolean firstMemberOnline = onlineMemberIds.contains(a);
@@ -523,17 +752,14 @@ public final class GuildService implements AutoCloseable {
                     case RemoveMemberOutcome.MemberNotFound memberNotFound -> GuildResult.PLAYER_NOT_IN_GUILD;
                     case RemoveMemberOutcome.GuildNotFound guildNotFound -> GuildResult.GUILD_NOT_FOUND;
                     case RemoveMemberOutcome.CannotRemoveLeader cannotRemoveLeader -> GuildResult.CANNOT_REMOVE_LEADER;
-                    case RemoveMemberOutcome.NotLeader notLeader -> GuildResult.NOT_LEADER;
+                    case RemoveMemberOutcome.InsufficientRank insufficientRank -> GuildResult.NOT_LEADER;
                 });
     }
 
     public @NonNull CompletableFuture<GuildResults.TransferLeadership> transferLeadership(@NonNull Player sender, @Nullable String targetUsername, boolean isConfirming) {
-        return transferLeadershipLegacy(sender, targetUsername, isConfirming).thenApply(GuildResults.TransferLeadership::from);
-    }
-
-    private @NonNull CompletableFuture<GuildResult> transferLeadershipLegacy(@NonNull Player sender, @Nullable String targetUsername, boolean isConfirming) {
         if (targetUsername == null) {
-            return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
+            return CompletableFuture.completedFuture(
+                    new GuildResults.TransferLeadership.PlayerNotFound());
         }
 
         UUID senderId = sender.getUniqueId();
@@ -541,29 +767,45 @@ public final class GuildService implements AutoCloseable {
         return storage.getPlayerGuild(senderId)
                 .thenCompose(guildOptional -> {
                     if (guildOptional.isEmpty()) {
-                        return CompletableFuture.completedFuture(GuildResult.NOT_IN_GUILD);
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.TransferLeadership.NotInGuild());
                     }
                     Guild guild = guildOptional.get();
                     if (!guild.isLeader(senderId)) {
-                        return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.TransferLeadership.NotLeader());
                     }
 
-                    return resolveTargetPlayer(targetUsername)
+                    return storage.fetchGuildMemberByUsername(
+                                    guild.guildId(),
+                                    targetUsername
+                            )
                             .thenCompose(targetOptional -> {
                                 if (targetOptional.isEmpty()) {
-                                    return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_FOUND);
+                                    return resolveTargetPlayer(targetUsername)
+                                            .thenApply(resolvedTarget -> resolvedTarget.isPresent()
+                                                    ? new GuildResults.TransferLeadership.PlayerNotInGuild(
+                                                            resolvedTarget.get().username())
+                                                    : new GuildResults.TransferLeadership.PlayerNotFound());
                                 }
-                                UUID targetId = targetOptional.get().playerUuid();
+
+                                PlayerRecord target = targetOptional.get();
+                                UUID targetId = target.playerUuid();
 
                                 if (senderId.equals(targetId)) {
-                                    return CompletableFuture.completedFuture(GuildResult.CANNOT_TRANSFER_TO_SELF);
+                                    return CompletableFuture.completedFuture(
+                                            new GuildResults.TransferLeadership.CannotTransferToSelf());
                                 }
 
-                                if (!guild.isMember(targetId)) {
-                                    return CompletableFuture.completedFuture(GuildResult.PLAYER_NOT_IN_GUILD);
-                                }
-
-                                return handleTransferConfirmation(senderId, targetId, guild, isConfirming);
+                                return handleTransferConfirmation(
+                                        senderId,
+                                        targetId,
+                                        guild,
+                                        isConfirming
+                                ).thenApply(result -> GuildResults.TransferLeadership.from(
+                                        result,
+                                        target.username()
+                                ));
                             });
                 });
     }
@@ -709,14 +951,6 @@ public final class GuildService implements AutoCloseable {
             return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_COLOR);
         }
         String formattedColor = "<" + guildColor.toLowerCase() + ">";
-        return updateGuildAppearance(sender, guild -> storage.updateGuildColor(
-                guild.guildId(), sender.getUniqueId(), formattedColor))
-                .thenApply(result -> result == GuildResult.SUCCESS ? GuildResult.GUILD_COLOR_UPDATED : result);
-    }
-
-    private @NonNull CompletableFuture<GuildResult> updateGuildAppearance(
-            @NonNull Player sender,
-            @NonNull Function<Guild, CompletableFuture<Boolean>> updateOperation) {
         UUID senderId = sender.getUniqueId();
         return storage.getPlayerGuild(senderId)
                 .thenCompose(guildOptional -> {
@@ -724,11 +958,20 @@ public final class GuildService implements AutoCloseable {
                         return CompletableFuture.completedFuture(GuildResult.NOT_IN_GUILD);
                     }
                     Guild guild = guildOptional.get();
-                    if (!guild.isLeader(senderId)) {
-                        return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
+                    GuildRank senderRank = guild.findMemberRank(senderId)
+                            .orElse(GuildRank.OUTCAST);
+                    if (!senderRank.canUpdateColor()) {
+                        return CompletableFuture.completedFuture(GuildResult.INSUFFICIENT_RANK);
                     }
-                    return updateOperation.apply(guild)
-                            .thenApply(updated -> updated ? GuildResult.SUCCESS : GuildResult.GUILD_NOT_FOUND);
+                    return storage.updateGuildColor(guild.guildId(), senderId, formattedColor)
+                            .thenApply(outcome -> switch (outcome) {
+                                case UpdateGuildColorOutcome.Updated ignored ->
+                                        GuildResult.GUILD_COLOR_UPDATED;
+                                case UpdateGuildColorOutcome.InsufficientRank ignored ->
+                                        GuildResult.INSUFFICIENT_RANK;
+                                case UpdateGuildColorOutcome.GuildNotFound ignored ->
+                                        GuildResult.GUILD_NOT_FOUND;
+                            });
                 });
     }
 

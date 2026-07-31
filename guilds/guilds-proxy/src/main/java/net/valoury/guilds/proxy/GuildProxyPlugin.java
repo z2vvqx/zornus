@@ -8,12 +8,16 @@ import com.velocitypowered.api.plugin.Dependency;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.valoury.friends.api.FriendsApi;
+import net.luckperms.api.LuckPermsProvider;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 
 @Plugin(id = "guilds-proxy", name = "Guilds Proxy", version = "1.0.0",
         url = "https://valoury.com", authors = {"valoury"},
-        dependencies = {@Dependency(id = FriendsApi.PLUGIN_ID)})
+        dependencies = {
+                @Dependency(id = FriendsApi.PLUGIN_ID),
+                @Dependency(id = "luckperms")
+        })
 public final class GuildProxyPlugin {
 
     private final @NonNull ProxyServer proxyServer;
@@ -32,7 +36,12 @@ public final class GuildProxyPlugin {
             logger.info("Initializing Guilds plugin...");
 
             FriendsApi friendsApi = resolveFriendsApi();
-            this.guildProxyModule = new GuildProxyModule(this, proxyServer, friendsApi.friendships());
+            this.guildProxyModule = new GuildProxyModule(
+                    this,
+                    proxyServer,
+                    friendsApi.friendships(),
+                    LuckPermsProvider.get()
+            );
             guildProxyModule.initialize(proxyServer.getCommandManager(), proxyServer.getEventManager(), proxyServer.getScheduler());
             logger.info("Guilds plugin initialized successfully");
         } catch (Exception exception) {

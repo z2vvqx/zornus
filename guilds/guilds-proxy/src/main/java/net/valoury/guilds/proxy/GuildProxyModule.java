@@ -5,6 +5,7 @@ import com.velocitypowered.api.event.EventManager;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.Scheduler;
 import net.valoury.friends.api.FriendshipService;
+import net.luckperms.api.LuckPerms;
 import net.valoury.guilds.proxy.registrar.GuildCommandRegistrar;
 import net.valoury.guilds.proxy.registrar.GuildListenerRegistrar;
 import net.valoury.guilds.proxy.registrar.GuildOperationRegistrar;
@@ -26,14 +27,15 @@ public final class GuildProxyModule {
     public GuildProxyModule(
             @NonNull Object plugin,
             @NonNull ProxyServer proxyServer,
-            @NonNull FriendshipService friendshipService
+            @NonNull FriendshipService friendshipService,
+            @NonNull LuckPerms luckPerms
     ) {
         GuildStorage storage = new GuildPostgresStorage(
                 GuildProxyConstants.POSTGRESQL_URL,
                 GuildProxyConstants.POSTGRESQL_USER,
                 GuildProxyConstants.POSTGRESQL_PASSWORD
         );
-        this.guildService = new GuildService(storage, proxyServer, friendshipService);
+        this.guildService = new GuildService(storage, proxyServer, friendshipService, luckPerms);
         this.guildCommandRegistrar = new GuildCommandRegistrar(guildService, proxyServer);
         this.guildListenerRegistrar = new GuildListenerRegistrar(plugin, guildService);
         this.guildOperationRegistrar = new GuildOperationRegistrar(plugin, guildService);

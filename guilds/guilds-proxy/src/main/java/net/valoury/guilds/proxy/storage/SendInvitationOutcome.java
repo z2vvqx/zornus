@@ -10,7 +10,7 @@ public sealed interface SendInvitationOutcome permits
         SendInvitationOutcome.ReceiverLimitReached,
         SendInvitationOutcome.InvitesDisabled,
         SendInvitationOutcome.AlreadyInvited,
-        SendInvitationOutcome.SenderNoLongerLeader,
+        SendInvitationOutcome.SenderInsufficientRank,
         SendInvitationOutcome.GuildNoLongerExists {
     record Sent() implements SendInvitationOutcome {
     }
@@ -39,7 +39,7 @@ public sealed interface SendInvitationOutcome permits
     record AlreadyInvited() implements SendInvitationOutcome {
     }
 
-    record SenderNoLongerLeader() implements SendInvitationOutcome {
+    record SenderInsufficientRank() implements SendInvitationOutcome {
     }
 
     record GuildNoLongerExists() implements SendInvitationOutcome {

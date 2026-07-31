@@ -10,6 +10,7 @@ import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.valoury.guilds.proxy.GuildProxyConstants;
 import net.valoury.guilds.proxy.model.Guild;
+import net.valoury.guilds.proxy.model.GuildRank;
 import net.valoury.guilds.proxy.model.result.GuildListResult;
 import net.valoury.guilds.proxy.service.GuildService;
 import net.valoury.shared.SharedConstants;
@@ -25,6 +26,9 @@ import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
+import java.util.EnumMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
@@ -111,6 +115,7 @@ public final class GuildListCommand {
                                        @NonNull Map<UUID, PlayerRecord> storedPlayers,
                                        int page) {
         TextComponent.Builder messageBuilder = Component.text().appendNewline();
+        Map<GuildRank, List<Component>> entriesByRank = new EnumMap<>(GuildRank.class);
         for (UUID memberId : pagination.items()) {
             Optional<Player> onlineMember = proxyServer.getPlayer(memberId);
             String memberName = onlineMember
@@ -122,14 +127,39 @@ public final class GuildListCommand {
             Component statusIndicator = onlineMember.isPresent()
                     ? Component.text("▲", NamedTextColor.GREEN)
                     : Component.text("▼", NamedTextColor.RED);
-            String format = guild.isLeader(memberId)
-                    ? GuildProxyConstants.UI_LIST_MEMBER_LEADER
-                    : GuildProxyConstants.UI_LIST_MEMBER_NORMAL;
-            messageBuilder.append(StringUtils.deserialize(
-                    SharedConstants.BULLET_POINT + format,
+            GuildRank memberRank = guild.findMemberRank(memberId)
+                    .orElse(GuildRank.OUTCAST);
+            Component memberEntry = StringUtils.deserialize(
+                    GuildProxyConstants.UI_LIST_MEMBER,
                     TagResolver.resolver(
                             Placeholder.component("status", statusIndicator),
-                            Placeholder.unparsed("member", memberName)))).appendNewline();
+                            Placeholder.unparsed("member", memberName)));
+            entriesByRank.computeIfAbsent(memberRank, ignored -> new ArrayList<>())
+                    .add(memberEntry);
+        }
+
+        boolean hasAppendedRankSection = false;
+        for (GuildRank rank : GuildRank.highestFirst()) {
+            List<Component> entries = entriesByRank.getOrDefault(rank, List.of());
+            if (entries.isEmpty()) {
+                continue;
+            }
+
+            if (hasAppendedRankSection) {
+                messageBuilder.appendNewline();
+            }
+            messageBuilder.append(StringUtils.deserialize(
+                            SharedConstants.BULLET_POINT + rankHeader(rank)))
+                    .appendNewline()
+                    .append(StringUtils.deserialize(SharedConstants.BULLET_POINT));
+            for (int entryIndex = 0; entryIndex < entries.size(); entryIndex++) {
+                if (entryIndex > 0) {
+                    messageBuilder.append(Component.text(", ", NamedTextColor.DARK_GRAY));
+                }
+                messageBuilder.append(entries.get(entryIndex));
+            }
+            messageBuilder.appendNewline();
+            hasAppendedRankSection = true;
         }
 
         if (pagination.hasMultiplePages()) {
@@ -139,8 +169,22 @@ public final class GuildListCommand {
                             String.valueOf(pagination.maximumPages()))
             );
             messageBuilder.appendNewline()
-                    .append(StringUtils.deserialize(GuildProxyConstants.UI_LIST_PAGINATION, resolver));
+                    .append(StringUtils.deserialize(
+                            GuildProxyConstants.UI_LIST_PAGINATION,
+                            resolver
+                    ))
+                    .appendNewline();
         }
         sender.sendMessage(messageBuilder.build());
+    }
+
+    private static @NonNull String rankHeader(@NonNull GuildRank rank) {
+        return switch (rank) {
+            case LEADER -> GuildProxyConstants.UI_LIST_RANK_LEADER;
+            case DIRECTOR -> GuildProxyConstants.UI_LIST_RANK_DIRECTOR;
+            case OFFICER -> GuildProxyConstants.UI_LIST_RANK_OFFICER;
+            case ASSOCIATE -> GuildProxyConstants.UI_LIST_RANK_ASSOCIATE;
+            case OUTCAST -> GuildProxyConstants.UI_LIST_RANK_OUTCAST;
+        };
     }
 }

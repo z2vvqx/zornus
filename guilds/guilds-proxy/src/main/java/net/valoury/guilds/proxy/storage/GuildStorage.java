@@ -3,6 +3,7 @@ package net.valoury.guilds.proxy.storage;
 import net.valoury.shared.model.PlayerRecord;
 import net.valoury.guilds.proxy.model.Guild;
 import net.valoury.guilds.proxy.model.GuildInvitation;
+import net.valoury.guilds.proxy.model.GuildRankChangeDirection;
 import net.valoury.guilds.proxy.model.GuildSettings;
 import net.valoury.guilds.proxy.model.PendingConfirmation;
 import org.jspecify.annotations.NonNull;
@@ -28,9 +29,22 @@ public interface GuildStorage {
 
     CompletableFuture<SendInvitationOutcome> trySendInvitation(@NonNull UUID guildId, @NonNull UUID senderId, @NonNull UUID targetId, boolean isFriend);
 
+    CompletableFuture<RevokeInvitationOutcome> tryRevokeInvitation(
+            @NonNull UUID guildId,
+            @NonNull UUID requesterId,
+            @NonNull UUID targetId
+    );
+
     CompletableFuture<AcceptInvitationOutcome> tryAcceptInvitation(@NonNull UUID guildId, @NonNull UUID senderId, @NonNull UUID targetId);
 
     CompletableFuture<TransferLeadershipOutcome> tryTransferLeadership(@NonNull UUID guildId, @NonNull UUID newLeaderId, @NonNull UUID oldLeaderId);
+
+    CompletableFuture<GuildRankChangeOutcome> tryChangeMemberRank(
+            @NonNull UUID guildId,
+            @NonNull UUID actorId,
+            @NonNull UUID targetId,
+            @NonNull GuildRankChangeDirection direction
+    );
 
     CompletableFuture<RenameGuildOutcome> tryRenameGuild(@NonNull UUID guildId, @NonNull UUID leaderId, @NonNull String newName);
 
@@ -67,11 +81,20 @@ public interface GuildStorage {
             @NonNull String guildTag
     );
 
-    CompletableFuture<Boolean> updateGuildColor(@NonNull UUID guildId, @NonNull UUID leaderId, @NonNull String guildColor);
+    CompletableFuture<UpdateGuildColorOutcome> updateGuildColor(
+            @NonNull UUID guildId,
+            @NonNull UUID requesterId,
+            @NonNull String guildColor
+    );
 
     CompletableFuture<Void> upsertPlayer(@NonNull UUID playerId, @NonNull String username);
 
     CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUsername(@NonNull String username);
+
+    CompletableFuture<Optional<PlayerRecord>> fetchGuildMemberByUsername(
+            @NonNull UUID guildId,
+            @NonNull String username
+    );
 
     CompletableFuture<Map<UUID, PlayerRecord>> fetchPlayersByUuids(@NonNull Collection<UUID> playerIds);
 

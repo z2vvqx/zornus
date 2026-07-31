@@ -26,6 +26,8 @@ public final class GuildCommand {
                 .then(GuildRevokeCommand.create(guildService, proxyServer))
                 .then(GuildLeaveCommand.create(guildService))
                 .then(GuildKickCommand.create(guildService, proxyServer))
+                .then(GuildPromoteCommand.create(guildService, proxyServer))
+                .then(GuildDemoteCommand.create(guildService, proxyServer))
                 .then(GuildTransferCommand.create(guildService, proxyServer))
                 .then(GuildRenameCommand.create(guildService))
                 .then(GuildTagCommand.create(guildService))

@@ -10,6 +10,7 @@ import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.valoury.guilds.proxy.GuildProxyConstants;
+import net.valoury.guilds.proxy.model.result.GuildResults;
 import net.valoury.guilds.proxy.service.GuildService;
 import net.valoury.shared.SharedConstants;
 import net.valoury.shared.utilities.StringUtils;
@@ -67,31 +68,7 @@ public final class GuildTransferCommand {
 
         String targetName = StringArgumentType.getString(context, "member_name");
         guildService.transferLeadership(sender, targetName, isConfirming)
-                .thenAccept(result -> {
-                    switch (result.legacy()) {
-                        case LEADERSHIP_TRANSFERRED -> sender.sendMessage(StringUtils.deserialize(
-                                GuildProxyConstants.TRANSFER_SUCCESS,
-                                Placeholder.unparsed("target", targetName)));
-                        case TRANSFER_CONFIRMATION_REQUIRED -> sender.sendMessage(StringUtils.deserialize(
-                                GuildProxyConstants.TRANSFER_CONFIRMATION_REQUIRED,
-                                Placeholder.unparsed("target", targetName)));
-                        case NO_CONFIRMATION_PENDING -> sender.sendMessage(StringUtils.deserialize(
-                                GuildProxyConstants.TRANSFER_ERROR_NO_CONFIRMATION,
-                                Placeholder.unparsed("target", targetName)));
-                        case NOT_IN_GUILD ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.TRANSFER_ERROR_NOT_IN_GUILD));
-                        case NOT_LEADER ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_LEADER));
-                        case PLAYER_NOT_FOUND ->
-                                sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
-                        case PLAYER_NOT_IN_GUILD -> sender.sendMessage(StringUtils.deserialize(
-                                GuildProxyConstants.TRANSFER_ERROR_PLAYER_NOT_IN_GUILD,
-                                Placeholder.unparsed("target", targetName)));
-                        case CANNOT_TRANSFER_TO_SELF ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.TRANSFER_ERROR_CANNOT_TRANSFER_SELF));
-                        default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    }
-                })
+                .thenAccept(result -> handleTransferResult(sender, result))
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to transfer guild leadership to {}", targetName, throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
@@ -99,5 +76,41 @@ public final class GuildTransferCommand {
                 });
 
         return Command.SINGLE_SUCCESS;
+    }
+
+    private static void handleTransferResult(
+            @NonNull Player sender,
+            GuildResults.TransferLeadership result
+    ) {
+        switch (result) {
+            case GuildResults.TransferLeadership.Transferred transferred ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.TRANSFER_SUCCESS,
+                            Placeholder.unparsed("target", transferred.targetName())));
+            case GuildResults.TransferLeadership.ConfirmationRequired confirmationRequired ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.TRANSFER_CONFIRMATION_REQUIRED,
+                            Placeholder.unparsed("target", confirmationRequired.targetName())));
+            case GuildResults.TransferLeadership.NoConfirmationPending noConfirmationPending ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.TRANSFER_ERROR_NO_CONFIRMATION,
+                            Placeholder.unparsed("target", noConfirmationPending.targetName())));
+            case GuildResults.TransferLeadership.NotInGuild ignored ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.TRANSFER_ERROR_NOT_IN_GUILD));
+            case GuildResults.TransferLeadership.NotLeader ignored ->
+                    sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_LEADER));
+            case GuildResults.TransferLeadership.PlayerNotFound ignored ->
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
+            case GuildResults.TransferLeadership.PlayerNotInGuild playerNotInGuild ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.TRANSFER_ERROR_PLAYER_NOT_IN_GUILD,
+                            Placeholder.unparsed("target", playerNotInGuild.targetName())));
+            case GuildResults.TransferLeadership.CannotTransferToSelf ignored ->
+                    sender.sendMessage(StringUtils.deserialize(
+                            GuildProxyConstants.TRANSFER_ERROR_CANNOT_TRANSFER_SELF));
+            case GuildResults.TransferLeadership.GuildNotFound ignored ->
+                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+        }
     }
 }

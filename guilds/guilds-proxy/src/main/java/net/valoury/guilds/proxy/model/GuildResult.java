@@ -8,6 +8,7 @@ public enum GuildResult {
     ALREADY_IN_GUILD,
     NOT_IN_GUILD,
     NOT_LEADER,
+    INSUFFICIENT_RANK,
     PLAYER_NOT_IN_GUILD,
     GUILD_FULL,
     CANNOT_INVITE_SELF,

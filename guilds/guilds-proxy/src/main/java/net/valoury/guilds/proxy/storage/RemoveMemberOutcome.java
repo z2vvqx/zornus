@@ -6,7 +6,7 @@ public sealed interface RemoveMemberOutcome permits
         RemoveMemberOutcome.MemberNotFound,
         RemoveMemberOutcome.GuildNotFound,
         RemoveMemberOutcome.CannotRemoveLeader,
-        RemoveMemberOutcome.NotLeader {
+        RemoveMemberOutcome.InsufficientRank {
     record MemberRemoved() implements RemoveMemberOutcome {
     }
 
@@ -22,6 +22,6 @@ public sealed interface RemoveMemberOutcome permits
     record CannotRemoveLeader() implements RemoveMemberOutcome {
     }
 
-    record NotLeader() implements RemoveMemberOutcome {
+    record InsufficientRank() implements RemoveMemberOutcome {
     }
 }

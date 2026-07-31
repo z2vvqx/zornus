@@ -105,7 +105,7 @@ public final class GuildResults {
             return switch (result) {
                 case INVITATION_SENT -> new Sent(targetName);
                 case NOT_IN_GUILD -> new NotInGuild();
-                case NOT_LEADER -> new NotLeader();
+                case INSUFFICIENT_RANK -> new InsufficientRank();
                 case PLAYER_NOT_FOUND -> new PlayerNotFound();
                 case CANNOT_INVITE_SELF -> new CannotInviteSelf();
                 case TARGET_ALREADY_IN_GUILD -> new TargetAlreadyInGuild(targetName);
@@ -126,7 +126,7 @@ public final class GuildResults {
             return switch (this) {
                 case Sent ignored -> GuildResult.INVITATION_SENT;
                 case NotInGuild ignored -> GuildResult.NOT_IN_GUILD;
-                case NotLeader ignored -> GuildResult.NOT_LEADER;
+                case InsufficientRank ignored -> GuildResult.INSUFFICIENT_RANK;
                 case PlayerNotFound ignored -> GuildResult.PLAYER_NOT_FOUND;
                 case CannotInviteSelf ignored -> GuildResult.CANNOT_INVITE_SELF;
                 case TargetAlreadyInGuild ignored -> GuildResult.TARGET_ALREADY_IN_GUILD;
@@ -148,7 +148,7 @@ public final class GuildResults {
         record NotInGuild() implements SendInvitation {
         }
 
-        record NotLeader() implements SendInvitation {
+        record InsufficientRank() implements SendInvitation {
         }
 
         record PlayerNotFound() implements SendInvitation {
@@ -244,13 +244,17 @@ public final class GuildResults {
     }
 
     public sealed interface RevokeInvitation {
-        static @NonNull RevokeInvitation from(@NonNull GuildResult result) {
+        static @NonNull RevokeInvitation from(
+                @NonNull GuildResult result,
+                @NonNull String targetName
+        ) {
             return switch (result) {
-                case INVITATION_REVOKED -> new Revoked();
-                case NO_INVITATION_FOUND -> new NoInvitationFound();
+                case INVITATION_REVOKED -> new Revoked(targetName);
+                case NO_INVITATION_FOUND -> new NoInvitationFound(targetName);
                 case NOT_IN_GUILD -> new NotInGuild();
-                case NOT_LEADER -> new NotLeader();
+                case INSUFFICIENT_RANK -> new InsufficientRank();
                 case PLAYER_NOT_FOUND -> new PlayerNotFound();
+                case GUILD_NOT_FOUND -> new GuildNotFound();
                 default -> throw unexpected("revoke guild invitation", result);
             };
         }
@@ -260,24 +264,28 @@ public final class GuildResults {
                 case Revoked ignored -> GuildResult.INVITATION_REVOKED;
                 case NoInvitationFound ignored -> GuildResult.NO_INVITATION_FOUND;
                 case NotInGuild ignored -> GuildResult.NOT_IN_GUILD;
-                case NotLeader ignored -> GuildResult.NOT_LEADER;
+                case InsufficientRank ignored -> GuildResult.INSUFFICIENT_RANK;
                 case PlayerNotFound ignored -> GuildResult.PLAYER_NOT_FOUND;
+                case GuildNotFound ignored -> GuildResult.GUILD_NOT_FOUND;
             };
         }
 
-        record Revoked() implements RevokeInvitation {
+        record Revoked(@NonNull String targetName) implements RevokeInvitation {
         }
 
-        record NoInvitationFound() implements RevokeInvitation {
+        record NoInvitationFound(@NonNull String targetName) implements RevokeInvitation {
         }
 
         record NotInGuild() implements RevokeInvitation {
         }
 
-        record NotLeader() implements RevokeInvitation {
+        record InsufficientRank() implements RevokeInvitation {
         }
 
         record PlayerNotFound() implements RevokeInvitation {
+        }
+
+        record GuildNotFound() implements RevokeInvitation {
         }
     }
 
@@ -330,15 +338,19 @@ public final class GuildResults {
     }
 
     public sealed interface KickMember {
-        static @NonNull KickMember from(@NonNull GuildResult result) {
+        static @NonNull KickMember from(
+                @NonNull GuildResult result,
+                @NonNull String targetName
+        ) {
             return switch (result) {
-                case MEMBER_REMOVED -> new Removed();
+                case MEMBER_REMOVED -> new Removed(targetName);
                 case LEFT_GUILD_DISBANDED -> new GuildDisbanded();
                 case NOT_IN_GUILD -> new NotInGuild();
-                case NOT_LEADER -> new NotLeader();
+                case INSUFFICIENT_RANK -> new InsufficientRank();
                 case PLAYER_NOT_FOUND -> new PlayerNotFound();
-                case PLAYER_NOT_IN_GUILD -> new PlayerNotInGuild();
+                case PLAYER_NOT_IN_GUILD -> new PlayerNotInGuild(targetName);
                 case CANNOT_REMOVE_LEADER -> new CannotRemoveLeader();
+                case CANNOT_REMOVE_SELF -> new CannotRemoveSelf();
                 case GUILD_NOT_FOUND -> new GuildNotFound();
                 default -> throw unexpected("kick guild member", result);
             };
@@ -349,15 +361,16 @@ public final class GuildResults {
                 case Removed ignored -> GuildResult.MEMBER_REMOVED;
                 case GuildDisbanded ignored -> GuildResult.LEFT_GUILD_DISBANDED;
                 case NotInGuild ignored -> GuildResult.NOT_IN_GUILD;
-                case NotLeader ignored -> GuildResult.NOT_LEADER;
+                case InsufficientRank ignored -> GuildResult.INSUFFICIENT_RANK;
                 case PlayerNotFound ignored -> GuildResult.PLAYER_NOT_FOUND;
                 case PlayerNotInGuild ignored -> GuildResult.PLAYER_NOT_IN_GUILD;
                 case CannotRemoveLeader ignored -> GuildResult.CANNOT_REMOVE_LEADER;
+                case CannotRemoveSelf ignored -> GuildResult.CANNOT_REMOVE_SELF;
                 case GuildNotFound ignored -> GuildResult.GUILD_NOT_FOUND;
             };
         }
 
-        record Removed() implements KickMember {
+        record Removed(@NonNull String targetName) implements KickMember {
         }
 
         record GuildDisbanded() implements KickMember {
@@ -366,16 +379,19 @@ public final class GuildResults {
         record NotInGuild() implements KickMember {
         }
 
-        record NotLeader() implements KickMember {
+        record InsufficientRank() implements KickMember {
         }
 
         record PlayerNotFound() implements KickMember {
         }
 
-        record PlayerNotInGuild() implements KickMember {
+        record PlayerNotInGuild(@NonNull String targetName) implements KickMember {
         }
 
         record CannotRemoveLeader() implements KickMember {
+        }
+
+        record CannotRemoveSelf() implements KickMember {
         }
 
         record GuildNotFound() implements KickMember {
@@ -416,15 +432,18 @@ public final class GuildResults {
     }
 
     public sealed interface TransferLeadership {
-        static @NonNull TransferLeadership from(@NonNull GuildResult result) {
+        static @NonNull TransferLeadership from(
+                @NonNull GuildResult result,
+                @NonNull String targetName
+        ) {
             return switch (result) {
-                case LEADERSHIP_TRANSFERRED -> new Transferred();
-                case TRANSFER_CONFIRMATION_REQUIRED -> new ConfirmationRequired();
-                case NO_CONFIRMATION_PENDING -> new NoConfirmationPending();
+                case LEADERSHIP_TRANSFERRED -> new Transferred(targetName);
+                case TRANSFER_CONFIRMATION_REQUIRED -> new ConfirmationRequired(targetName);
+                case NO_CONFIRMATION_PENDING -> new NoConfirmationPending(targetName);
                 case NOT_IN_GUILD -> new NotInGuild();
                 case NOT_LEADER -> new NotLeader();
                 case PLAYER_NOT_FOUND -> new PlayerNotFound();
-                case PLAYER_NOT_IN_GUILD -> new PlayerNotInGuild();
+                case PLAYER_NOT_IN_GUILD -> new PlayerNotInGuild(targetName);
                 case CANNOT_TRANSFER_TO_SELF -> new CannotTransferToSelf();
                 case GUILD_NOT_FOUND -> new GuildNotFound();
                 default -> throw unexpected("transfer guild leadership", result);
@@ -445,13 +464,13 @@ public final class GuildResults {
             };
         }
 
-        record Transferred() implements TransferLeadership {
+        record Transferred(@NonNull String targetName) implements TransferLeadership {
         }
 
-        record ConfirmationRequired() implements TransferLeadership {
+        record ConfirmationRequired(@NonNull String targetName) implements TransferLeadership {
         }
 
-        record NoConfirmationPending() implements TransferLeadership {
+        record NoConfirmationPending(@NonNull String targetName) implements TransferLeadership {
         }
 
         record NotInGuild() implements TransferLeadership {
@@ -463,7 +482,7 @@ public final class GuildResults {
         record PlayerNotFound() implements TransferLeadership {
         }
 
-        record PlayerNotInGuild() implements TransferLeadership {
+        record PlayerNotInGuild(@NonNull String targetName) implements TransferLeadership {
         }
 
         record CannotTransferToSelf() implements TransferLeadership {
@@ -598,7 +617,7 @@ public final class GuildResults {
                 case GUILD_COLOR_UPDATED -> new Updated();
                 case INVALID_GUILD_COLOR -> new InvalidColor();
                 case NOT_IN_GUILD -> new NotInGuild();
-                case NOT_LEADER -> new NotLeader();
+                case INSUFFICIENT_RANK -> new InsufficientRank();
                 case GUILD_NOT_FOUND -> new GuildNotFound();
                 default -> throw unexpected("update guild color", result);
             };
@@ -609,7 +628,7 @@ public final class GuildResults {
                 case Updated ignored -> GuildResult.GUILD_COLOR_UPDATED;
                 case InvalidColor ignored -> GuildResult.INVALID_GUILD_COLOR;
                 case NotInGuild ignored -> GuildResult.NOT_IN_GUILD;
-                case NotLeader ignored -> GuildResult.NOT_LEADER;
+                case InsufficientRank ignored -> GuildResult.INSUFFICIENT_RANK;
                 case GuildNotFound ignored -> GuildResult.GUILD_NOT_FOUND;
             };
         }
@@ -623,7 +642,7 @@ public final class GuildResults {
         record NotInGuild() implements UpdateColor {
         }
 
-        record NotLeader() implements UpdateColor {
+        record InsufficientRank() implements UpdateColor {
         }
 
         record GuildNotFound() implements UpdateColor {

@@ -34,7 +34,7 @@ public final class GuildServerPostgresStorage implements GuildServerStorage {
     private static final Set<String> REQUIRED_GUILDS_COLUMNS =
             Set.of("guild_id", "guild_name", "guild_tag", "guild_color");
     private static final Set<String> REQUIRED_MEMBERSHIP_COLUMNS =
-            Set.of("guild_id", "player_id");
+            Set.of("guild_id", "player_id", "guild_rank");
 
     private final HikariDataSource dataSource;
     private final DatabaseExecutor databaseExecutor;
