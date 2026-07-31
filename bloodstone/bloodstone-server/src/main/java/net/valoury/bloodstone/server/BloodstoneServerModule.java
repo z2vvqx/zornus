@@ -17,6 +17,7 @@ import net.valoury.bloodstone.server.service.BloodstoneMachineService;
 import net.valoury.bloodstone.server.service.BloodstoneMainThreadExecutor;
 import net.valoury.bloodstone.server.service.BloodstoneMessageService;
 import net.valoury.bloodstone.server.service.BloodstoneMenuService;
+import net.valoury.bloodstone.server.service.BloodstonePlayerNameService;
 import net.valoury.bloodstone.server.service.BloodstonePlayerService;
 import net.valoury.bloodstone.server.service.BloodstonePresentationService;
 import net.valoury.bloodstone.server.service.BloodstoneService;
@@ -164,9 +165,18 @@ public final class BloodstoneServerModule {
                 mainThreadExecutor,
                 plugin.getLogger()
             );
+            LuckPerms luckPerms = plugin.getServer()
+                    .getServicesManager()
+                    .load(LuckPerms.class);
+            BloodstonePlayerNameService playerNameService =
+                    new BloodstonePlayerNameService(
+                            luckPerms,
+                            plugin.getLogger()
+                    );
             this.leaderboardService = new BloodstoneLeaderboardService(
                 storage,
-                guildsApi.memberships()
+                guildsApi.memberships(),
+                playerNameService
             );
             this.guildProfileCache = new BloodstoneGuildProfileCache(
                     guildsApi.memberships(),
@@ -177,9 +187,6 @@ public final class BloodstoneServerModule {
                     mainThreadExecutor
             );
             this.worldGuardRegistrar = new BloodstoneWorldGuardRegistrar(combatService);
-            LuckPerms luckPerms = plugin.getServer()
-                    .getServicesManager()
-                    .load(LuckPerms.class);
             this.commandRegistrar = new BloodstoneCommandRegistrar(
                     plugin,
                     menuService,
@@ -203,7 +210,7 @@ public final class BloodstoneServerModule {
                 guildProfileCache,
                 effectAxePacketRegistrar,
                 messageService,
-                luckPerms
+                playerNameService
             );
             this.operationRegistrar = new BloodstoneOperationRegistrar(
                 plugin,

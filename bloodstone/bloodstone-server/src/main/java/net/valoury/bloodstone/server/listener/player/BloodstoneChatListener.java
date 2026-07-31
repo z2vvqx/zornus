@@ -5,8 +5,8 @@ import net.valoury.bloodstone.server.BloodstoneText;
 import net.valoury.bloodstone.server.model.PlayerProfile;
 import net.valoury.bloodstone.server.service.BloodstoneMainThreadExecutor;
 import net.valoury.bloodstone.server.service.BloodstoneMessageService;
+import net.valoury.bloodstone.server.service.BloodstonePlayerNameService;
 import net.valoury.bloodstone.server.service.BloodstonePlayerService;
-import net.luckperms.api.LuckPerms;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
@@ -16,7 +16,6 @@ import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.player.AsyncPlayerChatEvent;
 import org.jspecify.annotations.NonNull;
-import org.jspecify.annotations.Nullable;
 
 import java.util.Locale;
 
@@ -25,18 +24,18 @@ public final class BloodstoneChatListener implements Listener {
     private final BloodstonePlayerService playerService;
     private final BloodstoneMainThreadExecutor mainThreadExecutor;
     private final BloodstoneMessageService messageService;
-    private final @Nullable LuckPerms luckPerms;
+    private final BloodstonePlayerNameService playerNameService;
 
     public BloodstoneChatListener(
             BloodstonePlayerService playerService,
             BloodstoneMainThreadExecutor mainThreadExecutor,
             BloodstoneMessageService messageService,
-            @Nullable LuckPerms luckPerms
+            BloodstonePlayerNameService playerNameService
     ) {
         this.playerService = playerService;
         this.mainThreadExecutor = mainThreadExecutor;
         this.messageService = messageService;
-        this.luckPerms = luckPerms;
+        this.playerNameService = playerNameService;
     }
 
     @EventHandler(ignoreCancelled = true)
@@ -64,6 +63,8 @@ public final class BloodstoneChatListener implements Listener {
             double ratio = playerService.profile(sender.getUniqueId())
                     .map(PlayerProfile::ratio)
                     .orElse(0.0);
+            Component playerName =
+                    playerNameService.resolveOnlinePlayerName(sender);
             Component formatted = BloodstoneText.deserialize(
                     BloodstoneServerConstants.CHAT_FORMAT,
                     TagResolver.resolver(
@@ -71,10 +72,9 @@ public final class BloodstoneChatListener implements Listener {
                                     "ratio",
                                     String.format(Locale.US, "%.2f", ratio)
                             ),
-                            Placeholder.component("suffix", suffix(sender)),
                             Placeholder.component(
-                                    "player",
-                                    sender.displayName()
+                                    "playername",
+                                    playerName
                             ),
                             Placeholder.unparsed("message", message)
                     )
@@ -87,17 +87,5 @@ public final class BloodstoneChatListener implements Listener {
                 }
             }
         });
-    }
-
-    private Component suffix(Player player) {
-        if (luckPerms == null) {
-            return Component.empty();
-        }
-        String suffix = luckPerms.getPlayerAdapter(Player.class)
-                .getMetaData(player)
-                .getSuffix();
-        return suffix == null
-                ? Component.empty()
-                : BloodstoneText.ampersandComponent(suffix);
     }
 }

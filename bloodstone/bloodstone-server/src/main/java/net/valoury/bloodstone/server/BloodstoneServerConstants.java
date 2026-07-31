@@ -153,10 +153,10 @@ public final class BloodstoneServerConstants {
     // DISPLAY CONSTANTS
     // ========================================
 
-    public static final String CHAT_FORMAT = "<dark_gray>❘</dark_gray> <gray><ratio></gray> <dark_gray>❘</dark_gray> <suffix><player> <dark_gray>»</dark_gray> <white><message></white>";
-    public static final String PLAYER_LEADERBOARD_ENTRY_FORMAT = "<white><player></white><guild> <icon> <gray><value></gray>";
-    public static final String GUILD_LEADERBOARD_ENTRY_FORMAT = "<guild> <icon> <gray><value></gray>";
-    public static final String EMPTY_LEADERBOARD_ENTRY = "<dark_gray><strikethrough>--</strikethrough> <strikethrough>--</strikethrough> <strikethrough>--</strikethrough> <strikethrough>--</strikethrough></dark_gray> <icon> <gray>0</gray>";
+    public static final String CHAT_FORMAT = "<dark_gray>❘</dark_gray> <gray><ratio>➹</gray> <dark_gray>❘</dark_gray> <playername> <dark_gray>»</dark_gray> <white><message></white>";
+    public static final String PLAYER_LEADERBOARD_ENTRY_FORMAT = "<playername><guild> <bold><icon></bold> <gray><value></gray>";
+    public static final String GUILD_LEADERBOARD_ENTRY_FORMAT = "<guild> <bold><icon></bold> <gray><value></gray>";
+    public static final String EMPTY_LEADERBOARD_ENTRY = "<dark_gray><strikethrough>--</strikethrough> <strikethrough>--</strikethrough> <strikethrough>--</strikethrough> <strikethrough>--</strikethrough></dark_gray> <bold><icon></bold> <gray>0</gray>";
 
     // ========================================
     // MENU CONSTANTS

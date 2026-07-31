@@ -19,8 +19,8 @@ final class BloodstoneMiniMessageTest {
             Stream.of(
                             "error",
                             "ratio",
-                            "suffix",
                             "player",
+                            "playername",
                             "message",
                             "amount",
                             "currency",

@@ -17,9 +17,11 @@ import net.valoury.guilds.api.GuildProfile;
 import java.time.Instant;
 import java.util.ArrayList;
 import java.util.EnumMap;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.atomic.AtomicReference;
 
@@ -27,15 +29,18 @@ public final class BloodstoneLeaderboardService {
 
     private final BloodstoneStorage storage;
     private final GuildMembershipService guildMembershipService;
+    private final BloodstonePlayerNameService playerNameService;
     private final AtomicReference<LeaderboardSnapshot> snapshot =
             new AtomicReference<>(LeaderboardSnapshot.empty());
 
     public BloodstoneLeaderboardService(
             BloodstoneStorage storage,
-            GuildMembershipService guildMembershipService
+            GuildMembershipService guildMembershipService,
+            BloodstonePlayerNameService playerNameService
     ) {
         this.storage = storage;
         this.guildMembershipService = guildMembershipService;
+        this.playerNameService = playerNameService;
     }
 
     public CompletableFuture<LeaderboardSnapshot> refresh() {
@@ -97,17 +102,26 @@ public final class BloodstoneLeaderboardService {
             List<GuildLeaderboardEntry> guildCurrent,
             List<GuildLeaderboardEntry> guildBest
     ) {
+        Map<UUID, CompletableFuture<Component>>
+                playerNames = resolvePlayerNames(
+                        playerKills,
+                        playerCurrent,
+                        playerBest
+                );
         CompletableFuture<List<String>> formattedPlayerKills = formatPlayers(
                 LeaderboardBoard.PLAYER_KILLS,
-                playerKills
+                playerKills,
+                playerNames
         );
         CompletableFuture<List<String>> formattedPlayerCurrent = formatPlayers(
                 LeaderboardBoard.PLAYER_CURRENT_RAMPAGE,
-                playerCurrent
+                playerCurrent,
+                playerNames
         );
         CompletableFuture<List<String>> formattedPlayerBest = formatPlayers(
                 LeaderboardBoard.PLAYER_BEST_RAMPAGE,
-                playerBest
+                playerBest,
+                playerNames
         );
         CompletableFuture<List<String>> formattedGuildKills = formatGuilds(
                 LeaderboardBoard.GUILD_KILLS,
@@ -145,16 +159,27 @@ public final class BloodstoneLeaderboardService {
 
     private CompletableFuture<List<String>> formatPlayers(
             LeaderboardBoard board,
-            List<PlayerLeaderboardEntry> entries
+            List<PlayerLeaderboardEntry> entries,
+            Map<UUID, CompletableFuture<Component>> playerNames
     ) {
         List<CompletableFuture<Optional<GuildProfile>>> guildLookups = entries.stream()
                 .map(entry -> guildMembershipService.findGuildByPlayer(entry.playerId()))
                 .toList();
-        return CompletableFuture.allOf(guildLookups.toArray(CompletableFuture[]::new))
+        List<CompletableFuture<?>> pendingLookups =
+                new ArrayList<>(entries.size() * 2);
+        pendingLookups.addAll(guildLookups);
+        for (PlayerLeaderboardEntry entry : entries) {
+            pendingLookups.add(playerNames.get(entry.playerId()));
+        }
+        return CompletableFuture.allOf(
+                        pendingLookups.toArray(CompletableFuture[]::new)
+                )
                 .thenApply(ignored -> {
                     List<String> formatted = new ArrayList<>(entries.size());
                     for (int index = 0; index < entries.size(); index++) {
                         PlayerLeaderboardEntry entry = entries.get(index);
+                        Component playerName =
+                                playerNames.get(entry.playerId()).join();
                         Optional<GuildProfile> guild = guildLookups.get(index).join();
                         Component guildDisplay = guild
                                 .map(BloodstoneGuildText::tagDisplay)
@@ -162,7 +187,7 @@ public final class BloodstoneLeaderboardService {
                         formatted.add(BloodstoneText.legacy(
                                 BloodstoneServerConstants
                                         .PLAYER_LEADERBOARD_ENTRY_FORMAT,
-                                Placeholder.unparsed("player", entry.username()),
+                                Placeholder.component("playername", playerName),
                                 Placeholder.component("guild", guildDisplay),
                                 Placeholder.component("icon", leaderboardIcon(board)),
                                 Placeholder.unparsed(
@@ -173,6 +198,31 @@ public final class BloodstoneLeaderboardService {
                     }
                     return List.copyOf(formatted);
                 });
+    }
+
+    private Map<UUID, CompletableFuture<Component>> resolvePlayerNames(
+            List<PlayerLeaderboardEntry> playerKills,
+            List<PlayerLeaderboardEntry> playerCurrent,
+            List<PlayerLeaderboardEntry> playerBest
+    ) {
+        Map<UUID, CompletableFuture<Component>> playerNames =
+                new HashMap<>();
+        for (List<PlayerLeaderboardEntry> entries : List.of(
+                playerKills,
+                playerCurrent,
+                playerBest
+        )) {
+            for (PlayerLeaderboardEntry entry : entries) {
+                playerNames.computeIfAbsent(
+                        entry.playerId(),
+                        ignored -> playerNameService.resolveStoredPlayerName(
+                                entry.playerId(),
+                                entry.username()
+                        )
+                );
+            }
+        }
+        return Map.copyOf(playerNames);
     }
 
     private CompletableFuture<List<String>> formatGuilds(
@@ -223,7 +273,7 @@ public final class BloodstoneLeaderboardService {
                     Component.text("⚔", NamedTextColor.GREEN);
             case PLAYER_CURRENT_RAMPAGE, PLAYER_BEST_RAMPAGE,
                  GUILD_CURRENT_RAMPAGE, GUILD_BEST_RAMPAGE ->
-                    Component.text("➹", NamedTextColor.GOLD);
+                    Component.text("ᐃ", NamedTextColor.AQUA);
         };
     }
 }

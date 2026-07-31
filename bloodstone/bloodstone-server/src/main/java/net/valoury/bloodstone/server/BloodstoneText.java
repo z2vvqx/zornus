@@ -45,6 +45,10 @@ public final class BloodstoneText {
         return LEGACY_SECTION.serialize(component);
     }
 
+    public static @NonNull String ampersand(@NonNull Component component) {
+        return LEGACY_AMPERSAND.serialize(component);
+    }
+
     public static @NonNull List<Component> deserializeLines(
             @NonNull List<String> templates,
             @NonNull TagResolver... resolvers
