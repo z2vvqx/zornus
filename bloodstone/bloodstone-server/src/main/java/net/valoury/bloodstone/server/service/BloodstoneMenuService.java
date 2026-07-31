@@ -17,7 +17,9 @@ import org.bukkit.inventory.ItemStack;
 import org.bukkit.inventory.meta.ItemMeta;
 
 import java.util.ArrayList;
+import java.util.Comparator;
 import java.util.List;
+import java.util.Objects;
 import java.util.Set;
 
 public final class BloodstoneMenuService {
@@ -295,17 +297,21 @@ public final class BloodstoneMenuService {
         Inventory inventory = createNavigationInventory(
                 BloodstoneServerConstants.EFFECT_AXES_MENU_TITLE
         );
+        BloodstoneRank rank = BloodstoneRank.resolve(player);
+        List<EffectAxeDefinitions.EffectAxeDefinition> definitions =
+                effectAxesByDescendingPrice(rank);
         int[] slots = {10, 11, 12, 14, 15, 16};
-        for (int index = 0; index < EffectAxeDefinitions.values().size(); index++) {
+        for (int index = 0; index < definitions.size(); index++) {
             EffectAxeDefinitions.EffectAxeDefinition definition =
-                    EffectAxeDefinitions.values().get(index);
+                    definitions.get(index);
             ItemStack display = itemService.createEffectAxeMenuDisplay(
                     definition
             );
             appendPriceLore(
                     display,
-                    definition.bloodAlloyCost(),
-                    BloodstoneMessageService.Currency.BLOOD_ALLOY.displayName()
+                    definition.bloodAlloyCost(rank),
+                    BloodstoneMessageService.Currency.BLOOD_ALLOY.displayName(),
+                    List.of(BloodstoneServerConstants.EFFECT_AXE_RANK_PRICE_LORE)
             );
             inventory.setItem(slots[index], display);
         }
@@ -385,17 +391,26 @@ public final class BloodstoneMenuService {
         if (index < 0) {
             return;
         }
-        if (!BloodstoneRank.resolve(player).isPaid()) {
-            reject(player, BloodstoneServerConstants.EFFECT_AXES_ACCESS_REQUIRED);
-            return;
-        }
+        BloodstoneRank rank = BloodstoneRank.resolve(player);
         EffectAxeDefinitions.EffectAxeDefinition definition =
-                EffectAxeDefinitions.values().get(index);
+                effectAxesByDescendingPrice(rank).get(index);
         purchaseForAlloy(
                 player,
                 itemService.createEffectAxe(definition),
-                definition.bloodAlloyCost()
+                definition.bloodAlloyCost(rank)
         );
+    }
+
+    static List<EffectAxeDefinitions.EffectAxeDefinition> effectAxesByDescendingPrice(
+            BloodstoneRank rank
+    ) {
+        Objects.requireNonNull(rank, "Bloodstone rank cannot be null");
+        return EffectAxeDefinitions.values().stream()
+                .sorted(Comparator.comparingInt(
+                        (EffectAxeDefinitions.EffectAxeDefinition definition) ->
+                                definition.bloodAlloyCost(rank)
+                ).reversed())
+                .toList();
     }
 
     private void handlePotionClick(Player player, int slot) {
@@ -496,11 +511,23 @@ public final class BloodstoneMenuService {
     }
 
     private void appendPriceLore(ItemStack item, int price, String currency) {
+        appendPriceLore(item, price, currency, List.of());
+    }
+
+    private void appendPriceLore(
+            ItemStack item,
+            int price,
+            String currency,
+            List<String> priceContextLore
+    ) {
         ItemMeta itemMeta = item.getItemMeta();
         List<Component> lore = itemMeta.hasLore()
                 ? new ArrayList<>(itemMeta.lore())
                 : new ArrayList<>();
         lore.add(Component.empty());
+        priceContextLore.stream()
+                .map(BloodstoneText::deserialize)
+                .forEach(lore::add);
         lore.add(BloodstoneText.deserialize(
                 BloodstoneServerConstants.MENU_PRICE_LORE_FORMAT,
                 Placeholder.unparsed("price", Integer.toString(price)),

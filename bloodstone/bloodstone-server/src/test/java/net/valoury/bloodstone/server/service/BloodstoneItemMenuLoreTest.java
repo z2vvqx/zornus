@@ -2,6 +2,8 @@ package net.valoury.bloodstone.server.service;
 
 import net.valoury.bloodstone.server.BloodstoneText;
 import org.bukkit.potion.Potion;
+import net.valoury.bloodstone.server.EffectAxeDefinitions;
+import net.valoury.bloodstone.server.model.BloodstoneRank;
 import org.bukkit.potion.PotionType;
 import org.junit.jupiter.api.Test;
 
@@ -115,6 +117,27 @@ final class BloodstoneItemMenuLoreTest {
                         BloodstoneItemService.ShopProduct.FIRE_RESISTANCE_POTION
                 )
         );
+    }
+
+    @Test
+    void effectAxesAreOrderedByDescendingRankPriceFromLeftToRight() {
+        List<String> expectedOrder = List.of(
+                "strength",
+                "wither",
+                "poison",
+                "speed",
+                "blindness",
+                "weakness"
+        );
+        for (BloodstoneRank rank : BloodstoneRank.values()) {
+            assertEquals(
+                    expectedOrder,
+                    BloodstoneMenuService.effectAxesByDescendingPrice(rank)
+                            .stream()
+                            .map(EffectAxeDefinitions.EffectAxeDefinition::id)
+                            .toList()
+            );
+        }
     }
 
     private void assertStandardPotion(

@@ -1,5 +1,6 @@
 package net.valoury.bloodstone.server;
 
+import net.valoury.bloodstone.server.model.BloodstoneRank;
 import org.bukkit.Color;
 import org.bukkit.potion.PotionEffect;
 import org.bukkit.potion.PotionEffectType;
@@ -10,16 +11,16 @@ import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Locale;
 import java.util.Map;
+import java.util.Objects;
 import java.util.Optional;
 
 public final class EffectAxeDefinitions {
-
-    private static final int BLOOD_ALLOY_COST = 64;
 
     public static final EffectAxeDefinition SPEED = new EffectAxeDefinition(
             "speed",
             "<dark_aqua>Speed Axe</dark_aqua>",
             "<gray>Speed I (00:08)</gray>",
+            16,
             PotionEffectType.SPEED,
             0,
             Duration.ofSeconds(8),
@@ -30,6 +31,7 @@ public final class EffectAxeDefinitions {
             "strength",
             "<dark_aqua>Strength Axe</dark_aqua>",
             "<gray>Strength II (00:08)</gray>",
+            32,
             PotionEffectType.INCREASE_DAMAGE,
             1,
             Duration.ofSeconds(8),
@@ -40,6 +42,7 @@ public final class EffectAxeDefinitions {
             "wither",
             "<dark_aqua>Wither Axe</dark_aqua>",
             "<gray>Wither III (00:06)</gray>",
+            24,
             PotionEffectType.WITHER,
             2,
             Duration.ofSeconds(6),
@@ -50,6 +53,7 @@ public final class EffectAxeDefinitions {
             "blindness",
             "<dark_aqua>Blindness Axe</dark_aqua>",
             "<gray>Blindness III (00:06)</gray>",
+            16,
             PotionEffectType.BLINDNESS,
             2,
             Duration.ofSeconds(6),
@@ -60,6 +64,7 @@ public final class EffectAxeDefinitions {
             "weakness",
             "<dark_aqua>Weakness Axe</dark_aqua>",
             "<gray>Weakness III (00:06)</gray>",
+            16,
             PotionEffectType.WEAKNESS,
             2,
             Duration.ofSeconds(6),
@@ -70,6 +75,7 @@ public final class EffectAxeDefinitions {
             "poison",
             "<dark_aqua>Poison Axe</dark_aqua>",
             "<gray>Poison III (00:06)</gray>",
+            24,
             PotionEffectType.POISON,
             2,
             Duration.ofSeconds(6),
@@ -118,6 +124,7 @@ public final class EffectAxeDefinitions {
             @NonNull String id,
             @NonNull String displayNameTemplate,
             @NonNull String effectLoreTemplate,
+            int archonBloodAlloyCost,
             @NonNull PotionEffectType effectType,
             int amplifier,
             @NonNull Duration duration,
@@ -132,17 +139,25 @@ public final class EffectAxeDefinitions {
             if (amplifier < 0) {
                 throw new IllegalArgumentException("Effect amplifier cannot be negative");
             }
+            if (archonBloodAlloyCost < 1 || archonBloodAlloyCost % 4 != 0) {
+                throw new IllegalArgumentException(
+                        "Archon Blood Alloy cost must be a positive multiple of four"
+                );
+            }
             if (duration.isZero() || duration.isNegative()) {
                 throw new IllegalArgumentException("Effect duration must be positive");
             }
         }
 
-        public int bloodAlloyCost() {
-            return BLOOD_ALLOY_COST;
-        }
-
-        public boolean requiresPaidRank() {
-            return true;
+        public int bloodAlloyCost(@NonNull BloodstoneRank rank) {
+            Objects.requireNonNull(rank, "Bloodstone rank cannot be null");
+            return switch (rank) {
+                case DEFAULT -> Math.min(64, archonBloodAlloyCost * 5 / 2);
+                case LEGATE -> archonBloodAlloyCost * 2;
+                case JUSTICAR -> archonBloodAlloyCost * 3 / 2;
+                case REGENT -> archonBloodAlloyCost * 5 / 4;
+                case ARCHON -> archonBloodAlloyCost;
+            };
         }
 
         public @NonNull PotionEffect createPotionEffect() {

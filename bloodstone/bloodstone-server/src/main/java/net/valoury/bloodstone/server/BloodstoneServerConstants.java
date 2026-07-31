@@ -85,7 +85,6 @@ public final class BloodstoneServerConstants {
     public static final String BLOOD_ALLOY_EXCHANGE_REFUNDED = "The exchange could not be delivered; your Blood Alloy was restored.";
     public static final String BLOOD_TO_ALLOY_ACTION_BAR_FORMAT = "<red><italic>-<blood> blood</italic></red> <dark_gray>→</dark_gray> <white>+<alloy> blood alloy</white>";
     public static final String ALLOY_TO_BLOOD_ACTION_BAR_FORMAT = "<red><italic>-<alloy> blood alloy</italic></red> <dark_gray>→</dark_gray> <white>+<blood> blood</white>";
-    public static final String EFFECT_AXES_ACCESS_REQUIRED = UNABLE_TO_PROCEED_PREFIX + "no Effect Axes access.";
     public static final String PURCHASE_REFUNDED = "The purchase could not be delivered; your Blood Alloy was restored.";
     public static final String BLOOD_ALLOY_COST_ACTION_BAR_FORMAT = "<red><italic>-<cost> blood alloy</italic></red>";
 
@@ -129,7 +128,7 @@ public final class BloodstoneServerConstants {
     public static final String DOMINATION_LOST_SUBTITLE_FORMAT = "<white><player></white> <gray>earned revenge</gray>";
     public static final String REVENGE_TITLE = "<gold><bold>REVENGE</bold></gold>";
     public static final String REVENGE_SUBTITLE_FORMAT = "<gray>You ended <white><dominator></white>'s domination</gray>";
-
+    public static final String EFFECT_AXE_RANK_PRICE_LORE = " <gray>Higher ranks further reduce the price.</gray>";
     // Storage and Player Lifecycle
     public static final String STORAGE_SHUTTING_DOWN = "Bloodstone storage is shutting down.";
     public static final String STORAGE_LOCKED = "This storage is locked.";

@@ -61,12 +61,45 @@ final class BloodstoneCatalogTest {
     }
 
     @Test
-    void effectAxesKeepCostsDurabilityAndEffects() {
+    void effectAxesKeepRankedCostsDurabilityAndEffects() {
         assertEquals(6, EffectAxeDefinitions.values().size());
-        assertTrue(EffectAxeDefinitions.values().stream()
-                .allMatch(definition -> definition.bloodAlloyCost() == 64));
-        assertTrue(EffectAxeDefinitions.values().stream()
-                .allMatch(EffectAxeDefinitions.EffectAxeDefinition::requiresPaidRank));
+        Map<String, Integer> archonPrices = Map.of(
+                "speed", 16,
+                "strength", 32,
+                "wither", 24,
+                "blindness", 16,
+                "weakness", 16,
+                "poison", 24
+        );
+        for (EffectAxeDefinitions.EffectAxeDefinition definition
+                : EffectAxeDefinitions.values()) {
+            int archonPrice = archonPrices.get(definition.id());
+            assertEquals(
+                    archonPrice,
+                    definition.bloodAlloyCost(BloodstoneRank.ARCHON)
+            );
+            assertEquals(
+                    archonPrice * 5 / 4,
+                    definition.bloodAlloyCost(BloodstoneRank.REGENT)
+            );
+            assertEquals(
+                    archonPrice * 3 / 2,
+                    definition.bloodAlloyCost(BloodstoneRank.JUSTICAR)
+            );
+            assertEquals(
+                    archonPrice * 2,
+                    definition.bloodAlloyCost(BloodstoneRank.LEGATE)
+            );
+            assertEquals(
+                    Math.min(64, archonPrice * 5 / 2),
+                    definition.bloodAlloyCost(BloodstoneRank.DEFAULT)
+            );
+            assertTrue(
+                    definition.bloodAlloyCost(BloodstoneRank.DEFAULT)
+                            >= definition.bloodAlloyCost(BloodstoneRank.LEGATE)
+            );
+            assertTrue(definition.bloodAlloyCost(BloodstoneRank.DEFAULT) <= 64);
+        }
 
         assertEquals(Duration.ofSeconds(8), EffectAxeDefinitions.SPEED.duration());
         assertEquals(0, EffectAxeDefinitions.SPEED.amplifier());
