@@ -15,7 +15,6 @@ import net.valoury.friends.proxy.service.FriendService;
 import net.valoury.shared.SharedConstants;
 import net.valoury.shared.model.PlayerRecord;
 import net.valoury.shared.utilities.StringUtils;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.jspecify.annotations.NonNull;
@@ -106,7 +105,11 @@ public final class FriendAddCommand {
                                     case SendFriendRequestResult.ReceiverRequestLimitReached ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_RECEIVER_REQUEST_LIMIT_REACHED, Placeholder.unparsed("target", targetUsername)));
                                     case SendFriendRequestResult.CooldownActive ignored ->
-                                            handleCooldownMessage(sender, targetUuid, targetUsername, friendService);
+                                            sender.sendMessage(StringUtils.deserialize(
+                                                    FriendProxyConstants.ERROR_REQUEST_COOLDOWN,
+                                                    TagResolver.resolver(
+                                                            Placeholder.unparsed("target", targetUsername),
+                                                            Placeholder.unparsed("time_remaining", "a moment"))));
                                     case SendFriendRequestResult.ReceiverNotAcceptingRequests ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_PLAYER_NOT_ACCEPTING_REQUESTS, Placeholder.unparsed("target", targetUsername)));
                                     case SendFriendRequestResult.Sent ignored ->
@@ -125,23 +128,5 @@ public final class FriendAddCommand {
                 });
 
         return Command.SINGLE_SUCCESS;
-    }
-
-    private static void handleCooldownMessage(Player sender, UUID targetUuid, String targetName, FriendService friendService) {
-        friendService.getRemainingRequestCooldown(sender.getUniqueId(), targetUuid)
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to get request cooldown for {} to {}", sender.getUniqueId(), targetUuid, throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return null;
-                })
-                .thenAccept(remainingTime -> {
-                    if (remainingTime == null) return;
-                    Component timeComponent = StringUtils.formatDuration(remainingTime);
-                    TagResolver combinedResolver = TagResolver.resolver(
-                            Placeholder.unparsed("target", targetName),
-                            Placeholder.component("time_remaining", timeComponent)
-                    );
-                    sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_REQUEST_COOLDOWN, combinedResolver));
-                });
     }
 }

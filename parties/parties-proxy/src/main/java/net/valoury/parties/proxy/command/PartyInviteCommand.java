@@ -9,7 +9,6 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
-import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.valoury.parties.proxy.PartyProxyConstants;
@@ -93,7 +92,11 @@ public final class PartyInviteCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.INVITE_ERROR_PARTY_FULL,
                                         Placeholder.unparsed("maximum_size", String.valueOf(PartyProxyConstants.MAX_PARTY_SIZE))));
                         case INVITATION_COOLDOWN_ACTIVE ->
-                                handleCooldownMessage(sender, target, targetName, partyService);
+                                sender.sendMessage(StringUtils.deserialize(
+                                        PartyProxyConstants.ERROR_INVITATION_COOLDOWN,
+                                        TagResolver.resolver(
+                                                Placeholder.unparsed("target", targetUsername),
+                                                Placeholder.unparsed("time_remaining", "a moment"))));
                         case SENDER_INVITATION_LIMIT_REACHED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_SENDER_INVITATION_LIMIT_REACHED));
                         case RECEIVER_INVITATION_LIMIT_REACHED ->
@@ -122,23 +125,5 @@ public final class PartyInviteCommand {
                 });
 
         return Command.SINGLE_SUCCESS;
-    }
-
-    private static void handleCooldownMessage(Player sender, Player target, String targetName, PartyService partyService) {
-        partyService.getRemainingInvitationCooldown(sender.getUniqueId(), target.getUniqueId())
-                .exceptionally(throwable -> {
-                    LOGGER.error("Failed to get invitation cooldown for {} to {}", sender.getUniqueId(), target.getUniqueId(), throwable);
-                    sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
-                    return null;
-                })
-                .thenAccept(remainingTime -> {
-                    if (remainingTime == null) return;
-                    Component timeComponent = StringUtils.formatDuration(remainingTime);
-                    TagResolver combinedResolver = TagResolver.resolver(
-                            Placeholder.unparsed("target", targetName),
-                            Placeholder.component("time_remaining", timeComponent)
-                    );
-                    sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_INVITATION_COOLDOWN, combinedResolver));
-                });
     }
 }
