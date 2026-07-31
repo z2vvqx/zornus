@@ -2,9 +2,11 @@ package net.valoury.bloodstone.server.service;
 
 import net.valoury.bloodstone.server.BloodstoneServerConstants;
 import net.valoury.bloodstone.server.BloodstoneText;
+import net.valoury.bloodstone.server.model.AxeFuserOperation;
 import net.valoury.bloodstone.server.model.EnchanterOperation;
 import net.valoury.bloodstone.server.model.PlayerProfile;
 import net.valoury.bloodstone.server.model.RandomBoxOperation;
+import net.valoury.bloodstone.server.model.RecoverableOperationState;
 import net.valoury.bloodstone.server.model.RepairOperation;
 import net.valoury.bloodstone.server.model.SoulboundRecovery;
 import net.valoury.bloodstone.server.storage.BloodstoneStorage;
@@ -71,8 +73,14 @@ public final class BloodstonePlayerService {
                     }
                     profiles.put(playerId, playerData.profile());
                     return recoverPendingItems(player, generation)
-                            .thenRunAsync(
-                                    () -> removeAllOperationMarkers(player),
+                            .thenCompose(ignored ->
+                                    storage.fetchAxeFuserRecoveries(playerId))
+                            .thenAcceptAsync(
+                                    pendingAxeFuserOperations ->
+                                            removeOrphanedOperationMarkers(
+                                                    player,
+                                                    pendingAxeFuserOperations
+                                            ),
                                     mainThreadExecutor
                             );
                 }, mainThreadExecutor)
@@ -112,6 +120,22 @@ public final class BloodstonePlayerService {
                         generation,
                         recoveries.stream()
                                 .filter(recovery -> recovery.operationId().equals(operationId))
+                                .toList()
+                ), mainThreadExecutor);
+    }
+
+    public CompletableFuture<Void> recoverAxeFuserOperation(
+            Player player,
+            UUID operationId
+    ) {
+        UUID generation = currentGeneration(player);
+        return storage.fetchAxeFuserRecoveries(player.getUniqueId())
+                .thenComposeAsync(recoveries -> recoverAxeFuserItems(
+                        player,
+                        generation,
+                        recoveries.stream()
+                                .filter(recovery ->
+                                        recovery.operationId().equals(operationId))
                                 .toList()
                 ), mainThreadExecutor);
     }
@@ -261,6 +285,10 @@ public final class BloodstonePlayerService {
                 .thenCompose(ignored -> storage.fetchRepairRecoveries(playerId))
                 .thenComposeAsync(recoveries ->
                                 recoverRepairItems(player, generation, recoveries),
+                        mainThreadExecutor)
+                .thenCompose(ignored -> storage.fetchAxeFuserRecoveries(playerId))
+                .thenComposeAsync(recoveries ->
+                                recoverAxeFuserItems(player, generation, recoveries),
                         mainThreadExecutor);
     }
 
@@ -350,6 +378,175 @@ public final class BloodstonePlayerService {
         return recoveryChain;
     }
 
+    private CompletableFuture<Void> recoverAxeFuserItems(
+            Player player,
+            UUID generation,
+            List<AxeFuserOperation> recoveries
+    ) {
+        CompletableFuture<Void> recoveryChain =
+                CompletableFuture.completedFuture(null);
+        for (AxeFuserOperation recovery : recoveries) {
+            recoveryChain = recoveryChain.thenCompose(ignored -> {
+                if (!isCurrent(player, generation)) {
+                    return CompletableFuture.completedFuture(null);
+                }
+                if (recovery.state() == RecoverableOperationState.READY) {
+                    return deserializeAndDeliver(
+                            player,
+                            recovery.operationId(),
+                            recovery.fusedAxePayload(),
+                            true,
+                            () -> storage.completeAxeFuserOperation(
+                                    recovery.operationId(),
+                                    recovery.playerId()
+                            )
+                    );
+                }
+                return deserializeAndDeliverAxeFuserReservation(
+                        player,
+                        recovery
+                );
+            });
+        }
+        return recoveryChain;
+    }
+
+    private CompletableFuture<Void> deserializeAndDeliverAxeFuserReservation(
+            Player player,
+            AxeFuserOperation recovery
+    ) {
+        ItemStack[] originalAxes;
+        try {
+            originalAxes = BukkitItemSerialization.deserializeContents(
+                    recovery.originalAxesPayload()
+            );
+        } catch (IOException exception) {
+            return CompletableFuture.failedFuture(exception);
+        }
+        if (originalAxes.length != 2
+                || originalAxes[0] == null
+                || originalAxes[1] == null) {
+            return CompletableFuture.failedFuture(new IOException(
+                    "Axe Fuser recovery did not contain exactly two axes"
+            ));
+        }
+        List<ItemStack> reservedItems = new ArrayList<>(List.of(originalAxes));
+        reservedItems.add(
+                itemService.createBloodAlloy(recovery.bloodAlloyCost())
+        );
+        return deliverReservedAxeFuserItems(
+                player,
+                recovery.operationId(),
+                List.copyOf(reservedItems),
+                () -> storage.completeAxeFuserOperation(
+                        recovery.operationId(),
+                        recovery.playerId()
+                )
+        ).thenApply(ignored -> null);
+    }
+
+    private CompletableFuture<DeliveryOutcome> deliverReservedAxeFuserItems(
+            Player player,
+            UUID operationId,
+            List<ItemStack> reservedItems,
+            Supplier<CompletableFuture<Boolean>> completion
+    ) {
+        UUID generation = connectionGenerations.get(player.getUniqueId());
+        if (generation == null) {
+            return CompletableFuture.completedFuture(
+                    DeliveryOutcome.PLAYER_OFFLINE
+            );
+        }
+        return CompletableFuture.supplyAsync(() -> {
+            if (!isCurrent(player, generation)) {
+                return false;
+            }
+            int missingItems = 0;
+            for (int itemIndex = 0;
+                 itemIndex < reservedItems.size();
+                 itemIndex++) {
+                UUID marker = AxeFuserOperation.reservedItemMarker(
+                        operationId,
+                        itemIndex
+                );
+                if (!hasOperationItem(player, marker)) {
+                    missingItems++;
+                }
+            }
+            if (emptyInventorySlots(player) < missingItems) {
+                messageService.sendUnable(
+                        player,
+                        BloodstoneServerConstants
+                                .RESERVED_ITEM_INVENTORY_SPACE_REQUIRED
+                );
+                return false;
+            }
+            for (int itemIndex = 0;
+                 itemIndex < reservedItems.size();
+                 itemIndex++) {
+                UUID marker = AxeFuserOperation.reservedItemMarker(
+                        operationId,
+                        itemIndex
+                );
+                if (!hasOperationItem(player, marker)) {
+                    ItemStack recoverableItem = itemService.withOperationId(
+                            reservedItems.get(itemIndex),
+                            marker
+                    );
+                    if (!player.getInventory()
+                            .addItem(recoverableItem)
+                            .isEmpty()) {
+                        throw new IllegalStateException(
+                                "Reserved Axe Fuser item did not fit after "
+                                        + "capacity validation"
+                        );
+                    }
+                }
+            }
+            return true;
+        }, mainThreadExecutor).thenCompose(delivered -> {
+            if (!delivered) {
+                return CompletableFuture.completedFuture(
+                        isCurrent(player, generation)
+                                ? DeliveryOutcome.INVENTORY_FULL
+                                : DeliveryOutcome.PLAYER_OFFLINE
+                );
+            }
+            return completion.get().thenApplyAsync(completed -> {
+                if (!completed) {
+                    throw new IllegalStateException(
+                            "Reserved Axe Fuser input completion was rejected "
+                                    + "for operation " + operationId
+                    );
+                }
+                if (isCurrent(player, generation)) {
+                    for (int itemIndex = 0;
+                         itemIndex < reservedItems.size();
+                         itemIndex++) {
+                        removeOperationMarker(
+                                player,
+                                AxeFuserOperation.reservedItemMarker(
+                                        operationId,
+                                        itemIndex
+                                )
+                        );
+                    }
+                }
+                return DeliveryOutcome.DELIVERED;
+            }, mainThreadExecutor);
+        });
+    }
+
+    private int emptyInventorySlots(Player player) {
+        int emptySlots = 0;
+        for (ItemStack item : player.getInventory().getContents()) {
+            if (item == null || item.getType() == Material.AIR) {
+                emptySlots++;
+            }
+        }
+        return emptySlots;
+    }
+
     private CompletableFuture<Void> deserializeAndDeliver(
             Player player,
             UUID operationId,
@@ -401,12 +598,31 @@ public final class BloodstonePlayerService {
         }
     }
 
-    private void removeAllOperationMarkers(Player player) {
+    private void removeOrphanedOperationMarkers(
+            Player player,
+            List<AxeFuserOperation> pendingAxeFuserOperations
+    ) {
+        Set<UUID> protectedMarkers = new java.util.HashSet<>();
+        for (AxeFuserOperation operation : pendingAxeFuserOperations) {
+            protectedMarkers.add(operation.operationId());
+            for (int itemIndex = 0;
+                 itemIndex < AxeFuserOperation.RESERVED_ITEM_COUNT;
+                 itemIndex++) {
+                protectedMarkers.add(
+                        AxeFuserOperation.reservedItemMarker(
+                                operation.operationId(),
+                                itemIndex
+                        )
+                );
+            }
+        }
         for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
             ItemStack item = player.getInventory().getItem(slot);
+            Optional<UUID> marker = itemService.operationId(item);
             if (item != null
                     && item.getType() != Material.AIR
-                    && itemService.operationId(item).isPresent()) {
+                    && marker.isPresent()
+                    && !protectedMarkers.contains(marker.get())) {
                 player.getInventory().setItem(slot, itemService.withoutOperationId(item));
             }
         }

@@ -2,8 +2,10 @@ package net.valoury.bloodstone.server.service;
 
 import net.kyori.adventure.text.Component;
 import net.valoury.bloodstone.server.BloodstoneText;
+import net.valoury.bloodstone.server.CombinedEffectAxeDefinitions;
 import net.valoury.bloodstone.server.EffectAxeDefinitions;
 import net.valoury.bloodstone.server.EffectAxeDefinitions.EffectAxeDefinition;
+import net.valoury.bloodstone.server.EffectAxeItemDefinition;
 import org.bukkit.Bukkit;
 import org.bukkit.Material;
 import org.bukkit.enchantments.Enchantment;
@@ -95,6 +97,29 @@ public final class BloodstoneItemService {
                 Classification.SOULBOUND.lore())) {
             throw new IllegalStateException(
                     "Effect Axe id or presentation did not survive Carbon item conversion"
+            );
+        }
+        ItemStack selectedFuserDisplay = createEffectAxeFuserDisplay(
+                speedAxeDefinition,
+                true
+        );
+        ItemStack unselectedFuserDisplay = createEffectAxeFuserDisplay(
+                speedAxeDefinition,
+                false
+        );
+        Component unbreakingLore = BloodstoneText.deserialize(
+                EFFECT_AXE_MENU_LORE.getFirst()
+        );
+        if (selectedFuserDisplay.getEnchantmentLevel(Enchantment.DURABILITY)
+                != EFFECT_AXE_UNBREAKING_LEVEL
+                || unselectedFuserDisplay.getEnchantmentLevel(
+                Enchantment.DURABILITY) != 0
+                || !selectedFuserDisplay.getItemMeta().lore()
+                .contains(unbreakingLore)
+                || !unselectedFuserDisplay.getItemMeta().lore()
+                .contains(unbreakingLore)) {
+            throw new IllegalStateException(
+                    "Axe Fuser selection glint or Unbreaking lore is invalid"
             );
         }
 
@@ -269,16 +294,20 @@ public final class BloodstoneItemService {
         return hasInternalId(item, ARTIFICIAL_LAPIS_ID);
     }
 
-    public @NonNull ItemStack createEffectAxe(@NonNull EffectAxeDefinition definition) {
+    public @NonNull ItemStack createEffectAxe(
+            @NonNull EffectAxeItemDefinition definition
+    ) {
         ItemStack axe = new ItemStack(Material.DIAMOND_AXE);
         ItemMeta itemMeta = axe.getItemMeta();
         itemMeta.displayName(BloodstoneText.deserialize(
                 definition.displayNameTemplate()
         ));
-        itemMeta.lore(List.of(
-                BloodstoneText.deserialize(definition.effectLoreTemplate()),
-                Classification.SOULBOUND.lore()
-        ));
+        List<Component> lore = new ArrayList<>();
+        for (EffectAxeDefinition effect : definition.effects()) {
+            lore.add(BloodstoneText.deserialize(effect.effectLoreTemplate()));
+        }
+        lore.add(Classification.SOULBOUND.lore());
+        itemMeta.lore(List.copyOf(lore));
         axe.setItemMeta(itemMeta);
         axe.addUnsafeEnchantment(
                 Enchantment.DURABILITY,
@@ -287,10 +316,30 @@ public final class BloodstoneItemService {
         return itemTags.withString(axe, INTERNAL_ITEM_ID_KEY, EFFECT_AXE_ID_PREFIX + definition.id());
     }
 
-    public @NonNull Optional<EffectAxeDefinition> effectAxeDefinition(ItemStack item) {
+    public @NonNull Optional<EffectAxeItemDefinition> effectAxeDefinition(ItemStack item) {
         return internalItemId(item)
                 .filter(itemId -> itemId.startsWith(EFFECT_AXE_ID_PREFIX))
-                .flatMap(itemId -> EffectAxeDefinitions.find(itemId.substring(EFFECT_AXE_ID_PREFIX.length())));
+                .flatMap(itemId -> {
+                    String definitionId =
+                            itemId.substring(EFFECT_AXE_ID_PREFIX.length());
+                    Optional<EffectAxeDefinition> baseDefinition =
+                            EffectAxeDefinitions.find(definitionId);
+                    if (baseDefinition.isPresent()) {
+                        return baseDefinition.map(
+                                EffectAxeItemDefinition.class::cast
+                        );
+                    }
+                    return CombinedEffectAxeDefinitions.find(definitionId)
+                            .map(EffectAxeItemDefinition.class::cast);
+                });
+    }
+
+    public @NonNull Optional<EffectAxeDefinition> baseEffectAxeDefinition(
+            ItemStack item
+    ) {
+        return effectAxeDefinition(item)
+                .filter(EffectAxeDefinition.class::isInstance)
+                .map(EffectAxeDefinition.class::cast);
     }
 
     public boolean isEffectAxe(ItemStack item) {
@@ -466,6 +515,32 @@ public final class BloodstoneItemService {
     ) {
         return prepareForMenuDisplay(
                 createEffectAxe(definition),
+                EFFECT_AXE_MENU_LORE
+        );
+    }
+
+    public @NonNull ItemStack createEffectAxeFuserDisplay(
+            @NonNull EffectAxeDefinition definition,
+            boolean selected
+    ) {
+        ItemStack display = prepareForMenuDisplay(
+                createEffectAxe(definition),
+                EFFECT_AXE_MENU_LORE
+        );
+        if (!selected) {
+            display.removeEnchantment(Enchantment.DURABILITY);
+        }
+        return display;
+    }
+
+    public @NonNull ItemStack createCombinedEffectAxeMenuDisplay(
+            @NonNull EffectAxeItemDefinition definition,
+            int remainingUses
+    ) {
+        ItemStack result = createEffectAxe(definition);
+        setRemainingUses(result, remainingUses);
+        return prepareForMenuDisplay(
+                result,
                 EFFECT_AXE_MENU_LORE
         );
     }

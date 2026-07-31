@@ -1,9 +1,10 @@
 package net.valoury.bloodstone.server.service;
 
+import net.valoury.bloodstone.server.BloodstoneServerConstants;
 import net.valoury.bloodstone.server.BloodstoneText;
-import org.bukkit.potion.Potion;
 import net.valoury.bloodstone.server.EffectAxeDefinitions;
 import net.valoury.bloodstone.server.model.BloodstoneRank;
+import org.bukkit.potion.Potion;
 import org.bukkit.potion.PotionType;
 import org.junit.jupiter.api.Test;
 
@@ -11,6 +12,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class BloodstoneItemMenuLoreTest {
 
@@ -137,6 +139,59 @@ final class BloodstoneItemMenuLoreTest {
                             .map(EffectAxeDefinitions.EffectAxeDefinition::id)
                             .toList()
             );
+        }
+    }
+
+    @Test
+    void axeFuserUsesEnchanterLoreStyling() {
+        assertEquals(16, BloodstoneAxeFuserService.FUSION_BLOOD_ALLOY_COST);
+        assertEquals(
+                "<dark_purple>Fuse Axes</dark_purple>",
+                BloodstoneServerConstants.AXE_FUSER_FUSE_ITEM.nameTemplate()
+        );
+        assertEquals(
+                List.of(
+                        "",
+                        " <gray>Fuse the two selected effect axes.</gray>",
+                        "",
+                        " <gray>Price: <dark_red><bold><price>⛃</bold> blood alloy</dark_red></gray>",
+                        "",
+                        "<green>➟ Click to fuse these axes!</green>"
+                ),
+                BloodstoneServerConstants.AXE_FUSER_FUSE_ITEM.loreTemplates()
+        );
+        assertEquals(
+                List.of(
+                        "",
+                        " <gray>Select this effect axe for fusion.</gray>",
+                        "",
+                        "<green>➟ Click to select this axe!</green>"
+                ),
+                BloodstoneServerConstants.AXE_FUSER_UNSELECTED_AXE_LORE
+        );
+        assertEquals(
+                List.of(
+                        "",
+                        " <gray>This effect axe is selected for fusion.</gray>",
+                        "",
+                        "<red>➟ Click to deselect this axe!</red>"
+                ),
+                BloodstoneServerConstants.AXE_FUSER_SELECTED_AXE_LORE
+        );
+    }
+
+    @Test
+    void axeFuserAccessIsExclusiveToArchons() {
+        assertTrue(BloodstoneAxeFuserService.hasAxeFuserAccess(
+                BloodstoneRank.ARCHON
+        ));
+        for (BloodstoneRank rank : BloodstoneRank.values()) {
+            if (rank != BloodstoneRank.ARCHON) {
+                assertFalse(
+                        BloodstoneAxeFuserService.hasAxeFuserAccess(rank),
+                        rank + " unexpectedly has Axe Fuser access"
+                );
+            }
         }
     }
 

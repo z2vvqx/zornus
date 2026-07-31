@@ -93,6 +93,13 @@ final class BloodstoneMiniMessageTest {
                     definition.effectLoreTemplate()
             );
         }
+        for (CombinedEffectAxeDefinitions.CombinedEffectAxeDefinition definition
+                : CombinedEffectAxeDefinitions.values()) {
+            assertTemplate(
+                    definition.id() + ".name",
+                    definition.displayNameTemplate()
+            );
+        }
     }
 
     @Test
@@ -107,7 +114,8 @@ final class BloodstoneMiniMessageTest {
                 BloodstoneServerConstants.TRASH_MENU_TITLE,
                 BloodstoneServerConstants.STORAGE_MENU_TITLE,
                 BloodstoneServerConstants.ENCHANTER_MENU_TITLE,
-                BloodstoneServerConstants.DISENCHANTER_MENU_TITLE
+                BloodstoneServerConstants.DISENCHANTER_MENU_TITLE,
+                BloodstoneServerConstants.AXE_FUSER_MENU_TITLE
         )) {
             var title = BloodstoneText.deserialize(titleTemplate);
             assertEquals(

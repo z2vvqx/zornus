@@ -66,6 +66,7 @@ public final class BloodstoneMachineService {
     private final BloodstoneMenuService menuService;
     private final BloodstoneStorageService storageService;
     private final BloodstoneEnchanterService enchanterService;
+    private final BloodstoneAxeFuserService axeFuserService;
     private final BloodstonePlayerService playerService;
     private final BloodstonePresentationService presentationService;
     private final BloodstoneMainThreadExecutor mainThreadExecutor;
@@ -88,6 +89,7 @@ public final class BloodstoneMachineService {
             BloodstoneMenuService menuService,
             BloodstoneStorageService storageService,
             BloodstoneEnchanterService enchanterService,
+            BloodstoneAxeFuserService axeFuserService,
             BloodstonePlayerService playerService,
             BloodstonePresentationService presentationService,
             BloodstoneMainThreadExecutor mainThreadExecutor,
@@ -101,6 +103,7 @@ public final class BloodstoneMachineService {
         this.menuService = menuService;
         this.storageService = storageService;
         this.enchanterService = enchanterService;
+        this.axeFuserService = axeFuserService;
         this.playerService = playerService;
         this.presentationService = presentationService;
         this.mainThreadExecutor = mainThreadExecutor;
@@ -143,6 +146,10 @@ public final class BloodstoneMachineService {
         } else if (material == Material.ANVIL && event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             event.setCancelled(true);
             beginRepair(player, block);
+        } else if (material == Material.FURNACE
+                && event.getAction() == Action.RIGHT_CLICK_BLOCK) {
+            event.setCancelled(true);
+            axeFuserService.open(player, block);
         } else if (isPistonHead(material) && event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             event.setCancelled(true);
             beginRandomBox(player, block);

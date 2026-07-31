@@ -7,6 +7,7 @@ import net.valoury.bloodstone.server.registrar.BloodstonePlaceholderRegistrar;
 import net.valoury.bloodstone.server.registrar.BloodstoneEffectAxePacketRegistrar;
 import net.valoury.bloodstone.server.registrar.BloodstoneWorldGuardRegistrar;
 import net.valoury.bloodstone.server.service.BloodstoneCombatService;
+import net.valoury.bloodstone.server.service.BloodstoneAxeFuserService;
 import net.valoury.bloodstone.server.service.BloodstoneDuelService;
 import net.valoury.bloodstone.server.service.BloodstoneEnchanterService;
 import net.valoury.bloodstone.server.service.BloodstoneItemService;
@@ -48,6 +49,7 @@ public final class BloodstoneServerModule {
     private final BloodstoneService bloodstoneService;
     private final BloodstoneStorageService storageService;
     private final BloodstoneEnchanterService enchanterService;
+    private final BloodstoneAxeFuserService axeFuserService;
     private final BloodstoneMachineService machineService;
     private final BloodstoneLeaderboardService leaderboardService;
     private final BloodstoneCommandRegistrar commandRegistrar;
@@ -129,6 +131,17 @@ public final class BloodstoneServerModule {
                 messageService,
                 plugin.getLogger()
             );
+            this.axeFuserService = new BloodstoneAxeFuserService(
+                    plugin,
+                    storage,
+                    itemService,
+                    combatService,
+                    playerService,
+                    mainThreadExecutor,
+                    presentationService,
+                    messageService,
+                    plugin.getLogger()
+            );
             this.machineService = new BloodstoneMachineService(
                 plugin,
                 storage,
@@ -137,6 +150,7 @@ public final class BloodstoneServerModule {
                 menuService,
                 storageService,
                 enchanterService,
+                axeFuserService,
                 playerService,
                 presentationService,
                 mainThreadExecutor,
@@ -183,6 +197,7 @@ public final class BloodstoneServerModule {
                 storageService,
                 menuService,
                 enchanterService,
+                axeFuserService,
                 machineService,
                 mainThreadExecutor,
                 guildProfileCache,
@@ -250,6 +265,7 @@ public final class BloodstoneServerModule {
         }
         machineService.shutdown();
         enchanterService.shutdown();
+        axeFuserService.shutdown();
         duelService.shutdown();
         plugin.getServer().getScheduler().cancelTasks(plugin);
         combatService.shutdown();

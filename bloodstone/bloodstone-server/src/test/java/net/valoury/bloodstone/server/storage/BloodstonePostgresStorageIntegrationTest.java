@@ -1,6 +1,7 @@
 package net.valoury.bloodstone.server.storage;
 
 import net.valoury.bloodstone.server.model.CombatResolution;
+import net.valoury.bloodstone.server.model.AxeFuserOperation;
 import net.valoury.bloodstone.server.model.EnchanterOperation;
 import net.valoury.bloodstone.server.model.LeaderboardMetric;
 import net.valoury.bloodstone.server.model.PlayerProfile;
@@ -26,12 +27,14 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.Set;
 import java.util.UUID;
+import java.util.concurrent.CompletionException;
 
 import static org.junit.jupiter.api.Assertions.assertArrayEquals;
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertInstanceOf;
 import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 @EnabledIf("integrationTestsEnabled")
 @TestInstance(TestInstance.Lifecycle.PER_CLASS)
@@ -79,6 +82,10 @@ final class BloodstonePostgresStorageIntegrationTest {
             assertTrue(tableExists(statement, "bloodstone_players"));
             assertTrue(tableExists(statement, "bloodstone_storage_contents"));
             assertTrue(tableExists(statement, "bloodstone_combat_events"));
+            assertTrue(tableExists(
+                    statement,
+                    "bloodstone_axe_fuser_operations"
+            ));
             assertFalse(tableExists(statement, "bloodstone_player_inventories"));
             try (ResultSet resultSet = statement.executeQuery("""
                     SELECT COUNT(*)
@@ -259,6 +266,48 @@ final class BloodstonePostgresStorageIntegrationTest {
                 .orElseThrow();
         assertArrayEquals(new byte[]{5}, readyRepair.recoveryPayload());
         assertTrue(storage.completeRepairOperation(repairId, KILLER_ID).join());
+
+        UUID axeFuserId = UUID.randomUUID();
+        AxeFuserReserveOutcome.Reserved axeFuser = assertInstanceOf(
+                AxeFuserReserveOutcome.Reserved.class,
+                storage.reserveAxeFuserOperation(
+                        axeFuserId,
+                        KILLER_ID,
+                        new byte[]{6},
+                        16,
+                        BASE_TIME
+                ).join()
+        );
+        assertEquals(
+                RecoverableOperationState.RESERVED,
+                axeFuser.operation().state()
+        );
+        assertEquals(16, axeFuser.operation().bloodAlloyCost());
+        assertTrue(storage.markAxeFuserOperationReady(
+                axeFuserId,
+                KILLER_ID,
+                new byte[]{7}
+        ).join());
+        AxeFuserOperation readyAxeFuser =
+                storage.fetchAxeFuserRecoveries(KILLER_ID)
+                        .join()
+                        .stream()
+                        .filter(operation ->
+                                operation.operationId().equals(axeFuserId))
+                        .findFirst()
+                        .orElseThrow();
+        assertEquals(
+                RecoverableOperationState.READY,
+                readyAxeFuser.state()
+        );
+        assertArrayEquals(
+                new byte[]{7},
+                readyAxeFuser.fusedAxePayload()
+        );
+        assertTrue(storage.completeAxeFuserOperation(
+                axeFuserId,
+                KILLER_ID
+        ).join());
     }
 
     @Test
@@ -367,7 +416,10 @@ final class BloodstonePostgresStorageIntegrationTest {
         BloodstonePostgresStorage gatedStorage =
                 new BloodstonePostgresStorage(gateJdbcUrl, gateUsername, gatePassword);
         try {
-            gatedStorage.initialize().join();
+            assertThrows(
+                    CompletionException.class,
+                    () -> gatedStorage.initialize().join()
+            );
         } finally {
             gatedStorage.close();
         }

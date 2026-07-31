@@ -49,10 +49,27 @@ public final class BloodstonePresentationService {
     }
 
     public void playEffectAxeParticles(Player effectRecipient, Color color) {
+        playEffectAxeParticles(
+                effectRecipient,
+                color,
+                EFFECT_AXE_PARTICLE_COUNT
+        );
+    }
+
+    public void playEffectAxeParticles(
+            Player effectRecipient,
+            Color color,
+            int particleCount
+    ) {
+        if (particleCount < 1) {
+            throw new IllegalArgumentException(
+                    "Effect Axe particle count must be positive"
+            );
+        }
         Location origin = effectRecipient.getLocation();
         ThreadLocalRandom random = ThreadLocalRandom.current();
         for (int particleIndex = 0;
-             particleIndex < EFFECT_AXE_PARTICLE_COUNT;
+             particleIndex < particleCount;
              particleIndex++) {
             WrapperPlayServerParticle particlePacket =
                     createEffectAxeParticlePacket(
@@ -75,6 +92,15 @@ public final class BloodstonePresentationService {
                         .sendPacket(viewer, particlePacket);
             }
         }
+    }
+
+    static int effectAxeParticleCount(int effectCount) {
+        if (effectCount < 1 || EFFECT_AXE_PARTICLE_COUNT % effectCount != 0) {
+            throw new IllegalArgumentException(
+                    "Effect count must divide the Effect Axe particle total"
+            );
+        }
+        return EFFECT_AXE_PARTICLE_COUNT / effectCount;
     }
 
     private static WrapperPlayServerParticle createEffectAxeParticlePacket(

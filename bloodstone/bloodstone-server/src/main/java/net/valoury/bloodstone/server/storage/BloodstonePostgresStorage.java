@@ -2,6 +2,7 @@ package net.valoury.bloodstone.server.storage;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
+import net.valoury.bloodstone.server.model.AxeFuserOperation;
 import net.valoury.bloodstone.server.model.CombatResolution;
 import net.valoury.bloodstone.server.model.EnchanterOperation;
 import net.valoury.bloodstone.server.model.GuildLeaderboardEntry;
@@ -106,6 +107,10 @@ public final class BloodstonePostgresStorage implements BloodstoneStorage {
                     throw new SQLException("PostgreSQL did not return a schema-existence result");
                 }
                 if (resultSet.getBoolean(1)) {
+                    requireExistingTable(
+                            connection,
+                            "bloodstone_axe_fuser_operations"
+                    );
                     connection.rollback();
                     return;
                 }
@@ -301,6 +306,28 @@ public final class BloodstonePostgresStorage implements BloodstoneStorage {
             statement.execute("""
                     CREATE INDEX IF NOT EXISTS idx_bloodstone_repair_operations_player
                     ON bloodstone_repair_operations (player_id, created_at)
+                    """);
+
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS bloodstone_axe_fuser_operations (
+                        operation_id UUID PRIMARY KEY,
+                        player_id UUID NOT NULL REFERENCES bloodstone_players(player_id)
+                            ON DELETE CASCADE,
+                        original_axes_payload BYTEA NOT NULL,
+                        blood_alloy_cost INTEGER NOT NULL CHECK (blood_alloy_cost > 0),
+                        fused_axe_payload BYTEA,
+                        state VARCHAR(16) NOT NULL CHECK (state IN ('RESERVED', 'READY')),
+                        created_at TIMESTAMPTZ NOT NULL,
+                        completed_at TIMESTAMPTZ,
+                        CHECK (
+                            (state = 'RESERVED' AND fused_axe_payload IS NULL)
+                            OR (state = 'READY' AND fused_axe_payload IS NOT NULL)
+                        )
+                    )
+                    """);
+            statement.execute("""
+                    CREATE INDEX IF NOT EXISTS idx_bloodstone_axe_fuser_operations_player
+                    ON bloodstone_axe_fuser_operations (player_id, created_at)
                     """);
 
             statement.execute("""
@@ -1565,6 +1592,177 @@ public final class BloodstonePostgresStorage implements BloodstoneStorage {
     }
 
     @Override
+    public CompletableFuture<AxeFuserReserveOutcome> reserveAxeFuserOperation(
+            @NonNull UUID operationId,
+            @NonNull UUID playerId,
+            byte @NonNull [] originalAxesPayload,
+            int bloodAlloyCost,
+            @NonNull Instant now
+    ) {
+        Objects.requireNonNull(operationId, "Operation ID cannot be null");
+        Objects.requireNonNull(playerId, "Player ID cannot be null");
+        Objects.requireNonNull(
+                originalAxesPayload,
+                "Original axes payload cannot be null"
+        );
+        Objects.requireNonNull(now, "Reservation time cannot be null");
+        if (bloodAlloyCost < 1) {
+            throw new IllegalArgumentException(
+                    "Axe Fuser Blood Alloy cost must be positive"
+            );
+        }
+        byte[] originalAxes = originalAxesPayload.clone();
+        return databaseExecutor.supply(() -> {
+            try (Connection connection = dataSource.getConnection()) {
+                connection.setAutoCommit(false);
+                try {
+                    lockOperation(connection, operationId);
+                    AxeFuserOperation existing =
+                            findAxeFuserOperation(connection, operationId);
+                    if (existing != null) {
+                        connection.commit();
+                        if (!existing.playerId().equals(playerId)) {
+                            throw new SQLException(
+                                    "Axe Fuser operation ID belongs to another player"
+                            );
+                        }
+                        if (existing.bloodAlloyCost() != bloodAlloyCost) {
+                            throw new SQLException(
+                                    "Axe Fuser operation cost changed during retry"
+                            );
+                        }
+                        return new AxeFuserReserveOutcome.Reserved(existing);
+                    }
+                    try (PreparedStatement statement = connection.prepareStatement("""
+                            INSERT INTO bloodstone_axe_fuser_operations (
+                                operation_id, player_id, original_axes_payload,
+                                blood_alloy_cost, state, created_at
+                            ) VALUES (?, ?, ?, ?, 'RESERVED', ?)
+                            """)) {
+                        statement.setObject(1, operationId);
+                        statement.setObject(2, playerId);
+                        statement.setBytes(3, originalAxes);
+                        statement.setInt(4, bloodAlloyCost);
+                        setInstant(statement, 5, now);
+                        statement.executeUpdate();
+                    }
+                    connection.commit();
+                    return new AxeFuserReserveOutcome.Reserved(
+                            new AxeFuserOperation(
+                                    operationId,
+                                    playerId,
+                                    originalAxes,
+                                    bloodAlloyCost,
+                                    null,
+                                    RecoverableOperationState.RESERVED,
+                                    now
+                            )
+                    );
+                } catch (SQLException exception) {
+                    rollback(connection, exception);
+                    throw exception;
+                }
+            } catch (SQLException exception) {
+                throw new RuntimeException(
+                        "Failed to reserve Axe Fuser operation " + operationId,
+                        exception
+                );
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<Boolean> markAxeFuserOperationReady(
+            @NonNull UUID operationId,
+            @NonNull UUID playerId,
+            byte @NonNull [] fusedAxePayload
+    ) {
+        return markItemOperationReady(
+                "bloodstone_axe_fuser_operations",
+                "fused_axe_payload",
+                operationId,
+                playerId,
+                fusedAxePayload
+        );
+    }
+
+    @Override
+    public CompletableFuture<List<AxeFuserOperation>> fetchAxeFuserRecoveries(
+            @NonNull UUID playerId
+    ) {
+        Objects.requireNonNull(playerId, "Player ID cannot be null");
+        return databaseExecutor.supply(() -> {
+            List<AxeFuserOperation> operations = new ArrayList<>();
+            try (Connection connection = dataSource.getConnection();
+                 PreparedStatement statement = connection.prepareStatement("""
+                         SELECT operation_id, player_id, original_axes_payload,
+                                blood_alloy_cost, fused_axe_payload, state,
+                                created_at
+                         FROM bloodstone_axe_fuser_operations
+                         WHERE player_id = ? AND completed_at IS NULL
+                         ORDER BY created_at, operation_id
+                         """)) {
+                statement.setObject(1, playerId);
+                try (ResultSet resultSet = statement.executeQuery()) {
+                    while (resultSet.next()) {
+                        operations.add(mapAxeFuserOperation(resultSet));
+                    }
+                }
+                return List.copyOf(operations);
+            } catch (SQLException exception) {
+                throw new RuntimeException(
+                        "Failed to fetch Axe Fuser recoveries for " + playerId,
+                        exception
+                );
+            }
+        });
+    }
+
+    @Override
+    public CompletableFuture<Boolean> completeAxeFuserOperation(
+            @NonNull UUID operationId,
+            @NonNull UUID playerId
+    ) {
+        return completeOperation(
+                "bloodstone_axe_fuser_operations",
+                operationId,
+                playerId
+        );
+    }
+
+    private AxeFuserOperation findAxeFuserOperation(
+            Connection connection,
+            UUID operationId
+    ) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                SELECT operation_id, player_id, original_axes_payload,
+                       blood_alloy_cost, fused_axe_payload, state, created_at
+                FROM bloodstone_axe_fuser_operations
+                WHERE operation_id = ?
+                """)) {
+            statement.setObject(1, operationId);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next()
+                        ? mapAxeFuserOperation(resultSet)
+                        : null;
+            }
+        }
+    }
+
+    private AxeFuserOperation mapAxeFuserOperation(ResultSet resultSet)
+            throws SQLException {
+        return new AxeFuserOperation(
+                resultSet.getObject("operation_id", UUID.class),
+                resultSet.getObject("player_id", UUID.class),
+                resultSet.getBytes("original_axes_payload"),
+                resultSet.getInt("blood_alloy_cost"),
+                resultSet.getBytes("fused_axe_payload"),
+                RecoverableOperationState.valueOf(resultSet.getString("state")),
+                getInstant(resultSet, "created_at")
+        );
+    }
+
+    @Override
     public CompletableFuture<StorageOpenOutcome> openStorage(
             @NonNull UUID playerId,
             @NonNull StorageType storageType,
@@ -1913,7 +2111,8 @@ public final class BloodstonePostgresStorage implements BloodstoneStorage {
         Objects.requireNonNull(resultPayload, "Result item payload cannot be null");
         validateOperationTable(table);
         if (!resultColumn.equals("enchanted_item_payload")
-                && !resultColumn.equals("repaired_item_payload")) {
+                && !resultColumn.equals("repaired_item_payload")
+                && !resultColumn.equals("fused_axe_payload")) {
             throw new IllegalArgumentException("Unsupported operation result column");
         }
         byte[] payload = resultPayload.clone();
@@ -2053,6 +2252,26 @@ public final class BloodstonePostgresStorage implements BloodstoneStorage {
         }
     }
 
+    private static void requireExistingTable(
+            Connection connection,
+            String tableName
+    ) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement(
+                "SELECT to_regclass(?) IS NOT NULL"
+        )) {
+            statement.setString(1, "public." + tableName);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                if (!resultSet.next() || !resultSet.getBoolean(1)) {
+                    throw new SQLException(
+                            "Existing Bloodstone schema is missing required "
+                                    + "table " + tableName
+                                    + "; recreate the Bloodstone database"
+                    );
+                }
+            }
+        }
+    }
+
     @Override
     public void close() {
         databaseExecutor.shutdown();
@@ -2084,7 +2303,8 @@ public final class BloodstonePostgresStorage implements BloodstoneStorage {
         if (!table.equals("bloodstone_soulbound_recoveries")
                 && !table.equals("bloodstone_random_box_operations")
                 && !table.equals("bloodstone_enchanter_operations")
-                && !table.equals("bloodstone_repair_operations")) {
+                && !table.equals("bloodstone_repair_operations")
+                && !table.equals("bloodstone_axe_fuser_operations")) {
             throw new IllegalArgumentException("Unsupported recovery operation table");
         }
     }

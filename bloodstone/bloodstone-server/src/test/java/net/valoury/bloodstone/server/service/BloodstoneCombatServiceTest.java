@@ -23,6 +23,12 @@ final class BloodstoneCombatServiceTest {
     }
 
     @Test
+    void combinedEffectAxesSplitTheExistingParticleTotalEvenly() {
+        assertEquals(40, BloodstonePresentationService.effectAxeParticleCount(1));
+        assertEquals(20, BloodstonePresentationService.effectAxeParticleCount(2));
+    }
+
+    @Test
     void combatCountdownUsesOneMonotonicDeadline() {
         long expiryNanoseconds = 15_000_000_000L;
 

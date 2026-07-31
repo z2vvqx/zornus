@@ -1,6 +1,7 @@
 package net.valoury.bloodstone.server.storage;
 
 import net.valoury.bloodstone.server.model.CombatResolution;
+import net.valoury.bloodstone.server.model.AxeFuserOperation;
 import net.valoury.bloodstone.server.model.EnchanterOperation;
 import net.valoury.bloodstone.server.model.GuildLeaderboardEntry;
 import net.valoury.bloodstone.server.model.LeaderboardMetric;
@@ -114,6 +115,29 @@ public interface BloodstoneStorage extends AutoCloseable {
     CompletableFuture<List<RepairOperation>> fetchRepairRecoveries(@NonNull UUID playerId);
 
     CompletableFuture<Boolean> completeRepairOperation(
+            @NonNull UUID operationId,
+            @NonNull UUID playerId
+    );
+
+    CompletableFuture<AxeFuserReserveOutcome> reserveAxeFuserOperation(
+            @NonNull UUID operationId,
+            @NonNull UUID playerId,
+            byte @NonNull [] originalAxesPayload,
+            int bloodAlloyCost,
+            @NonNull Instant now
+    );
+
+    CompletableFuture<Boolean> markAxeFuserOperationReady(
+            @NonNull UUID operationId,
+            @NonNull UUID playerId,
+            byte @NonNull [] fusedAxePayload
+    );
+
+    CompletableFuture<List<AxeFuserOperation>> fetchAxeFuserRecoveries(
+            @NonNull UUID playerId
+    );
+
+    CompletableFuture<Boolean> completeAxeFuserOperation(
             @NonNull UUID operationId,
             @NonNull UUID playerId
     );

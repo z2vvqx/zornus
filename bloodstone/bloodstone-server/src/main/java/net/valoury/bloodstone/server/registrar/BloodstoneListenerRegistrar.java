@@ -8,6 +8,7 @@ import net.valoury.bloodstone.server.listener.player.BloodstoneConnectionListene
 import net.valoury.bloodstone.server.listener.player.BloodstoneDeathAndRespawnListener;
 import net.valoury.bloodstone.server.listener.player.BloodstoneDuelListener;
 import net.valoury.bloodstone.server.service.BloodstoneCombatService;
+import net.valoury.bloodstone.server.service.BloodstoneAxeFuserService;
 import net.valoury.bloodstone.server.service.BloodstoneDuelService;
 import net.valoury.bloodstone.server.service.BloodstoneEnchanterService;
 import net.valoury.bloodstone.server.service.BloodstoneGuildProfileCache;
@@ -16,13 +17,12 @@ import net.valoury.bloodstone.server.service.BloodstoneMachineService;
 import net.valoury.bloodstone.server.service.BloodstoneMainThreadExecutor;
 import net.valoury.bloodstone.server.service.BloodstoneMessageService;
 import net.valoury.bloodstone.server.service.BloodstoneMenuService;
+import net.valoury.bloodstone.server.service.BloodstonePlayerNameService;
 import net.valoury.bloodstone.server.service.BloodstonePlayerService;
 import net.valoury.bloodstone.server.service.BloodstoneService;
 import net.valoury.bloodstone.server.service.BloodstoneStorageService;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.plugin.PluginManager;
-import net.luckperms.api.LuckPerms;
-import org.jspecify.annotations.Nullable;
 
 public final class BloodstoneListenerRegistrar {
 
@@ -35,12 +35,13 @@ public final class BloodstoneListenerRegistrar {
     private final BloodstoneStorageService storageService;
     private final BloodstoneMenuService menuService;
     private final BloodstoneEnchanterService enchanterService;
+    private final BloodstoneAxeFuserService axeFuserService;
     private final BloodstoneMachineService machineService;
     private final BloodstoneMainThreadExecutor mainThreadExecutor;
     private final BloodstoneGuildProfileCache guildProfileCache;
     private final BloodstoneEffectAxePacketRegistrar effectAxePacketRegistrar;
     private final BloodstoneMessageService messageService;
-    private final @Nullable LuckPerms luckPerms;
+    private final BloodstonePlayerNameService playerNameService;
 
     public BloodstoneListenerRegistrar(
             Plugin plugin,
@@ -52,12 +53,13 @@ public final class BloodstoneListenerRegistrar {
             BloodstoneStorageService storageService,
             BloodstoneMenuService menuService,
             BloodstoneEnchanterService enchanterService,
+            BloodstoneAxeFuserService axeFuserService,
             BloodstoneMachineService machineService,
             BloodstoneMainThreadExecutor mainThreadExecutor,
             BloodstoneGuildProfileCache guildProfileCache,
             BloodstoneEffectAxePacketRegistrar effectAxePacketRegistrar,
             BloodstoneMessageService messageService,
-            @Nullable LuckPerms luckPerms
+            BloodstonePlayerNameService playerNameService
     ) {
         this.plugin = plugin;
         this.bloodstoneService = bloodstoneService;
@@ -68,12 +70,13 @@ public final class BloodstoneListenerRegistrar {
         this.storageService = storageService;
         this.menuService = menuService;
         this.enchanterService = enchanterService;
+        this.axeFuserService = axeFuserService;
         this.machineService = machineService;
         this.mainThreadExecutor = mainThreadExecutor;
         this.guildProfileCache = guildProfileCache;
         this.effectAxePacketRegistrar = effectAxePacketRegistrar;
         this.messageService = messageService;
-        this.luckPerms = luckPerms;
+        this.playerNameService = playerNameService;
     }
 
     public void registerListeners(PluginManager pluginManager) {
@@ -98,6 +101,7 @@ public final class BloodstoneListenerRegistrar {
                         duelService,
                         storageService,
                         enchanterService,
+                        axeFuserService,
                         guildProfileCache,
                         effectAxePacketRegistrar,
                         messageService
@@ -109,7 +113,7 @@ public final class BloodstoneListenerRegistrar {
                         playerService,
                         mainThreadExecutor,
                         messageService,
-                        luckPerms
+                        playerNameService
                 ),
                 plugin
         );
@@ -118,7 +122,9 @@ public final class BloodstoneListenerRegistrar {
                 new BloodstoneInventoryListener(
                         menuService,
                         storageService,
-                        enchanterService
+                        enchanterService,
+                        axeFuserService,
+                        itemService
                 ),
                 plugin
         );

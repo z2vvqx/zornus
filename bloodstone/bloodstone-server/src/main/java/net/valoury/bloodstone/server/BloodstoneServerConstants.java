@@ -61,7 +61,7 @@ public final class BloodstoneServerConstants {
     public static final String ENCHANTER_COOLDOWN_ERROR_KEY = "enchanter-cooldown";
     public static final String DISENCHANTER_COOLDOWN_ERROR_KEY = "disenchanter-cooldown";
     public static final String ENCHANTER_COOLDOWN_FORMAT = "cooldown ends <cooldown>.";
-    public static final String RESERVED_ITEM_INVENTORY_SPACE_REQUIRED = "make inventory space to recover your reserved item.";
+    public static final String RESERVED_ITEM_INVENTORY_SPACE_REQUIRED = "clear some inventory space, then rejoin to recover your reserved item.";
 
     // Random Box and Repair
     public static final String RANDOM_BOX_BLOCK_IN_USE = UNABLE_TO_PROCEED_PREFIX + "this Random Box is already active.";
@@ -73,6 +73,7 @@ public final class BloodstoneServerConstants {
     public static final String REPAIR_FULL_DURABILITY = UNABLE_TO_PROCEED_PREFIX + "item already at full durability.";
     public static final String REPAIR_PROTECTED_ITEM = UNABLE_TO_PROCEED_PREFIX + "item is protected (Soulbound/Exclusive).";
     public static final String REPAIR_HELD_ITEM_RECOVERY = "The held item changed before repair began; the reserved item will be recovered.";
+    public static final String AXE_FUSER_INPUT_RECOVERY = "The selected axes changed before fusion began; the reserved axes will be recovered.";
     public static final String EXPERIENCE_REWARD_ACTION_BAR_FORMAT = "<green>+<levels> levels</green> <dark_gray>|</dark_gray> <green>+<progress> progress</green>";
 
     // Commands and Shop
@@ -214,6 +215,41 @@ public final class BloodstoneServerConstants {
             )
     );
 
+    // Axe Fuser Menu
+    public static final String AXE_FUSER_MENU_TITLE = "Bloodstone: Axe Fuser";
+    public static final List<String> AXE_FUSER_UNSELECTED_AXE_LORE = List.of(
+            "",
+            " <gray>Select this effect axe for fusion.</gray>",
+            "",
+            "<green>➟ Click to select this axe!</green>"
+    );
+    public static final List<String> AXE_FUSER_SELECTED_AXE_LORE = List.of(
+            "",
+            " <gray>This effect axe is selected for fusion.</gray>",
+            "",
+            "<red>➟ Click to deselect this axe!</red>"
+    );
+    public static final BloodstoneMenuItem AXE_FUSER_FUSE_ITEM = new BloodstoneMenuItem(
+            Material.FURNACE,
+            "<dark_purple>Fuse Axes</dark_purple>",
+            List.of(
+                    "",
+                    " <gray>Fuse the two selected effect axes.</gray>",
+                    "",
+                    " <gray>Price: <dark_red><bold><price>⛃</bold> blood alloy</dark_red></gray>",
+                    "",
+                    "<green>➟ Click to fuse these axes!</green>"
+            )
+    );
+    public static final BloodstoneMenuItem AXE_FUSER_MISSING_AXES_ITEM =
+            new BloodstoneMenuItem(
+                    Material.BARRIER,
+                    "<red>Missing Selected Axes</red>",
+                    List.of(
+                            "",
+                            " <gray>You must own one of each selected effect axe.</gray>"
+                    )
+            );
     // Storage Menu
     public static final String STORAGE_MENU_TITLE = "Bloodstone: Storages";
     public static final int STORAGE_MENU_ROWS = 3;
@@ -257,6 +293,15 @@ public final class BloodstoneServerConstants {
             "<red><bold>Guild Stash — Soon</bold></red>",
             List.of("", "<gray>This feature is not available yet.</gray>")
     );
+
+    public static final String AXE_FUSER_BLOCK_IN_USE = UNABLE_TO_PROCEED_PREFIX + "this Axe Fuser is already active.";
+    public static final String AXE_FUSER_CAPACITY_REACHED = UNABLE_TO_PROCEED_PREFIX + "four Axe Fuser operations are already active globally.";
+    public static final String AXE_FUSER_SELECTION_REQUIRED = UNABLE_TO_PROCEED_PREFIX + "select two different effect axes.";
+    public static final String AXE_FUSER_SELECTION_FULL = UNABLE_TO_PROCEED_PREFIX + "deselect an axe before choosing another.";
+    public static final String AXE_FUSER_AXES_REQUIRED = UNABLE_TO_PROCEED_PREFIX + "you don't own both selected effect axes.";
+    public static final String AXE_FUSER_UNAVAILABLE = UNABLE_TO_PROCEED_PREFIX + "the Axe Fuser is no longer available.";
+    public static final String AXE_FUSER_ACCESS_REQUIRED = UNABLE_TO_PROCEED_PREFIX + "no fuser access.";
+    public static final String AXE_FUSER_RESERVATION_REFUNDED = "The fusion could not start; your axes and Blood Alloy were restored.";
 
     private BloodstoneServerConstants() {
         throw new UnsupportedOperationException("Constants class cannot be instantiated");

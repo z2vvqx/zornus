@@ -130,7 +130,7 @@ public final class EffectAxeDefinitions {
             @NonNull Duration duration,
             @NonNull EffectTarget target,
             @NonNull Color particleColor
-    ) {
+    ) implements EffectAxeItemDefinition {
         public EffectAxeDefinition {
             if (id.isBlank()) {
                 throw new IllegalArgumentException("Effect Axe id cannot be blank");
@@ -158,6 +158,11 @@ public final class EffectAxeDefinitions {
                 case REGENT -> archonBloodAlloyCost * 5 / 4;
                 case ARCHON -> archonBloodAlloyCost;
             };
+        }
+
+        @Override
+        public @NonNull List<EffectAxeDefinition> effects() {
+            return List.of(this);
         }
 
         public @NonNull PotionEffect createPotionEffect() {

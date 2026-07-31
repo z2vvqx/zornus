@@ -9,7 +9,9 @@ import org.bukkit.Material;
 import org.junit.jupiter.api.Test;
 
 import java.time.Duration;
+import java.util.HashSet;
 import java.util.Map;
+import java.util.Set;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
@@ -131,6 +133,54 @@ final class BloodstoneCatalogTest {
         assertEquals(1, itemService.remainingDurability(axe));
         assertTrue(itemService.consumeControlledUse(axe));
         assertEquals(0, axe.getAmount());
+    }
+
+    @Test
+    void combinedEffectAxesCoverEveryDistinctPairExactlyOnce() {
+        assertEquals(15, CombinedEffectAxeDefinitions.values().size());
+        Set<Set<String>> pairs = new HashSet<>();
+        for (CombinedEffectAxeDefinitions.CombinedEffectAxeDefinition definition
+                : CombinedEffectAxeDefinitions.values()) {
+            assertEquals(2, definition.effects().size());
+            assertTrue(pairs.add(definition.effects().stream()
+                    .map(EffectAxeDefinitions.EffectAxeDefinition::id)
+                    .collect(Collectors.toUnmodifiableSet())));
+            assertEquals(
+                    definition,
+                    CombinedEffectAxeDefinitions.find(
+                            definition.secondEffect(),
+                            definition.firstEffect()
+                    ).orElseThrow()
+            );
+        }
+        assertEquals(15, pairs.size());
+        assertEquals(Map.ofEntries(
+                        Map.entry("speed_strength", "Berserker Axe"),
+                        Map.entry("speed_wither", "Reaper Axe"),
+                        Map.entry("speed_blindness", "Phantom Axe"),
+                        Map.entry("speed_weakness", "Predator Axe"),
+                        Map.entry("speed_poison", "Viper Axe"),
+                        Map.entry("strength_wither", "Ruin Axe"),
+                        Map.entry("strength_blindness", "Dread Axe"),
+                        Map.entry("strength_weakness", "Tyrant Axe"),
+                        Map.entry("strength_poison", "Venomfang Axe"),
+                        Map.entry("wither_blindness", "Void Axe"),
+                        Map.entry("wither_weakness", "Decay Axe"),
+                        Map.entry("wither_poison", "Plague Axe"),
+                        Map.entry("blindness_weakness", "Oppression Axe"),
+                        Map.entry("blindness_poison", "Nightshade Axe"),
+                        Map.entry("weakness_poison", "Affliction Axe")
+                ),
+                CombinedEffectAxeDefinitions.values().stream()
+                        .collect(Collectors.toMap(
+                                CombinedEffectAxeDefinitions
+                                        .CombinedEffectAxeDefinition::id,
+                                definition -> definition
+                                        .displayNameTemplate()
+                                        .replace("<dark_aqua>", "")
+                                        .replace("</dark_aqua>", "")
+                        ))
+        );
     }
 
     @Test

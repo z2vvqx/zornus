@@ -4,6 +4,7 @@ import net.valoury.bloodstone.server.BloodstoneServerConstants;
 import net.valoury.bloodstone.server.BloodstoneText;
 import net.valoury.bloodstone.server.EffectAxeDefinitions.EffectAxeDefinition;
 import net.valoury.bloodstone.server.EffectAxeDefinitions.EffectTarget;
+import net.valoury.bloodstone.server.EffectAxeItemDefinition;
 import net.valoury.bloodstone.server.model.BloodstoneRank;
 import net.valoury.bloodstone.server.model.CombatResolution;
 import net.valoury.bloodstone.server.storage.BloodstoneStorage;
@@ -507,11 +508,12 @@ public final class BloodstoneCombatService {
                 || spawnProtectionService.isInsideSpawn(victim)) {
             return;
         }
-        Optional<EffectAxeDefinition> definitionOptional = itemService.effectAxeDefinition(heldItem);
+        Optional<EffectAxeItemDefinition> definitionOptional =
+                itemService.effectAxeDefinition(heldItem);
         if (definitionOptional.isEmpty()) {
             return;
         }
-        EffectAxeDefinition definition = definitionOptional.get();
+        EffectAxeItemDefinition definition = definitionOptional.get();
         long nowNanoseconds = System.nanoTime();
         EffectAxeTargetCooldown cooldown = new EffectAxeTargetCooldown(
                 attacker.getUniqueId(),
@@ -524,15 +526,20 @@ public final class BloodstoneCombatService {
         }
         effectAxeCooldowns.put(cooldown, nowNanoseconds);
 
-        Player effectRecipient = definition.target() == EffectTarget.SELF
-                ? attacker
-                : victim;
-        effectRecipient.addPotionEffect(definition.createPotionEffect(), true);
+        int particleCount = BloodstonePresentationService
+                .effectAxeParticleCount(definition.effects().size());
+        for (EffectAxeDefinition effect : definition.effects()) {
+            Player effectRecipient = effect.target() == EffectTarget.SELF
+                    ? attacker
+                    : victim;
+            effectRecipient.addPotionEffect(effect.createPotionEffect(), true);
+            presentationService.playEffectAxeParticles(
+                    effectRecipient,
+                    effect.particleColor(),
+                    particleCount
+            );
+        }
         presentationService.playEffectAxeSound();
-        presentationService.playEffectAxeParticles(
-                effectRecipient,
-                definition.particleColor()
-        );
         if (itemService.consumeControlledUse(heldItem)) {
             attacker.getInventory().clear(heldSlot);
             presentationService.playEffectAxeBreak(attacker);
