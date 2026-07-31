@@ -157,28 +157,6 @@ public final class BloodstonePresentationService {
         }
     }
 
-    public void playHeal(Player player, boolean removedHarmfulEffect) {
-        playColoredParticles(player.getLocation().clone().add(0.0, 1.0, 0.0),
-                Color.fromRGB(40, 210, 80), 32, 0.75F);
-        player.getWorld().spigot().playEffect(
-                player.getLocation().clone().add(0.0, 1.0, 0.0),
-                Effect.POTION_BREAK,
-                0,
-                0,
-                0.55F,
-                0.7F,
-                0.55F,
-                0.05F,
-                20,
-                PARTICLE_VISIBILITY_RADIUS
-        );
-        if (removedHarmfulEffect) {
-            playColoredParticles(player.getLocation().clone().add(0.0, 1.0, 0.0),
-                    Color.fromRGB(35, 35, 40), 20, 0.9F);
-        }
-        player.playSound(player.getLocation(), Sound.SUCCESSFUL_HIT, 0.5F, 1.2F);
-    }
-
     public void playRampageAnnouncement(
             Player player,
             Component title,

@@ -814,12 +814,11 @@ public final class BloodstoneMachineService {
         } else if (instruction.equalsIgnoreCase("trash")) {
             menuService.openTrash(player);
         } else if (instruction.equalsIgnoreCase("EXP")) {
-            giveExperience(player, sign.getLocation());
+            giveExperience(player);
         }
     }
 
     private void heal(Player player) {
-        boolean removed = false;
         for (PotionEffectType harmfulEffect : List.of(
                 PotionEffectType.POISON,
                 PotionEffectType.WITHER,
@@ -828,17 +827,15 @@ public final class BloodstoneMachineService {
         )) {
             if (player.hasPotionEffect(harmfulEffect)) {
                 player.removePotionEffect(harmfulEffect);
-                removed = true;
             }
         }
         player.setHealth(player.getMaxHealth());
         player.setFoodLevel(20);
         player.setSaturation(20.0F);
         player.setFireTicks(0);
-        presentationService.playHeal(player, removed);
     }
 
-    private void giveExperience(Player player, Location signLocation) {
+    private void giveExperience(Player player) {
         if (combatService.isTagged(player.getUniqueId())) {
             reject(player, BloodstoneServerConstants.ERROR_IN_BATTLE);
             return;
@@ -862,32 +859,6 @@ public final class BloodstoneMachineService {
         int bonusLevels = (int) Math.floor(combinedProgress);
         player.setLevel(player.getLevel() + levels + bonusLevels);
         player.setExp(combinedProgress - bonusLevels);
-        Location particleOrigin = signLocation.clone().add(0.5, 0.7, 0.5);
-        for (int step = 0; step < 8; step++) {
-            int animationStep = step;
-            plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
-                if (!player.isOnline()) {
-                    return;
-                }
-                double progressToPlayer = (animationStep + 1) / 8.0;
-                Location playerTarget = player.getLocation().clone().add(0.0, 1.0, 0.0);
-                Vector path = playerTarget.toVector().subtract(particleOrigin.toVector())
-                        .multiply(progressToPlayer);
-                Location particleLocation = particleOrigin.clone().add(path);
-                particleLocation.getWorld().spigot().playEffect(
-                        particleLocation,
-                        Effect.FLYING_GLYPH,
-                        0,
-                        0,
-                        0.16F,
-                        0.16F,
-                        0.16F,
-                        0.04F,
-                        8,
-                        48
-                );
-            }, step * 2L);
-        }
         player.playSound(player.getLocation(), Sound.ORB_PICKUP, 1.0F, 1.2F);
         if (ThreadLocalRandom.current().nextDouble() < 0.025) {
             player.playSound(player.getLocation(), Sound.LEVEL_UP, 1.0F, 1.1F);
