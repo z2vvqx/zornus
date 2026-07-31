@@ -9,11 +9,19 @@ import org.bukkit.World;
 import org.bukkit.entity.Player;
 import org.bukkit.plugin.Plugin;
 
+import java.util.Locale;
 import java.util.Objects;
+import java.util.Set;
 
 public final class BloodstoneSpawnProtectionService {
 
-    private static final String SPAWN_REGION_NAME = "spawn";
+    private static final Set<String> SPAWN_EQUIVALENT_REGION_NAMES = Set.of(
+            "spawn",
+            "legate",
+            "justicar",
+            "regent",
+            "archon"
+    );
 
     private final WorldGuardPlugin worldGuard;
 
@@ -55,6 +63,7 @@ public final class BloodstoneSpawnProtectionService {
     }
 
     public static boolean isSpawnRegion(String regionName) {
-        return SPAWN_REGION_NAME.equalsIgnoreCase(regionName);
+        return regionName != null
+                && SPAWN_EQUIVALENT_REGION_NAMES.contains(regionName.toLowerCase(Locale.ROOT));
     }
 }
