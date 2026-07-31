@@ -4,6 +4,7 @@ import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.event.EventManager;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.Scheduler;
+import net.luckperms.api.LuckPerms;
 import net.valoury.friends.proxy.registrar.FriendCommandRegistrar;
 import net.valoury.friends.proxy.registrar.FriendListenerRegistrar;
 import net.valoury.friends.proxy.registrar.FriendOperationRegistrar;
@@ -31,14 +32,19 @@ public final class FriendProxyModule {
      *
      * @param plugin      The plugin instance
      * @param proxyServer The proxy server instance
+     * @param luckPerms   The LuckPerms API
      */
-    public FriendProxyModule(@NonNull Object plugin, @NonNull ProxyServer proxyServer) {
+    public FriendProxyModule(
+            @NonNull Object plugin,
+            @NonNull ProxyServer proxyServer,
+            @NonNull LuckPerms luckPerms
+    ) {
         FriendStorage storage = new FriendPostgresStorage(
                 FriendProxyConstants.POSTGRESQL_URL,
                 FriendProxyConstants.POSTGRESQL_USER,
                 FriendProxyConstants.POSTGRESQL_PASSWORD
         );
-        this.friendService = new FriendService(storage, proxyServer);
+        this.friendService = new FriendService(storage, proxyServer, luckPerms);
         this.friendCommandRegistrar = new FriendCommandRegistrar(friendService, proxyServer);
         this.friendListenerRegistrar = new FriendListenerRegistrar(plugin, friendService);
         this.friendOperationRegistrar = new FriendOperationRegistrar(plugin, friendService);

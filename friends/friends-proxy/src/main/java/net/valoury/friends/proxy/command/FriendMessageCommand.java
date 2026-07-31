@@ -114,7 +114,10 @@ public final class FriendMessageCommand {
                         case SendFriendMessageResult.Sent ignored ->
                                 sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.MESSAGE_SENT_FORMAT,
                                         TagResolver.resolver(
-                                                Placeholder.unparsed("target", targetName),
+                                                Placeholder.component(
+                                                        "target",
+                                                        friendService.resolveOnlinePlayerName(targetUuid, targetName)
+                                                ),
                                                 Placeholder.unparsed("message", message)
                                         )));
                     }

@@ -68,7 +68,13 @@ public final class FriendReplyCommand {
                                 sender.sendMessage(StringUtils.deserialize(
                                         FriendProxyConstants.MESSAGE_SENT_FORMAT,
                                         TagResolver.resolver(
-                                                Placeholder.unparsed("target", success.targetName()),
+                                                Placeholder.component(
+                                                        "target",
+                                                        friendService.resolveOnlinePlayerName(
+                                                                success.targetUuid(),
+                                                                success.targetName()
+                                                        )
+                                                ),
                                                 Placeholder.unparsed("message", message)
                                         )
                                 ));

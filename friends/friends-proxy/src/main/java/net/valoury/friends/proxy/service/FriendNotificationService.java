@@ -11,6 +11,8 @@ import net.valoury.shared.utilities.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import net.luckperms.api.LuckPerms;
+import net.valoury.shared.utilities.PlayerNameFormatter;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -26,10 +28,16 @@ public final class FriendNotificationService {
 
     private final @NonNull FriendStorage storage;
     private final @NonNull ProxyServer proxyServer;
+    private final @NonNull LuckPerms luckPerms;
 
-    public FriendNotificationService(@NonNull FriendStorage storage, @NonNull ProxyServer proxyServer) {
+    public FriendNotificationService(
+            @NonNull FriendStorage storage,
+            @NonNull ProxyServer proxyServer,
+            @NonNull LuckPerms luckPerms
+    ) {
         this.storage = storage;
         this.proxyServer = proxyServer;
+        this.luckPerms = luckPerms;
     }
 
     public void notifyFriendsOfPlayerJoin(@NonNull UUID joiningPlayerUuid, @NonNull String username,
@@ -131,15 +139,38 @@ public final class FriendNotificationService {
     }
 
     public void notifyFriendMessageReceived(@NonNull Player receiver, @NonNull UUID senderUuid, @NonNull String message) {
-        Optional<Player> sender = proxyServer.getPlayer(senderUuid);
-        String senderName = sender.map(Player::getUsername).orElse("Unknown");
-
         TagResolver resolver = TagResolver.resolver(
-                Placeholder.unparsed("sender", senderName),
+                Placeholder.component("sender", resolveOnlinePlayerName(senderUuid, "Unknown")),
                 Placeholder.unparsed("message", message)
         );
         Component receivedMessage = StringUtils.deserialize(FriendProxyConstants.MESSAGE_RECEIVED_FORMAT, resolver);
         receiver.sendMessage(receivedMessage);
+    }
+
+    public @NonNull Component resolveOnlinePlayerName(
+            @NonNull UUID playerId,
+            @NonNull String fallbackUsername
+    ) {
+        return proxyServer.getPlayer(playerId)
+                .map(this::formatPlayerName)
+                .orElseGet(() -> Component.text(fallbackUsername));
+    }
+
+    private @NonNull Component formatPlayerName(@NonNull Player player) {
+        Component username = Component.text(player.getUsername());
+        try {
+            String suffix = luckPerms.getPlayerAdapter(Player.class)
+                    .getMetaData(player)
+                    .getSuffix();
+            return PlayerNameFormatter.formatSuffixBeforeName(suffix, username);
+        } catch (RuntimeException exception) {
+            LOGGER.warn(
+                    "Failed to resolve LuckPerms suffix for {}; using username without suffix",
+                    player.getUniqueId(),
+                    exception
+            );
+            return username;
+        }
     }
 
     private @NonNull List<Player> collectOnlineFriends(@NonNull UUID playerId, @NonNull List<FriendRelation> friendRelations) {

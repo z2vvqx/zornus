@@ -2,8 +2,10 @@ package net.valoury.friends.proxy.model.result;
 
 import org.jspecify.annotations.NonNull;
 
+import java.util.UUID;
+
 public sealed interface FriendReplyResult {
-    record Success(@NonNull String targetName) implements FriendReplyResult {
+    record Success(@NonNull UUID targetUuid, @NonNull String targetName) implements FriendReplyResult {
     }
 
     record MessageTooLong() implements FriendReplyResult {

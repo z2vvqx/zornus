@@ -2,6 +2,8 @@ package net.valoury.friends.proxy.service;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
+import net.kyori.adventure.text.Component;
+import net.luckperms.api.LuckPerms;
 import net.valoury.friends.api.FriendshipService;
 import net.valoury.friends.proxy.FriendProxyConstants;
 import net.valoury.friends.proxy.model.*;
@@ -31,10 +33,14 @@ public final class FriendService implements FriendshipService, AutoCloseable {
     private final @NonNull ProxyServer proxyServer;
     private final @NonNull FriendNotificationService notificationService;
 
-    public FriendService(@NonNull FriendStorage storage, @NonNull ProxyServer proxyServer) {
+    public FriendService(
+            @NonNull FriendStorage storage,
+            @NonNull ProxyServer proxyServer,
+            @NonNull LuckPerms luckPerms
+    ) {
         this.storage = storage;
         this.proxyServer = proxyServer;
-        this.notificationService = new FriendNotificationService(storage, proxyServer);
+        this.notificationService = new FriendNotificationService(storage, proxyServer, luckPerms);
     }
 
     @Override
@@ -45,6 +51,13 @@ public final class FriendService implements FriendshipService, AutoCloseable {
 
     public @NonNull FriendNotificationService getNotificationService() {
         return notificationService;
+    }
+
+    public @NonNull Component resolveOnlinePlayerName(
+            @NonNull UUID playerId,
+            @NonNull String fallbackUsername
+    ) {
+        return notificationService.resolveOnlinePlayerName(playerId, fallbackUsername);
     }
 
     public @NonNull CompletableFuture<SendFriendRequestResult> sendFriendRequest(
@@ -287,7 +300,7 @@ public final class FriendService implements FriendshipService, AutoCloseable {
                                     return CompletableFuture.completedFuture(new FriendReplyResult.FriendNotOnline(targetName));
                                 }
                                 return deliverMessage(senderUuid, targetUuid, message, targetPlayer.get())
-                                        .thenApply(result -> new FriendReplyResult.Success(targetName));
+                                        .thenApply(result -> new FriendReplyResult.Success(targetUuid, targetName));
                             });
                 });
     }

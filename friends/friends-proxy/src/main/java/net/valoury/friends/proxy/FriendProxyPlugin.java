@@ -4,8 +4,10 @@ import com.google.inject.Inject;
 import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
+import com.velocitypowered.api.plugin.Dependency;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
+import net.luckperms.api.LuckPermsProvider;
 import net.valoury.friends.api.FriendsApi;
 import net.valoury.friends.api.FriendshipService;
 import org.jspecify.annotations.NonNull;
@@ -19,7 +21,8 @@ import org.slf4j.Logger;
         name = "Friends Proxy",
         version = "1.0.0",
         description = "Friend system for Velocity proxy",
-        authors = {"valoury"}
+        authors = {"valoury"},
+        dependencies = {@Dependency(id = "luckperms")}
 )
 public final class FriendProxyPlugin implements FriendsApi {
 
@@ -38,7 +41,7 @@ public final class FriendProxyPlugin implements FriendsApi {
         try {
             logger.info("Initializing Friends plugin...");
 
-            this.friendProxyModule = new FriendProxyModule(this, proxyServer);
+            this.friendProxyModule = new FriendProxyModule(this, proxyServer, LuckPermsProvider.get());
             friendProxyModule.initialize(
                     proxyServer.getCommandManager(),
                     proxyServer.getEventManager(),
