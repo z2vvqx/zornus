@@ -111,10 +111,8 @@ public final class FriendAddCommand {
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.ERROR_PLAYER_NOT_ACCEPTING_REQUESTS, Placeholder.unparsed("target", targetUsername)));
                                     case SendFriendRequestResult.Sent ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ADD_SUCCESS, Placeholder.unparsed("target", targetUsername)));
-                                    case SendFriendRequestResult.AcceptedAutomatically ignored ->
-                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ACCEPT_SUCCESS_AUTO, Placeholder.unparsed("target", targetUsername)));
-                                    case SendFriendRequestResult.RequestNoLongerValid ignored ->
-                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ERROR_NOT_FOUND,
+                                    case SendFriendRequestResult.IncomingRequestExists ignored ->
+                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_INCOMING_EXISTS,
                                                     Placeholder.unparsed("target", targetUsername)));
                                 }
                             })

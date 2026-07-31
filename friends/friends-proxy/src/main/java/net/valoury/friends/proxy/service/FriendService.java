@@ -74,11 +74,8 @@ public final class FriendService implements FriendshipService, AutoCloseable {
                         notificationService.notifyFriendRequestReceived(targetUuid, senderUuid);
                         yield new SendFriendRequestResult.Sent();
                     }
-                    case SendRequestOutcome.RequestAcceptedAutomatically auto -> {
-                        notificationService.notifyFriendRequestAccepted(targetUuid, senderUuid);
-                        notificationService.notifyFriendRequestAccepted(senderUuid, targetUuid);
-                        yield new SendFriendRequestResult.AcceptedAutomatically();
-                    }
+                    case SendRequestOutcome.IncomingRequestExists ignored ->
+                            new SendFriendRequestResult.IncomingRequestExists();
                     case SendRequestOutcome.AlreadyFriends ignored -> new SendFriendRequestResult.AlreadyFriends();
                     case SendRequestOutcome.RequestAlreadySent ignored -> new SendFriendRequestResult.AlreadySent();
                     case SendRequestOutcome.SenderRequestLimitReached ignored ->
@@ -93,8 +90,6 @@ public final class FriendService implements FriendshipService, AutoCloseable {
                             new SendFriendRequestResult.CooldownActive();
                     case SendRequestOutcome.PlayerNotAcceptingRequests ignored ->
                             new SendFriendRequestResult.ReceiverNotAcceptingRequests();
-                    case SendRequestOutcome.RequestNoLongerValid ignored ->
-                            new SendFriendRequestResult.RequestNoLongerValid();
                 });
     }
 

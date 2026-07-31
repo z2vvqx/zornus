@@ -50,7 +50,7 @@ public final class FriendProxyConstants {
 
     public static final String REQUEST_ADD_SUCCESS = "<green>Friend request sent to <yellow><target></yellow>!</green>";
     public static final String REQUEST_ACCEPT_SUCCESS = "<green>You are now friends with <yellow><target></yellow>!</green>";
-    public static final String REQUEST_ACCEPT_SUCCESS_AUTO = "<green>You and <yellow><target></yellow> are now friends! (Request accepted automatically)</green>";
+    public static final String REQUEST_INCOMING_EXISTS = "<yellow><target></yellow> has already sent you a friend request. Use <click:run_command:'/friend accept <target>'><green>/friend accept <target></green></click> to accept it.";
     public static final String REQUEST_REJECT_SUCCESS = "<green>Friend request from <yellow><target></yellow> has been rejected.</green>";
     public static final String REQUEST_REVOKE_SUCCESS = "<green>Friend request to <yellow><target></yellow> has been revoked.</green>";
     public static final String REQUEST_ERROR_ALREADY_SENT = "<red>You have already sent a friend request to <yellow><target></yellow>.</red>";

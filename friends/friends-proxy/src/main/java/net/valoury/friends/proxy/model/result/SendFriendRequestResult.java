@@ -4,7 +4,7 @@ public sealed interface SendFriendRequestResult {
     record Sent() implements SendFriendRequestResult {
     }
 
-    record AcceptedAutomatically() implements SendFriendRequestResult {
+    record IncomingRequestExists() implements SendFriendRequestResult {
     }
 
     record CannotAddSelf() implements SendFriendRequestResult {
@@ -32,8 +32,5 @@ public sealed interface SendFriendRequestResult {
     }
 
     record ReceiverNotAcceptingRequests() implements SendFriendRequestResult {
-    }
-
-    record RequestNoLongerValid() implements SendFriendRequestResult {
     }
 }

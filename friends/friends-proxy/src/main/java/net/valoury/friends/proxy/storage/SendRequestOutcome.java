@@ -2,7 +2,7 @@ package net.valoury.friends.proxy.storage;
 
 public sealed interface SendRequestOutcome permits
         SendRequestOutcome.Sent,
-        SendRequestOutcome.RequestAcceptedAutomatically,
+        SendRequestOutcome.IncomingRequestExists,
         SendRequestOutcome.AlreadyFriends,
         SendRequestOutcome.RequestAlreadySent,
         SendRequestOutcome.SenderRequestLimitReached,
@@ -10,12 +10,11 @@ public sealed interface SendRequestOutcome permits
         SendRequestOutcome.SenderFriendsLimitReached,
         SendRequestOutcome.ReceiverFriendsLimitReached,
         SendRequestOutcome.RequestCooldownActive,
-        SendRequestOutcome.PlayerNotAcceptingRequests,
-        SendRequestOutcome.RequestNoLongerValid {
+        SendRequestOutcome.PlayerNotAcceptingRequests {
     record Sent() implements SendRequestOutcome {
     }
 
-    record RequestAcceptedAutomatically() implements SendRequestOutcome {
+    record IncomingRequestExists() implements SendRequestOutcome {
     }
 
     record AlreadyFriends() implements SendRequestOutcome {
@@ -40,8 +39,5 @@ public sealed interface SendRequestOutcome permits
     }
 
     record PlayerNotAcceptingRequests() implements SendRequestOutcome {
-    }
-
-    record RequestNoLongerValid() implements SendRequestOutcome {
     }
 }

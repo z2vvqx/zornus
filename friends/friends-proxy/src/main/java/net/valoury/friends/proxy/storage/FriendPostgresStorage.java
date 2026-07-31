@@ -595,7 +595,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                         }
                     }
 
-                    // 2. Check if there's an incoming request from receiver (mutual request auto-accept)
+                    // 2. Check if there's an incoming request from the receiver
                     String checkIncomingSql = "SELECT 1 FROM requests WHERE sender = ? AND receiver = ?";
                     boolean hasIncomingRequest;
                     try (PreparedStatement statement = connection.prepareStatement(checkIncomingSql)) {
@@ -607,8 +607,8 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                     }
 
                     if (hasIncomingRequest) {
-                        // Handle mutual auto-accept
-                        return handleMutualAutoAccept(connection, senderId, receiverId);
+                        connection.rollback();
+                        return new SendRequestOutcome.IncomingRequestExists();
                     }
 
                     // 3. Check if request already exists (outgoing)
@@ -759,71 +759,6 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                 throw new RuntimeException("Failed to send friend request", exception);
             }
         });
-    }
-
-    @Contract("_, _, _ -> new")
-    private @NonNull SendRequestOutcome handleMutualAutoAccept(Connection connection, UUID senderId, UUID receiverId) throws SQLException {
-        // Serialize friend limit checks per player
-        acquirePerPlayerLocks(connection, senderId, receiverId);
-
-        // Serialize accepts per player to prevent concurrent accepts exceeding MAX_FRIENDS
-        // Lock in canonical UUID order to prevent deadlocks
-        UUID smaller = senderId.compareTo(receiverId) < 0 ? senderId : receiverId;
-        UUID larger = smaller.equals(senderId) ? receiverId : senderId;
-        try (PreparedStatement lockStatement = connection.prepareStatement(
-                "SELECT pg_advisory_xact_lock(hashtextextended(?, 2)), pg_advisory_xact_lock(hashtextextended(?, 2))")) {
-            lockStatement.setString(1, smaller.toString());
-            lockStatement.setString(2, larger.toString());
-            lockStatement.executeQuery();
-        }
-
-        // Re-verify the incoming request still exists under lock
-        String verifySql = "SELECT 1 FROM requests WHERE sender = ? AND receiver = ?";
-        try (PreparedStatement statement = connection.prepareStatement(verifySql)) {
-            statement.setObject(1, receiverId);
-            statement.setObject(2, senderId);
-            try (ResultSet resultSet = statement.executeQuery()) {
-                if (!resultSet.next()) {
-                    connection.rollback();
-                    return new SendRequestOutcome.RequestNoLongerValid();
-                }
-            }
-        }
-
-        // Check friend limits for both players
-        int senderFriendCount = countFriendsInTransaction(connection, senderId);
-        if (senderFriendCount >= FriendProxyConstants.MAX_FRIENDS) {
-            connection.rollback();
-            return new SendRequestOutcome.SenderFriendsLimitReached();
-        }
-
-        int receiverFriendCount = countFriendsInTransaction(connection, receiverId);
-        if (receiverFriendCount >= FriendProxyConstants.MAX_FRIENDS) {
-            connection.rollback();
-            return new SendRequestOutcome.ReceiverFriendsLimitReached();
-        }
-
-        // Add friend relation
-        CooldownKey.CanonicalKey pair = CooldownKey.canonicalize(senderId, receiverId);
-        String insertRelationSql = "INSERT INTO relations (player1, player2, created_at) VALUES (?, ?, NOW())";
-        try (PreparedStatement statement = connection.prepareStatement(insertRelationSql)) {
-            statement.setObject(1, pair.smaller());
-            statement.setObject(2, pair.larger());
-            statement.executeUpdate();
-        }
-
-        // Remove both directions of friend requests
-        String deleteRequestSql = "DELETE FROM requests WHERE (sender = ? AND receiver = ?) OR (sender = ? AND receiver = ?)";
-        try (PreparedStatement statement = connection.prepareStatement(deleteRequestSql)) {
-            statement.setObject(1, senderId);
-            statement.setObject(2, receiverId);
-            statement.setObject(3, receiverId);
-            statement.setObject(4, senderId);
-            statement.executeUpdate();
-        }
-
-        connection.commit();
-        return new SendRequestOutcome.RequestAcceptedAutomatically();
     }
 
     private int countFriendsInTransaction(Connection connection, UUID playerId) throws SQLException {
