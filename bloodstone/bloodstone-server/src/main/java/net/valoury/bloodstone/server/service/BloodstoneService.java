@@ -227,18 +227,18 @@ public final class BloodstoneService {
             return;
         }
         for (PendingSoulboundItem pendingItem : pending) {
-            pendingItem.reservation().thenComposeAsync(recovery ->
-                    playerService.deliverReservedItem(
-                            player,
-                            pendingItem.operationId(),
-                            pendingItem.item(),
-                            true,
-                            () -> storage.completeSoulboundRecovery(
+            playerService.deliverReservedItem(
+                    player,
+                    pendingItem.operationId(),
+                    pendingItem.item(),
+                    true,
+                    () -> pendingItem.reservation().thenCompose(recovery ->
+                            storage.completeSoulboundRecovery(
                                     recovery.operationId(),
                                     recovery.playerId()
                             )
                     )
-            , mainThreadExecutor).exceptionally(exception -> {
+            ).exceptionally(exception -> {
                 logger.log(Level.SEVERE,
                         "Failed to return Soulbound item " + pendingItem.operationId(),
                         exception);
