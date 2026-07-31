@@ -196,8 +196,8 @@ public final class BloodstoneServerConstants {
     public static final String MENU_PURCHASE_LORE = "<green>➟ Click to purchase</green>";
 
     // Enchanter Menu
-    public static final String ENCHANTER_MENU_TITLE = "Enchanter";
-    public static final String DISENCHANTER_MENU_TITLE = "Disenchanter";
+    public static final String ENCHANTER_MENU_TITLE = "Bloodstone: Enchanter";
+    public static final String DISENCHANTER_MENU_TITLE = "Bloodstone: Disenchanter";
     public static final BloodstoneMenuItem ENCHANTER_OPTION_ITEM = new BloodstoneMenuItem(
             Material.ENCHANTED_BOOK,
             "<dark_purple><enchantment>: <level></dark_purple>",

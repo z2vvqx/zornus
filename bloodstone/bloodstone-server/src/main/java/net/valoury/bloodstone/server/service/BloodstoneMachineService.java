@@ -137,13 +137,13 @@ public final class BloodstoneMachineService {
             event.setCancelled(true);
             storageService.openStorageMenu(player);
         } else if (material == Material.ENDER_PORTAL_FRAME
+                && event.getAction() == Action.LEFT_CLICK_BLOCK) {
+            event.setCancelled(true);
+            enchanterService.openRankDisenchanter(player, block);
+        } else if (material == Material.ENDER_PORTAL_FRAME
                 && event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             event.setCancelled(true);
             enchanterService.openRankEnchanter(player, block);
-        } else if (material == Material.SEA_LANTERN
-                && event.getAction() == Action.RIGHT_CLICK_BLOCK) {
-            event.setCancelled(true);
-            enchanterService.openRankDisenchanter(player, block);
         } else if (material == Material.ANVIL && event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             event.setCancelled(true);
             beginRepair(player, block);
