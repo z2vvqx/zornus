@@ -73,6 +73,7 @@ public final class PartyRejectCommand {
             return Command.SINGLE_SUCCESS;
         }
         Player target = targetOptional.get();
+        String targetUsername = target.getUsername();
 
         partyService.rejectInvitation(sender, target)
                 .thenAccept(result -> {
@@ -81,10 +82,10 @@ public final class PartyRejectCommand {
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
                         case NO_INVITATION_FOUND ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.REJECT_ERROR_NO_INVITATION,
-                                        Placeholder.unparsed("target", targetName)));
+                                        Placeholder.unparsed("target", targetUsername)));
                         case INVITATION_REJECTED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.REJECT_SUCCESS,
-                                        Placeholder.unparsed("target", targetName)));
+                                        Placeholder.unparsed("target", targetUsername)));
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 })

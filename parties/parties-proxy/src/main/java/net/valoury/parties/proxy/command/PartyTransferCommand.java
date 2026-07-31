@@ -82,6 +82,7 @@ public final class PartyTransferCommand {
             return Command.SINGLE_SUCCESS;
         }
         Player target = targetOptional.get();
+        String targetUsername = target.getUsername();
 
         partyService.transferLeadership(sender, target, isConfirming)
                 .thenAccept(result -> {
@@ -94,15 +95,15 @@ public final class PartyTransferCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.TRANSFER_ERROR_CANNOT_TRANSFER_SELF));
                         case PLAYER_NOT_IN_PARTY ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.TRANSFER_ERROR_PLAYER_NOT_IN_PARTY,
-                                        Placeholder.unparsed("target", targetName)));
+                                        Placeholder.unparsed("target", targetUsername)));
                         case TRANSFER_CONFIRMATION_REQUIRED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.TRANSFER_CONFIRMATION_REQUIRED,
-                                        Placeholder.unparsed("target", targetName)));
+                                        Placeholder.unparsed("target", targetUsername)));
                         case NO_CONFIRMATION_PENDING ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.TRANSFER_ERROR_NO_CONFIRMATION));
                         case LEADERSHIP_TRANSFERRED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.TRANSFER_SUCCESS,
-                                        Placeholder.unparsed("target", targetName)));
+                                        Placeholder.unparsed("target", targetUsername)));
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 })

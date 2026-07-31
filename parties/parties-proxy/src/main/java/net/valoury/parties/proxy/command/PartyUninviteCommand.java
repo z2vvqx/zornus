@@ -73,6 +73,7 @@ public final class PartyUninviteCommand {
             return Command.SINGLE_SUCCESS;
         }
         Player target = targetOptional.get();
+        String targetUsername = target.getUsername();
 
         partyService.revokeInvitation(sender, target)
                 .thenAccept(result -> {
@@ -83,10 +84,10 @@ public final class PartyUninviteCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_NOT_LEADER));
                         case NO_INVITATION_FOUND ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.UNINVITE_ERROR_NO_INVITATION,
-                                        Placeholder.unparsed("target", targetName)));
+                                        Placeholder.unparsed("target", targetUsername)));
                         case INVITATION_REVOKED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.UNINVITE_SUCCESS,
-                                        Placeholder.unparsed("target", targetName)));
+                                        Placeholder.unparsed("target", targetUsername)));
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 })

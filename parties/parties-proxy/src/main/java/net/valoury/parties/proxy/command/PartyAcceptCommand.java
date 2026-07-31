@@ -75,6 +75,7 @@ public final class PartyAcceptCommand {
             return Command.SINGLE_SUCCESS;
         }
         Player target = targetOptional.get();
+        String targetUsername = target.getUsername();
 
         partyService.acceptInvitation(sender, target)
                 .thenAccept(result -> {
@@ -85,12 +86,12 @@ public final class PartyAcceptCommand {
                                 sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
                         case NO_INVITATION_FOUND ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ACCEPT_ERROR_NO_INVITATION,
-                                        Placeholder.unparsed("target", targetName)));
+                                        Placeholder.unparsed("target", targetUsername)));
                         case PARTY_FULL ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ACCEPT_ERROR_PARTY_FULL));
                         case JOINED_PARTY ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ACCEPT_SUCCESS,
-                                        Placeholder.unparsed("target", targetName)));
+                                        Placeholder.unparsed("target", targetUsername)));
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 })

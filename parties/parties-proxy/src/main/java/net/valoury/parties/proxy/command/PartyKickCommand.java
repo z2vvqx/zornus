@@ -82,6 +82,7 @@ public final class PartyKickCommand {
             return Command.SINGLE_SUCCESS;
         }
         Player target = targetOptional.get();
+        String targetUsername = target.getUsername();
 
         partyService.kickMember(sender, target, reason)
                 .thenAccept(result -> {
@@ -92,12 +93,12 @@ public final class PartyKickCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_NOT_LEADER));
                         case PLAYER_NOT_IN_PARTY ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.KICK_ERROR_PLAYER_NOT_IN_PARTY,
-                                        Placeholder.unparsed("target", targetName)));
+                                        Placeholder.unparsed("target", targetUsername)));
                         case CANNOT_KICK_SELF ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.KICK_ERROR_CANNOT_KICK_SELF));
                         case MEMBER_KICKED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.KICK_SUCCESS,
-                                        Placeholder.unparsed("target", targetName)));
+                                        Placeholder.unparsed("target", targetUsername)));
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 })
