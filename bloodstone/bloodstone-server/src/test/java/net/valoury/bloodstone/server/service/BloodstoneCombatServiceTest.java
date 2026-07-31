@@ -1,6 +1,9 @@
 package net.valoury.bloodstone.server.service;
 
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.junit.jupiter.api.Test;
+
+import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertEquals;
@@ -19,6 +22,44 @@ final class BloodstoneCombatServiceTest {
         assertTrue(BloodstoneCombatService.isEffectAxeActivationReady(
                 1_000L,
                 1_000_001_000L
+        ));
+    }
+
+    @Test
+    void thornsDamageProvidesAnEffectAxeActivationFallback() {
+        assertTrue(BloodstoneCombatService.shouldActivateEffectAxeFromDamageEvent(
+                DamageCause.THORNS
+        ));
+        assertFalse(BloodstoneCombatService.shouldActivateEffectAxeFromDamageEvent(
+                DamageCause.ENTITY_ATTACK
+        ));
+        assertFalse(BloodstoneCombatService.shouldActivateEffectAxeFromDamageEvent(null));
+    }
+
+    @Test
+    void selfShotArrowsAreCancelledToPreventBowBoosting() {
+        UUID playerId = UUID.fromString("25cbdb82-4f0c-4cf5-a21c-25fc5c78b28f");
+        UUID otherPlayerId = UUID.fromString("3d243e5a-07b7-4bfe-aa6e-871687e4ee5b");
+
+        assertTrue(BloodstoneCombatService.shouldCancelSelfInflictedBowDamage(
+                true,
+                playerId,
+                playerId
+        ));
+        assertFalse(BloodstoneCombatService.shouldCancelSelfInflictedBowDamage(
+                true,
+                playerId,
+                otherPlayerId
+        ));
+        assertFalse(BloodstoneCombatService.shouldCancelSelfInflictedBowDamage(
+                false,
+                playerId,
+                playerId
+        ));
+        assertFalse(BloodstoneCombatService.shouldCancelSelfInflictedBowDamage(
+                true,
+                playerId,
+                null
         ));
     }
 

@@ -22,6 +22,7 @@ import org.bukkit.entity.Item;
 import org.bukkit.entity.Player;
 import org.bukkit.entity.Projectile;
 import org.bukkit.event.entity.EntityDamageByEntityEvent;
+import org.bukkit.event.entity.EntityDamageEvent.DamageCause;
 import org.bukkit.event.entity.PlayerDeathEvent;
 import org.bukkit.inventory.ItemStack;
 import org.bukkit.projectiles.ProjectileSource;
@@ -137,6 +138,17 @@ public final class BloodstoneCombatService {
     public void handleDamage(EntityDamageByEntityEvent event) {
         Player victim = event.getEntity() instanceof Player player ? player : null;
         Player attacker = resolveAttacker(event.getDamager());
+        if (victim != null
+                && attacker != null
+                && isInBloodstone(victim)
+                && shouldCancelSelfInflictedBowDamage(
+                        event.getDamager() instanceof Arrow,
+                        victim.getUniqueId(),
+                        attacker.getUniqueId()
+                )) {
+            event.setCancelled(true);
+            return;
+        }
         if (victim == null || attacker == null || attacker.equals(victim)
                 || !isInBloodstone(victim) || !isInBloodstone(attacker)) {
             return;
@@ -149,6 +161,15 @@ public final class BloodstoneCombatService {
                 || !playerService.isLoaded(attacker.getUniqueId())) {
             event.setCancelled(true);
             return;
+        }
+
+        // Thorns reports the original melee roles in reverse, so normalize its fallback activation.
+        if (shouldActivateEffectAxeFromDamageEvent(event.getCause())) {
+            handleEffectAxeAttack(
+                    victim,
+                    attacker,
+                    victim.getInventory().getHeldItemSlot()
+            );
         }
 
         long nowMilliseconds = System.currentTimeMillis();
@@ -787,6 +808,24 @@ public final class BloodstoneCombatService {
         return previousUseNanoseconds == null
                 || nowNanoseconds - previousUseNanoseconds
                 >= EFFECT_AXE_COOLDOWN_NANOSECONDS;
+    }
+
+    @Contract(pure = true)
+    static boolean shouldActivateEffectAxeFromDamageEvent(
+            @Nullable DamageCause damageCause
+    ) {
+        return damageCause == DamageCause.THORNS;
+    }
+
+    @Contract(pure = true)
+    static boolean shouldCancelSelfInflictedBowDamage(
+            boolean causedByArrow,
+            @Nullable UUID damagedPlayerId,
+            @Nullable UUID shooterId
+    ) {
+        return causedByArrow
+                && damagedPlayerId != null
+                && damagedPlayerId.equals(shooterId);
     }
 
     @Contract(pure = true)
