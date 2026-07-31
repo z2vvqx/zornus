@@ -73,8 +73,9 @@ public final class BloodstoneMachineService {
     private final BloodstoneMessageService messageService;
     private final Logger logger;
 
-    private final ExclusiveOperationResources<RandomBoxBlockPosition>
-            activeRandomBoxOperations = new ExclusiveOperationResources<>();
+    private final RandomBoxOperationCoordinator<RandomBoxBlockPosition>
+            randomBoxOperationCoordinator =
+                    new RandomBoxOperationCoordinator<>();
     private final OperationCapacity activeRepairOperations = new OperationCapacity(
             MAXIMUM_CONCURRENT_REPAIR_OPERATIONS
     );
@@ -230,7 +231,19 @@ public final class BloodstoneMachineService {
     private void beginRandomBox(Player player, Block block) {
         Location blockLocation = block.getLocation();
         UUID operationId = UUID.randomUUID();
-        if (!beginRandomBoxOperation(blockLocation, operationId)) {
+        RandomBoxOperationCoordinator.BeginOutcome beginOutcome =
+                beginRandomBoxOperation(
+                        blockLocation,
+                        operationId,
+                        player.getUniqueId()
+                );
+        if (beginOutcome
+                == RandomBoxOperationCoordinator.BeginOutcome
+                        .ALREADY_PENDING_BY_PLAYER) {
+            return;
+        }
+        if (beginOutcome
+                == RandomBoxOperationCoordinator.BeginOutcome.RESOURCE_IN_USE) {
             reject(player, BloodstoneServerConstants.RANDOM_BOX_BLOCK_IN_USE);
             return;
         }
@@ -405,6 +418,7 @@ public final class BloodstoneMachineService {
         }
         RandomBoxOperation operation =
                 ((RandomBoxReserveOutcome.Reserved) outcome).operation();
+        activateRandomBoxOperation(blockLocation, operationId);
         if (!operation.freeUse()) {
             BloodstoneText.sendActionBar(
                     player,
@@ -775,7 +789,7 @@ public final class BloodstoneMachineService {
         acceptingOperations = false;
         animationDisplays.forEach(Item::remove);
         animationDisplays.clear();
-        activeRandomBoxOperations.clear();
+        randomBoxOperationCoordinator.clear();
         activeRepairOperations.clear();
     }
 
@@ -910,20 +924,35 @@ public final class BloodstoneMachineService {
         messageService.sendError(player, message);
     }
 
-    private boolean beginRandomBoxOperation(
+    private RandomBoxOperationCoordinator.BeginOutcome beginRandomBoxOperation(
             Location blockLocation,
-            UUID operationId
+            UUID operationId,
+            UUID playerId
     ) {
         RandomBoxBlockPosition blockPosition =
                 RandomBoxBlockPosition.from(blockLocation);
-        return activeRandomBoxOperations.tryBegin(blockPosition, operationId);
+        return randomBoxOperationCoordinator.tryBegin(
+                blockPosition,
+                operationId,
+                playerId
+        );
+    }
+
+    private void activateRandomBoxOperation(
+            Location blockLocation,
+            UUID operationId
+    ) {
+        randomBoxOperationCoordinator.activate(
+                RandomBoxBlockPosition.from(blockLocation),
+                operationId
+        );
     }
 
     private void finishRandomBoxOperation(
             Location blockLocation,
             UUID operationId
     ) {
-        activeRandomBoxOperations.finish(
+        randomBoxOperationCoordinator.finish(
                 RandomBoxBlockPosition.from(blockLocation),
                 operationId
         );

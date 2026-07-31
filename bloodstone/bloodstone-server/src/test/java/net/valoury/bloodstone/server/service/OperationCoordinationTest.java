@@ -4,6 +4,7 @@ import org.junit.jupiter.api.Test;
 
 import java.util.UUID;
 
+import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
 import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
@@ -47,5 +48,92 @@ final class OperationCoordinationTest {
 
         activeBlocks.finish("first-block", firstOperationId);
         assertTrue(activeBlocks.tryBegin("first-block", UUID.randomUUID()));
+    }
+
+    @Test
+    void randomBoxSuppressesOnlyItsPlayersDuplicatePendingClicks() {
+        RandomBoxOperationCoordinator<String> activeBoxes =
+                new RandomBoxOperationCoordinator<>();
+        UUID firstOperationId = UUID.randomUUID();
+        UUID firstPlayerId = UUID.randomUUID();
+
+        assertEquals(
+                RandomBoxOperationCoordinator.BeginOutcome.STARTED,
+                activeBoxes.tryBegin(
+                        "first-block",
+                        firstOperationId,
+                        firstPlayerId
+                )
+        );
+        assertEquals(
+                RandomBoxOperationCoordinator.BeginOutcome
+                        .ALREADY_PENDING_BY_PLAYER,
+                activeBoxes.tryBegin(
+                        "first-block",
+                        UUID.randomUUID(),
+                        firstPlayerId
+                )
+        );
+        assertEquals(
+                RandomBoxOperationCoordinator.BeginOutcome.RESOURCE_IN_USE,
+                activeBoxes.tryBegin(
+                        "first-block",
+                        UUID.randomUUID(),
+                        UUID.randomUUID()
+                )
+        );
+    }
+
+    @Test
+    void activeRandomBoxRejectsEveryDuplicateClickUntilExactFinish() {
+        RandomBoxOperationCoordinator<String> activeBoxes =
+                new RandomBoxOperationCoordinator<>();
+        UUID operationId = UUID.randomUUID();
+        UUID playerId = UUID.randomUUID();
+
+        assertEquals(
+                RandomBoxOperationCoordinator.BeginOutcome.STARTED,
+                activeBoxes.tryBegin("first-block", operationId, playerId)
+        );
+        activeBoxes.activate("first-block", UUID.randomUUID());
+        assertEquals(
+                RandomBoxOperationCoordinator.BeginOutcome
+                        .ALREADY_PENDING_BY_PLAYER,
+                activeBoxes.tryBegin(
+                        "first-block",
+                        UUID.randomUUID(),
+                        playerId
+                )
+        );
+
+        activeBoxes.activate("first-block", operationId);
+        assertEquals(
+                RandomBoxOperationCoordinator.BeginOutcome.RESOURCE_IN_USE,
+                activeBoxes.tryBegin(
+                        "first-block",
+                        UUID.randomUUID(),
+                        playerId
+                )
+        );
+
+        activeBoxes.finish("first-block", UUID.randomUUID());
+        assertEquals(
+                RandomBoxOperationCoordinator.BeginOutcome.RESOURCE_IN_USE,
+                activeBoxes.tryBegin(
+                        "first-block",
+                        UUID.randomUUID(),
+                        playerId
+                )
+        );
+
+        activeBoxes.finish("first-block", operationId);
+        assertEquals(
+                RandomBoxOperationCoordinator.BeginOutcome.STARTED,
+                activeBoxes.tryBegin(
+                        "first-block",
+                        UUID.randomUUID(),
+                        playerId
+                )
+        );
     }
 }
