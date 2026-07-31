@@ -274,7 +274,7 @@ public final class BloodstoneServerConstants {
     public static final String ENCHANTER_ALREADY_PRESENT = UNABLE_TO_PROCEED_PREFIX + "enchantment already exists.";
     public static final String DISENCHANTER_ENCHANTMENT_MISSING = UNABLE_TO_PROCEED_PREFIX + "item doesn't have this enchantment.";
     // Random Box and Repair
-    public static final String RANDOM_BOX_BLOCK_IN_USE = "Already activated.";
+    public static final String RANDOM_BOX_BLOCK_IN_USE = "already activated.";
     public static final String RANDOM_BOX_PAYMENT_REJECTED = UNABLE_TO_PROCEED_PREFIX + "the Random Box payment was not accepted.";
     public static final String REPAIR_CAPACITY_REACHED = UNABLE_TO_PROCEED_PREFIX + "four repair operations are already active globally.";
     public static final String REPAIR_FULL_DURABILITY = UNABLE_TO_PROCEED_PREFIX + "item already at full durability.";
