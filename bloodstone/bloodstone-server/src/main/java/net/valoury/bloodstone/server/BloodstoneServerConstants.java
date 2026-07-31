@@ -64,7 +64,7 @@ public final class BloodstoneServerConstants {
     public static final String RESERVED_ITEM_INVENTORY_SPACE_REQUIRED = "clear some inventory space, then rejoin to recover your reserved item.";
 
     // Random Box and Repair
-    public static final String RANDOM_BOX_BLOCK_IN_USE = UNABLE_TO_PROCEED_PREFIX + "this Random Box is already active.";
+    public static final String RANDOM_BOX_BLOCK_IN_USE = "Already activated.";
     public static final String RANDOM_BOX_RESERVATION_REFUNDED = "The Random Box reservation stopped; your payment was restored.";
     public static final String RANDOM_BOX_PAYMENT_REJECTED = UNABLE_TO_PROCEED_PREFIX + "the Random Box payment was not accepted.";
     public static final String RANDOM_BOX_COST_ACTION_BAR_FORMAT = "<red><italic>-<cost> blood</italic></red>";
