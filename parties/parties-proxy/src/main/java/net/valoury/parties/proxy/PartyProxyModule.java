@@ -5,6 +5,7 @@ import com.velocitypowered.api.event.EventManager;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.scheduler.Scheduler;
 import net.valoury.friends.api.FriendshipService;
+import net.luckperms.api.LuckPerms;
 import net.valoury.parties.proxy.registrar.PartyCommandRegistrar;
 import net.valoury.parties.proxy.registrar.PartyListenerRegistrar;
 import net.valoury.parties.proxy.registrar.PartyOperationRegistrar;
@@ -26,14 +27,15 @@ public final class PartyProxyModule {
     public PartyProxyModule(
             @NonNull Object plugin,
             @NonNull ProxyServer proxyServer,
-            @NonNull FriendshipService friendshipService
+            @NonNull FriendshipService friendshipService,
+            @NonNull LuckPerms luckPerms
     ) {
         PartyStorage storage = new PartyPostgresStorage(
                 PartyProxyConstants.POSTGRESQL_URL,
                 PartyProxyConstants.POSTGRESQL_USER,
                 PartyProxyConstants.POSTGRESQL_PASSWORD
         );
-        this.partyService = new PartyService(storage, proxyServer, friendshipService);
+        this.partyService = new PartyService(storage, proxyServer, friendshipService, luckPerms);
         this.partyCommandRegistrar = new PartyCommandRegistrar(partyService, proxyServer);
         this.partyListenerRegistrar = new PartyListenerRegistrar(plugin, partyService);
         this.partyOperationRegistrar = new PartyOperationRegistrar(plugin, partyService);

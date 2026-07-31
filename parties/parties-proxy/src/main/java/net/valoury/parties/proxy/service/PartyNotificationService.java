@@ -9,8 +9,12 @@ import net.valoury.shared.utilities.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import net.luckperms.api.LuckPerms;
+import net.valoury.shared.utilities.PlayerNameFormatter;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 
 import java.util.Map;
 import java.util.Set;
@@ -18,10 +22,13 @@ import java.util.UUID;
 
 public final class PartyNotificationService {
 
+    private static final Logger LOGGER = LoggerFactory.getLogger(PartyNotificationService.class);
     private final @NonNull ProxyServer proxyServer;
+    private final @NonNull LuckPerms luckPerms;
 
-    public PartyNotificationService(@NonNull ProxyServer proxyServer) {
+    public PartyNotificationService(@NonNull ProxyServer proxyServer, @NonNull LuckPerms luckPerms) {
         this.proxyServer = proxyServer;
+        this.luckPerms = luckPerms;
     }
 
     public void notifyMemberDisconnected(@NonNull Party party, @NonNull UUID playerId, @NonNull String playerName) {
@@ -122,7 +129,7 @@ public final class PartyNotificationService {
                                       @NonNull Map<UUID, PartySettings> settingsMap) {
         Component componentMessage = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_CHAT_FORMAT,
                 TagResolver.resolver(
-                        Placeholder.unparsed("sender", sender.getUsername()),
+                        Placeholder.component("playername", resolvePlayerName(sender)),
                         Placeholder.unparsed("message", message)));
 
         for (UUID memberId : party.getMemberIds()) {
@@ -132,6 +139,23 @@ public final class PartyNotificationService {
                     member.sendMessage(componentMessage);
                 }
             });
+        }
+    }
+
+    private @NonNull Component resolvePlayerName(@NonNull Player player) {
+        Component username = Component.text(player.getUsername());
+        try {
+            String suffix = luckPerms.getPlayerAdapter(Player.class)
+                    .getMetaData(player)
+                    .getSuffix();
+            return PlayerNameFormatter.formatSuffixBeforeName(suffix, username);
+        } catch (RuntimeException exception) {
+            LOGGER.warn(
+                    "Failed to resolve LuckPerms suffix for {}; using username without suffix",
+                    player.getUniqueId(),
+                    exception
+            );
+            return username;
         }
     }
 

@@ -135,7 +135,7 @@ public final class PartyProxyConstants {
     public static final String NOTIFICATION_INVITE_SENT_ANNOUNCEMENT = "<green><sender> invited <target> to the party.</green>";
     public static final String NOTIFICATION_MEMBER_WARPED = "<green>You were warped to <sender>'s server.</green>";
     public static final String NOTIFICATION_PARTY_DISBANDED = "<red>The party has been disbanded by <leader>.</red>";
-    public static final String NOTIFICATION_CHAT_FORMAT = "<dark_aqua>[Party] <sender>: <message></dark_aqua>";
+    public static final String NOTIFICATION_CHAT_FORMAT = "<dark_aqua>[Party] </dark_aqua><playername><dark_aqua>: </dark_aqua><white><message></white>";
 
     public static final List<String> HELP_COMMANDS = Arrays.asList(
             "<click:suggest_command:'/party help '><#2DA0ED>help [page]</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Shows this help menu</white>",

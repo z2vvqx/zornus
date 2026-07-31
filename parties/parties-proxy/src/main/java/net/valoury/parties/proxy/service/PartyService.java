@@ -5,6 +5,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.ServerConnection;
 import com.velocitypowered.api.proxy.server.RegisteredServer;
 import net.valoury.friends.api.FriendshipService;
+import net.luckperms.api.LuckPerms;
 import net.valoury.parties.proxy.PartyProxyConstants;
 import net.valoury.parties.proxy.model.*;
 import net.valoury.parties.proxy.model.result.PartyMembersResult;
@@ -36,12 +37,13 @@ public final class PartyService implements AutoCloseable {
     public PartyService(
             @NonNull PartyStorage storage,
             @NonNull ProxyServer proxyServer,
-            @NonNull FriendshipService friendshipService
+            @NonNull FriendshipService friendshipService,
+            @NonNull LuckPerms luckPerms
     ) {
         this.storage = storage;
         this.proxyServer = proxyServer;
         this.friendshipService = friendshipService;
-        this.notificationService = new PartyNotificationService(proxyServer);
+        this.notificationService = new PartyNotificationService(proxyServer, luckPerms);
     }
 
     @Override
