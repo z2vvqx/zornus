@@ -400,6 +400,61 @@ final class BloodstonePostgresStorageIntegrationTest {
 
     @Test
     @Order(6)
+    void writesRenamedPaidStorageUsingItsStablePersistenceKey() {
+        byte[] checkpointContents = new byte[]{9, 10};
+        StorageOpenOutcome.Opened opened = assertInstanceOf(
+                StorageOpenOutcome.Opened.class,
+                storage.openStorage(
+                        KILLER_ID,
+                        StorageType.LEGATE,
+                        UUID.randomUUID(),
+                        BASE_TIME,
+                        Duration.ofSeconds(30)
+                ).join()
+        );
+        StorageWriteOutcome.Saved checkpoint = assertInstanceOf(
+                StorageWriteOutcome.Saved.class,
+                storage.checkpointStorage(
+                        opened.session(),
+                        checkpointContents,
+                        BASE_TIME.plusSeconds(1),
+                        Duration.ofSeconds(30)
+                ).join()
+        );
+
+        byte[] closedContents = new byte[]{11, 12};
+        assertInstanceOf(
+                StorageWriteOutcome.Saved.class,
+                storage.closeStorage(
+                        checkpoint.session(),
+                        closedContents,
+                        BASE_TIME.plusSeconds(2)
+                ).join()
+        );
+        StorageOpenOutcome.Opened reopened = assertInstanceOf(
+                StorageOpenOutcome.Opened.class,
+                storage.openStorage(
+                        KILLER_ID,
+                        StorageType.LEGATE,
+                        UUID.randomUUID(),
+                        BASE_TIME.plusSeconds(3),
+                        Duration.ofSeconds(30)
+                ).join()
+        );
+
+        assertArrayEquals(closedContents, reopened.session().contentsPayload());
+        assertInstanceOf(
+                StorageWriteOutcome.Saved.class,
+                storage.closeStorage(
+                        reopened.session(),
+                        closedContents,
+                        BASE_TIME.plusSeconds(4)
+                ).join()
+        );
+    }
+
+    @Test
+    @Order(7)
     void existingRootTableSuppressesAllSchemaDdl() throws Exception {
         String gateJdbcUrl =
                 BloodstoneStorageIntegrationTestConstants.GATE_POSTGRESQL_URL;

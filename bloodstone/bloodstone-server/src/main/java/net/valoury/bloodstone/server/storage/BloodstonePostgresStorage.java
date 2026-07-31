@@ -1888,7 +1888,7 @@ public final class BloodstonePostgresStorage implements BloodstoneStorage {
                 statement.setBytes(1, payload);
                 setInstant(statement, 2, leaseExpiresAt);
                 statement.setObject(3, session.playerId());
-                statement.setString(4, session.storageType().name());
+                statement.setString(4, session.storageType().persistenceKey());
                 statement.setObject(5, session.sessionToken());
                 statement.setLong(6, session.version());
                 try (ResultSet resultSet = statement.executeQuery()) {
@@ -1902,7 +1902,7 @@ public final class BloodstonePostgresStorage implements BloodstoneStorage {
                                   AND contents_payload IS NOT DISTINCT FROM ?
                                 """)) {
                             completedLookup.setObject(1, session.playerId());
-                            completedLookup.setString(2, session.storageType().name());
+                            completedLookup.setString(2, session.storageType().persistenceKey());
                             completedLookup.setObject(3, session.sessionToken());
                             completedLookup.setLong(4, session.version() + 1);
                             completedLookup.setBytes(5, payload);
@@ -1960,7 +1960,7 @@ public final class BloodstonePostgresStorage implements BloodstoneStorage {
                          """)) {
                 statement.setBytes(1, payload);
                 statement.setObject(2, session.playerId());
-                statement.setString(3, session.storageType().name());
+                statement.setString(3, session.storageType().persistenceKey());
                 statement.setObject(4, session.sessionToken());
                 statement.setLong(5, session.version());
                 try (ResultSet resultSet = statement.executeQuery()) {
@@ -1974,7 +1974,7 @@ public final class BloodstonePostgresStorage implements BloodstoneStorage {
                                   AND contents_payload IS NOT DISTINCT FROM ?
                                 """)) {
                             completedLookup.setObject(1, session.playerId());
-                            completedLookup.setString(2, session.storageType().name());
+                            completedLookup.setString(2, session.storageType().persistenceKey());
                             completedLookup.setLong(3, session.version() + 1);
                             completedLookup.setBytes(4, payload);
                             try (ResultSet completedResult = completedLookup.executeQuery()) {
