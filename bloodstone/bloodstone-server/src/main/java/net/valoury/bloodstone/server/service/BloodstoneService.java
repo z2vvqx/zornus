@@ -33,9 +33,9 @@ public final class BloodstoneService {
     private static final int RESPAWN_HORIZONTAL_RADIUS = 1;
     private static final int BASELINE_STACK_SIZE = 64;
     private static final int SWORD_SLOT = 0;
-    private static final int AXE_SLOT = 2;
-    private static final int BOW_SLOT = 3;
-    private static final int GOLDEN_APPLE_SLOT = 4;
+    private static final int AXE_SLOT = 1;
+    private static final int BOW_SLOT = 2;
+    private static final int GOLDEN_APPLE_SLOT = 3;
     private static final int ARROW_SLOT = 17;
     private static final int DEATH_PARTICLE_COUNT = 20;
     private static final float DEATH_PARTICLE_OFFSET_X = 0.5F;
