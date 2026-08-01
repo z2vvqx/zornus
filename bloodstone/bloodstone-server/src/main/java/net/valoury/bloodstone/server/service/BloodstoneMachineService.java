@@ -834,6 +834,7 @@ public final class BloodstoneMachineService {
         player.setFoodLevel(20);
         player.setSaturation(20.0F);
         player.setFireTicks(0);
+        presentationService.playMenuNavigation(player);
     }
 
     private void giveExperience(Player player) {
