@@ -23,6 +23,7 @@ import net.valoury.bloodstone.server.service.BloodstonePresentationService;
 import net.valoury.bloodstone.server.service.BloodstoneService;
 import net.valoury.bloodstone.server.service.BloodstoneSpawnProtectionService;
 import net.valoury.bloodstone.server.service.BloodstoneStorageService;
+import net.valoury.bloodstone.server.service.PlayerOperationCapacity;
 import net.valoury.bloodstone.server.storage.BloodstonePostgresStorage;
 import net.valoury.bloodstone.server.storage.BloodstoneStorage;
 import net.valoury.guilds.api.GuildsApi;
@@ -39,6 +40,8 @@ import java.util.concurrent.TimeUnit;
 import java.util.logging.Level;
 
 public final class BloodstoneServerModule {
+
+    private static final int MAXIMUM_CONCURRENT_TOOL_OPERATIONS_PER_PLAYER = 10;
 
     private final Plugin plugin;
     private final BloodstoneStorage storage;
@@ -61,6 +64,7 @@ public final class BloodstoneServerModule {
     private final BloodstoneWorldGuardRegistrar worldGuardRegistrar;
     private final BloodstoneGuildProfileCache guildProfileCache;
     private final BloodstoneMessageService messageService;
+    private final PlayerOperationCapacity playerToolOperationCapacity;
     private final boolean placeholderApiAvailable;
 
     public BloodstoneServerModule(Plugin plugin) {
@@ -78,6 +82,9 @@ public final class BloodstoneServerModule {
             BloodstoneMainThreadExecutor mainThreadExecutor =
                     new BloodstoneMainThreadExecutor(plugin);
             this.messageService = new BloodstoneMessageService();
+            this.playerToolOperationCapacity = new PlayerOperationCapacity(
+                    MAXIMUM_CONCURRENT_TOOL_OPERATIONS_PER_PLAYER
+            );
             this.itemService = new BloodstoneItemService();
             BloodstonePresentationService presentationService =
                     new BloodstonePresentationService();
@@ -127,6 +134,7 @@ public final class BloodstoneServerModule {
                 itemService,
                 combatService,
                 playerService,
+                playerToolOperationCapacity,
                 mainThreadExecutor,
                 presentationService,
                 messageService,
@@ -153,6 +161,7 @@ public final class BloodstoneServerModule {
                 enchanterService,
                 axeFuserService,
                 playerService,
+                playerToolOperationCapacity,
                 presentationService,
                 mainThreadExecutor,
                 messageService,
@@ -272,6 +281,7 @@ public final class BloodstoneServerModule {
         }
         machineService.shutdown();
         enchanterService.shutdown();
+        playerToolOperationCapacity.clear();
         axeFuserService.shutdown();
         duelService.shutdown();
         plugin.getServer().getScheduler().cancelTasks(plugin);

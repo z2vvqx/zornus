@@ -46,7 +46,6 @@ import java.util.logging.Logger;
 
 public final class BloodstoneMachineService {
 
-    private static final int MAXIMUM_CONCURRENT_REPAIR_OPERATIONS = 4;
     private static final int DEFAULT_REPAIR_BLOOD_COST = 20;
     private static final Sound RANDOM_BOX_REWARD_SOUND = Sound.ORB_PICKUP;
 
@@ -68,6 +67,7 @@ public final class BloodstoneMachineService {
     private final BloodstoneEnchanterService enchanterService;
     private final BloodstoneAxeFuserService axeFuserService;
     private final BloodstonePlayerService playerService;
+    private final PlayerOperationCapacity playerToolOperationCapacity;
     private final BloodstonePresentationService presentationService;
     private final BloodstoneMainThreadExecutor mainThreadExecutor;
     private final BloodstoneMessageService messageService;
@@ -76,9 +76,6 @@ public final class BloodstoneMachineService {
     private final RandomBoxOperationCoordinator<RandomBoxBlockPosition>
             randomBoxOperationCoordinator =
                     new RandomBoxOperationCoordinator<>();
-    private final OperationCapacity activeRepairOperations = new OperationCapacity(
-            MAXIMUM_CONCURRENT_REPAIR_OPERATIONS
-    );
     private final Set<Item> animationDisplays = new java.util.HashSet<>();
     private volatile boolean acceptingOperations = true;
 
@@ -92,6 +89,7 @@ public final class BloodstoneMachineService {
             BloodstoneEnchanterService enchanterService,
             BloodstoneAxeFuserService axeFuserService,
             BloodstonePlayerService playerService,
+            PlayerOperationCapacity playerToolOperationCapacity,
             BloodstonePresentationService presentationService,
             BloodstoneMainThreadExecutor mainThreadExecutor,
             BloodstoneMessageService messageService,
@@ -106,6 +104,7 @@ public final class BloodstoneMachineService {
         this.enchanterService = enchanterService;
         this.axeFuserService = axeFuserService;
         this.playerService = playerService;
+        this.playerToolOperationCapacity = playerToolOperationCapacity;
         this.presentationService = presentationService;
         this.mainThreadExecutor = mainThreadExecutor;
         this.messageService = messageService;
@@ -244,7 +243,7 @@ public final class BloodstoneMachineService {
         }
         if (beginOutcome
                 == RandomBoxOperationCoordinator.BeginOutcome.RESOURCE_IN_USE) {
-            reject(player, BloodstoneServerConstants.RANDOM_BOX_BLOCK_IN_USE);
+            reject(player, BloodstoneServerConstants.MACHINE_ALREADY_ACTIVATED);
             return;
         }
         if (player.getInventory().firstEmpty() < 0) {
@@ -535,8 +534,8 @@ public final class BloodstoneMachineService {
     }
 
     private void beginRepair(Player player, Block block) {
-        if (!activeRepairOperations.hasAvailability()) {
-            reject(player, BloodstoneServerConstants.REPAIR_CAPACITY_REACHED);
+        if (!playerToolOperationCapacity.hasAvailability(player.getUniqueId())) {
+            reject(player, BloodstoneServerConstants.MACHINE_ALREADY_ACTIVATED);
             return;
         }
         ItemStack heldItem = player.getItemInHand();
@@ -574,8 +573,11 @@ public final class BloodstoneMachineService {
             return;
         }
         UUID operationId = UUID.randomUUID();
-        if (!activeRepairOperations.tryBegin(operationId)) {
-            reject(player, BloodstoneServerConstants.REPAIR_CAPACITY_REACHED);
+        if (!playerToolOperationCapacity.tryBegin(
+                player.getUniqueId(),
+                operationId
+        )) {
+            reject(player, BloodstoneServerConstants.MACHINE_ALREADY_ACTIVATED);
             return;
         }
         int heldSlot = player.getInventory().getHeldItemSlot();
@@ -600,7 +602,7 @@ public final class BloodstoneMachineService {
                 ), mainThreadExecutor)
                 .exceptionally(exception -> {
                     mainThreadExecutor.execute(() -> {
-                        activeRepairOperations.finish(operationId);
+                        playerToolOperationCapacity.finish(operationId);
                         ItemStack current = player.getInventory().getItem(heldSlot);
                         if (current != null
                                 && itemService.operationId(current)
@@ -649,14 +651,14 @@ public final class BloodstoneMachineService {
             RepairReserveOutcome outcome
     ) {
         if (!player.isOnline()) {
-            activeRepairOperations.finish(operationId);
+            playerToolOperationCapacity.finish(operationId);
             return;
         }
 
         ItemStack heldItem = player.getInventory().getItem(heldSlot);
         if (heldItem == null
                 || itemService.operationId(heldItem).filter(operationId::equals).isEmpty()) {
-            activeRepairOperations.finish(operationId);
+            playerToolOperationCapacity.finish(operationId);
             reject(player, BloodstoneServerConstants.REPAIR_HELD_ITEM_RECOVERY);
             playerService.recoverRepairOperation(player, operationId);
             return;
@@ -666,7 +668,7 @@ public final class BloodstoneMachineService {
                 player.getInventory(),
                 DEFAULT_REPAIR_BLOOD_COST
         )) {
-            activeRepairOperations.finish(operationId);
+            playerToolOperationCapacity.finish(operationId);
             playerService.deliverReservedItem(
                     player,
                     operationId,
@@ -685,7 +687,7 @@ public final class BloodstoneMachineService {
         storage.markRepairOperationReady(operationId, player.getUniqueId(), repairedPayload)
                 .thenAcceptAsync(ready -> {
                     if (!ready) {
-                        activeRepairOperations.finish(operationId);
+                        playerToolOperationCapacity.finish(operationId);
                         playerService.recoverRepairOperation(player, operationId);
                         throw new IllegalStateException(
                                 "Repair operation disappeared before becoming ready"
@@ -696,7 +698,7 @@ public final class BloodstoneMachineService {
                 .exceptionally(exception -> {
                     logger.log(Level.SEVERE, "Failed to prepare repair operation", exception);
                     mainThreadExecutor.execute(() -> {
-                        activeRepairOperations.finish(operationId);
+                        playerToolOperationCapacity.finish(operationId);
                         if (player.isOnline()) {
                             playerService.recoverRepairOperation(player, operationId);
                         }
@@ -756,7 +758,7 @@ public final class BloodstoneMachineService {
             animationDisplays.remove(display);
             display.remove();
             if (!player.isOnline()) {
-                activeRepairOperations.finish(operationId);
+                playerToolOperationCapacity.finish(operationId);
                 return;
             }
             playerService.deliverReservedItem(
@@ -770,12 +772,12 @@ public final class BloodstoneMachineService {
                             )
                     )
                     .thenAcceptAsync(ignored ->
-                                    activeRepairOperations.finish(operationId),
+                                    playerToolOperationCapacity.finish(operationId),
                             mainThreadExecutor)
                     .exceptionally(exception -> {
                         logger.log(Level.SEVERE, "Failed to complete repair delivery", exception);
                         mainThreadExecutor.execute(() -> {
-                            activeRepairOperations.finish(operationId);
+                            playerToolOperationCapacity.finish(operationId);
                             if (player.isOnline()) {
                                 playerService.recoverRepairOperation(player, operationId);
                             }
@@ -790,7 +792,6 @@ public final class BloodstoneMachineService {
         animationDisplays.forEach(Item::remove);
         animationDisplays.clear();
         randomBoxOperationCoordinator.clear();
-        activeRepairOperations.clear();
     }
 
     private void refundBlood(Player player, int amount) {

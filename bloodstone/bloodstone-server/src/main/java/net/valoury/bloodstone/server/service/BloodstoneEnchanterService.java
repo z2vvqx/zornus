@@ -39,22 +39,18 @@ import java.util.logging.Logger;
 
 public final class BloodstoneEnchanterService {
 
-    private static final int MAXIMUM_CONCURRENT_OPERATIONS = 4;
-
     private final Plugin plugin;
     private final BloodstoneStorage storage;
     private final BloodstoneItemService itemService;
     private final BloodstoneCombatService combatService;
     private final BloodstonePlayerService playerService;
+    private final PlayerOperationCapacity playerToolOperationCapacity;
     private final BloodstoneMainThreadExecutor mainThreadExecutor;
     private final BloodstonePresentationService presentationService;
     private final BloodstoneMessageService messageService;
     private final Logger logger;
 
     private final Map<UUID, EnchanterContext> contexts = new HashMap<>();
-    private final OperationCapacity activeOperations = new OperationCapacity(
-            MAXIMUM_CONCURRENT_OPERATIONS
-    );
     private final Set<Item> animationDisplays = new java.util.HashSet<>();
     private volatile boolean acceptingOperations = true;
 
@@ -64,6 +60,7 @@ public final class BloodstoneEnchanterService {
             BloodstoneItemService itemService,
             BloodstoneCombatService combatService,
             BloodstonePlayerService playerService,
+            PlayerOperationCapacity playerToolOperationCapacity,
             BloodstoneMainThreadExecutor mainThreadExecutor,
             BloodstonePresentationService presentationService,
             BloodstoneMessageService messageService,
@@ -74,6 +71,7 @@ public final class BloodstoneEnchanterService {
         this.itemService = itemService;
         this.combatService = combatService;
         this.playerService = playerService;
+        this.playerToolOperationCapacity = playerToolOperationCapacity;
         this.mainThreadExecutor = mainThreadExecutor;
         this.presentationService = presentationService;
         this.messageService = messageService;
@@ -118,8 +116,8 @@ public final class BloodstoneEnchanterService {
             reject(player, BloodstoneServerConstants.ERROR_IN_BATTLE);
             return;
         }
-        if (!activeOperations.hasAvailability()) {
-            reject(player, BloodstoneServerConstants.ENCHANTER_CAPACITY_REACHED);
+        if (!playerToolOperationCapacity.hasAvailability(player.getUniqueId())) {
+            reject(player, BloodstoneServerConstants.MACHINE_ALREADY_ACTIVATED);
             return;
         }
         ItemStack heldItem = player.getItemInHand();
@@ -265,9 +263,9 @@ public final class BloodstoneEnchanterService {
             return;
         }
         Duration cooldown = context.rank().enchanterCooldown().orElseThrow();
-        if (!activeOperations.hasAvailability()) {
+        if (!playerToolOperationCapacity.hasAvailability(player.getUniqueId())) {
             player.closeInventory();
-            reject(player, BloodstoneServerConstants.ENCHANTER_CAPACITY_REACHED);
+            reject(player, BloodstoneServerConstants.MACHINE_ALREADY_ACTIVATED);
             return;
         }
         player.closeInventory();
@@ -304,8 +302,11 @@ public final class BloodstoneEnchanterService {
             );
             return;
         }
-        if (!activeOperations.tryBegin(operationId)) {
-            reject(player, BloodstoneServerConstants.ENCHANTER_CAPACITY_REACHED);
+        if (!playerToolOperationCapacity.tryBegin(
+                player.getUniqueId(),
+                operationId
+        )) {
+            reject(player, BloodstoneServerConstants.MACHINE_ALREADY_ACTIVATED);
             return;
         }
         player.getInventory().setItem(
@@ -333,7 +334,7 @@ public final class BloodstoneEnchanterService {
                 ), mainThreadExecutor)
                 .exceptionally(exception -> {
                     mainThreadExecutor.execute(() -> {
-                        activeOperations.finish(operationId);
+                        playerToolOperationCapacity.finish(operationId);
                         restoreTaggedOriginal(
                                 player,
                                 context.heldSlot(),
@@ -401,11 +402,11 @@ public final class BloodstoneEnchanterService {
             EnchanterReserveOutcome outcome
     ) {
         if (!player.isOnline()) {
-            activeOperations.finish(operationId);
+            playerToolOperationCapacity.finish(operationId);
             return;
         }
         if (outcome instanceof EnchanterReserveOutcome.OnCooldown cooldown) {
-            activeOperations.finish(operationId);
+            playerToolOperationCapacity.finish(operationId);
             restoreTaggedOriginal(player, heldSlot, operationId, original);
             messageService.sendUnable(
                     player,
@@ -422,7 +423,7 @@ public final class BloodstoneEnchanterService {
         ItemStack heldItem = player.getInventory().getItem(heldSlot);
         if (heldItem == null
                 || itemService.operationId(heldItem).filter(operationId::equals).isEmpty()) {
-            activeOperations.finish(operationId);
+            playerToolOperationCapacity.finish(operationId);
             reject(player, action.heldItemRecoveryMessage());
             playerService.recoverEnchanterOperation(player, operationId);
             return;
@@ -431,7 +432,7 @@ public final class BloodstoneEnchanterService {
         storage.markEnchanterOperationReady(operationId, player.getUniqueId(), resultPayload)
                 .thenAcceptAsync(ready -> {
                     if (!ready) {
-                        activeOperations.finish(operationId);
+                        playerToolOperationCapacity.finish(operationId);
                         playerService.recoverEnchanterOperation(player, operationId);
                         throw new IllegalStateException(
                                 "Enchantment tool operation disappeared before becoming ready"
@@ -452,7 +453,7 @@ public final class BloodstoneEnchanterService {
                             exception
                     );
                     mainThreadExecutor.execute(() -> {
-                        activeOperations.finish(operationId);
+                        playerToolOperationCapacity.finish(operationId);
                         if (player.isOnline()) {
                             playerService.recoverEnchanterOperation(player, operationId);
                         }
@@ -524,7 +525,7 @@ public final class BloodstoneEnchanterService {
             animationDisplays.remove(display);
             display.remove();
             if (!player.isOnline()) {
-                activeOperations.finish(operationId);
+                playerToolOperationCapacity.finish(operationId);
                 return;
             }
             playerService.deliverReservedItem(
@@ -538,7 +539,7 @@ public final class BloodstoneEnchanterService {
                             )
                     )
                     .thenAcceptAsync(outcome -> {
-                        activeOperations.finish(operationId);
+                        playerToolOperationCapacity.finish(operationId);
                         if (outcome.wasDelivered()
                                 && player.isOnline()) {
                             player.playSound(
@@ -556,7 +557,7 @@ public final class BloodstoneEnchanterService {
                                 exception
                         );
                         mainThreadExecutor.execute(() -> {
-                            activeOperations.finish(operationId);
+                            playerToolOperationCapacity.finish(operationId);
                             if (player.isOnline()) {
                                 playerService.recoverEnchanterOperation(player, operationId);
                             }
@@ -571,7 +572,6 @@ public final class BloodstoneEnchanterService {
         contexts.clear();
         animationDisplays.forEach(Item::remove);
         animationDisplays.clear();
-        activeOperations.clear();
     }
 
     private void reject(Player player, String message) {

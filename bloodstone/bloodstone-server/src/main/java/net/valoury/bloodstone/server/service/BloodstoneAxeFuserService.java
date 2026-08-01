@@ -36,7 +36,6 @@ import java.util.logging.Logger;
 
 public final class BloodstoneAxeFuserService {
 
-    private static final int MAXIMUM_CONCURRENT_OPERATIONS = 4;
     static final int FUSION_BLOOD_ALLOY_COST = 16;
     private final BloodstoneStorage storage;
     private final BloodstoneItemService itemService;
@@ -52,9 +51,8 @@ public final class BloodstoneAxeFuserService {
     private final Map<UUID, AxeFuserContext> contexts = new HashMap<>();
     private final ExclusiveOperationResources<AxeFuserBlockPosition>
             activeFuserBlocks = new ExclusiveOperationResources<>();
-    private final OperationCapacity activeOperations = new OperationCapacity(
-            MAXIMUM_CONCURRENT_OPERATIONS
-    );
+    private final ExclusiveOperationResources<UUID> activeFuserPlayers =
+            new ExclusiveOperationResources<>();
     private volatile boolean acceptingOperations = true;
 
     public BloodstoneAxeFuserService(
@@ -326,15 +324,16 @@ public final class BloodstoneAxeFuserService {
             ItemStack fusedAxe
     ) {
         UUID operationId = UUID.randomUUID();
+        UUID playerId = player.getUniqueId();
         AxeFuserBlockPosition blockPosition =
                 AxeFuserBlockPosition.from(context.blockLocation());
         if (!activeFuserBlocks.tryBegin(blockPosition, operationId)) {
-            reject(player, BloodstoneServerConstants.AXE_FUSER_BLOCK_IN_USE);
+            reject(player, BloodstoneServerConstants.MACHINE_ALREADY_ACTIVATED);
             return;
         }
-        if (!activeOperations.tryBegin(operationId)) {
+        if (!activeFuserPlayers.tryBegin(playerId, operationId)) {
             activeFuserBlocks.finish(blockPosition, operationId);
-            reject(player, BloodstoneServerConstants.AXE_FUSER_CAPACITY_REACHED);
+            reject(player, BloodstoneServerConstants.MACHINE_ALREADY_ACTIVATED);
             return;
         }
 
@@ -348,7 +347,7 @@ public final class BloodstoneAxeFuserService {
             );
             fusedAxePayload = BukkitItemSerialization.serializeItem(fusedAxe);
         } catch (IOException exception) {
-            finishOperation(blockPosition, operationId);
+            finishOperation(blockPosition, playerId, operationId);
             logger.log(
                     Level.SEVERE,
                     "Failed to serialize Axe Fuser operation",
@@ -360,7 +359,7 @@ public final class BloodstoneAxeFuserService {
                 player.getInventory(),
                 FUSION_BLOOD_ALLOY_COST
         )) {
-            finishOperation(blockPosition, operationId);
+            finishOperation(blockPosition, playerId, operationId);
             messageService.sendRequiredCurrency(
                     player,
                     FUSION_BLOOD_ALLOY_COST,
@@ -369,7 +368,7 @@ public final class BloodstoneAxeFuserService {
             return;
         }
 
-        contexts.remove(player.getUniqueId());
+        contexts.remove(playerId);
         player.closeInventory();
         UUID firstMarker =
                 AxeFuserOperation.reservedItemMarker(operationId, 0);
@@ -386,7 +385,7 @@ public final class BloodstoneAxeFuserService {
 
         reserveWithRetry(
                 operationId,
-                player.getUniqueId(),
+                playerId,
                 originalAxesPayload,
                 FUSION_BLOOD_ALLOY_COST,
                 Instant.now()
@@ -405,7 +404,7 @@ public final class BloodstoneAxeFuserService {
                 ), mainThreadExecutor)
                 .exceptionally(exception -> {
                     mainThreadExecutor.execute(() -> {
-                        finishOperation(blockPosition, operationId);
+                        finishOperation(blockPosition, playerId, operationId);
                         restoreTaggedInput(player, firstMarker, firstOriginal);
                         restoreTaggedInput(player, secondMarker, secondOriginal);
                         refundFusionCost(player, operationId);
@@ -474,14 +473,15 @@ public final class BloodstoneAxeFuserService {
             UUID operationId,
             AxeFuserReserveOutcome outcome
     ) {
+        UUID playerId = player.getUniqueId();
         if (!(outcome instanceof AxeFuserReserveOutcome.Reserved)) {
-            finishOperation(blockPosition, operationId);
+            finishOperation(blockPosition, playerId, operationId);
             throw new IllegalStateException(
                     "Unsupported Axe Fuser reservation outcome"
             );
         }
         if (!player.isOnline()) {
-            finishOperation(blockPosition, operationId);
+            finishOperation(blockPosition, playerId, operationId);
             return;
         }
         UUID firstMarker =
@@ -490,7 +490,7 @@ public final class BloodstoneAxeFuserService {
                 AxeFuserOperation.reservedItemMarker(operationId, 1);
         if (!hasMarker(player, firstSlot, firstMarker)
                 || !hasMarker(player, secondSlot, secondMarker)) {
-            finishOperation(blockPosition, operationId);
+            finishOperation(blockPosition, playerId, operationId);
             reject(
                     player,
                     BloodstoneServerConstants.AXE_FUSER_INPUT_RECOVERY
@@ -502,7 +502,7 @@ public final class BloodstoneAxeFuserService {
         player.getInventory().clear(secondSlot);
         storage.markAxeFuserOperationReady(
                 operationId,
-                player.getUniqueId(),
+                playerId,
                 fusedAxePayload
         ).thenAcceptAsync(ready -> {
             if (!ready) {
@@ -517,7 +517,11 @@ public final class BloodstoneAxeFuserService {
                     secondOriginal,
                     fusedAxe,
                     operationId,
-                    () -> finishOperation(blockPosition, operationId),
+                    () -> finishOperation(
+                            blockPosition,
+                            playerId,
+                            operationId
+                    ),
                     () -> playerService.recoverAxeFuserOperation(
                             player,
                             operationId
@@ -530,7 +534,7 @@ public final class BloodstoneAxeFuserService {
                     exception
             );
             mainThreadExecutor.execute(() -> {
-                finishOperation(blockPosition, operationId);
+                finishOperation(blockPosition, playerId, operationId);
                 if (player.isOnline()) {
                     playerService.recoverAxeFuserOperation(
                             player,
@@ -626,10 +630,11 @@ public final class BloodstoneAxeFuserService {
 
     private void finishOperation(
             AxeFuserBlockPosition blockPosition,
+            UUID playerId,
             UUID operationId
     ) {
         activeFuserBlocks.finish(blockPosition, operationId);
-        activeOperations.finish(operationId);
+        activeFuserPlayers.finish(playerId, operationId);
     }
 
     private void reject(Player player, String message) {
@@ -641,7 +646,7 @@ public final class BloodstoneAxeFuserService {
         contexts.clear();
         animation.shutdown();
         activeFuserBlocks.clear();
-        activeOperations.clear();
+        activeFuserPlayers.clear();
     }
 
     private record AxeFuserContext(

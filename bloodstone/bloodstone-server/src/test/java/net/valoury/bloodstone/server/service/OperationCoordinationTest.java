@@ -12,25 +12,83 @@ import static org.junit.jupiter.api.Assertions.assertTrue;
 final class OperationCoordinationTest {
 
     @Test
-    void globalCapacityAllowsExactlyFourConcurrentOperations() {
-        OperationCapacity capacity = new OperationCapacity(4);
-        UUID firstOperationId = UUID.randomUUID();
+    void playerCapacityCombinesTenOperationsWithoutLimitingOtherPlayers() {
+        PlayerOperationCapacity capacity = new PlayerOperationCapacity(10);
+        UUID firstPlayerId = UUID.randomUUID();
+        UUID secondPlayerId = UUID.randomUUID();
+        UUID[] firstPlayerOperationIds = new UUID[10];
 
-        assertTrue(capacity.tryBegin(firstOperationId));
-        assertTrue(capacity.tryBegin(UUID.randomUUID()));
-        assertTrue(capacity.tryBegin(UUID.randomUUID()));
-        assertTrue(capacity.tryBegin(UUID.randomUUID()));
-        assertFalse(capacity.hasAvailability());
-        assertFalse(capacity.tryBegin(UUID.randomUUID()));
+        for (int index = 0; index < firstPlayerOperationIds.length; index++) {
+            UUID operationId = UUID.randomUUID();
+            firstPlayerOperationIds[index] = operationId;
+            assertTrue(capacity.tryBegin(firstPlayerId, operationId));
+        }
 
-        capacity.finish(firstOperationId);
-        assertTrue(capacity.hasAvailability());
-        assertTrue(capacity.tryBegin(UUID.randomUUID()));
+        assertFalse(capacity.hasAvailability(firstPlayerId));
+        assertFalse(capacity.tryBegin(firstPlayerId, UUID.randomUUID()));
+        assertTrue(capacity.hasAvailability(secondPlayerId));
+        assertTrue(capacity.tryBegin(secondPlayerId, UUID.randomUUID()));
+
+        capacity.finish(firstPlayerOperationIds[0]);
+        assertTrue(capacity.hasAvailability(firstPlayerId));
+        assertTrue(capacity.tryBegin(firstPlayerId, UUID.randomUUID()));
     }
 
     @Test
-    void capacityMustBePositive() {
-        assertThrows(IllegalArgumentException.class, () -> new OperationCapacity(0));
+    void playerCapacityRejectsDuplicateOperationIds() {
+        PlayerOperationCapacity capacity = new PlayerOperationCapacity(10);
+        UUID operationId = UUID.randomUUID();
+
+        assertTrue(capacity.tryBegin(UUID.randomUUID(), operationId));
+        assertFalse(capacity.tryBegin(UUID.randomUUID(), operationId));
+    }
+
+    @Test
+    void playerCapacityMustBePositive() {
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> new PlayerOperationCapacity(0)
+        );
+    }
+
+    @Test
+    void fuserLimitsOneOperationPerPlayerAndPerBlock() {
+        ExclusiveOperationResources<String> activeBlocks =
+                new ExclusiveOperationResources<>();
+        ExclusiveOperationResources<UUID> activePlayers =
+                new ExclusiveOperationResources<>();
+        UUID firstPlayerId = UUID.randomUUID();
+        UUID secondPlayerId = UUID.randomUUID();
+        UUID firstOperationId = UUID.randomUUID();
+
+        assertTrue(activeBlocks.tryBegin("first-block", firstOperationId));
+        assertTrue(activePlayers.tryBegin(firstPlayerId, firstOperationId));
+
+        UUID samePlayerOperationId = UUID.randomUUID();
+        assertTrue(activeBlocks.tryBegin("second-block", samePlayerOperationId));
+        assertFalse(activePlayers.tryBegin(
+                firstPlayerId,
+                samePlayerOperationId
+        ));
+        activeBlocks.finish("second-block", samePlayerOperationId);
+
+        assertFalse(activeBlocks.tryBegin(
+                "first-block",
+                UUID.randomUUID()
+        ));
+
+        UUID concurrentOperationId = UUID.randomUUID();
+        assertTrue(activeBlocks.tryBegin("second-block", concurrentOperationId));
+        assertTrue(activePlayers.tryBegin(
+                secondPlayerId,
+                concurrentOperationId
+        ));
+
+        activeBlocks.finish("first-block", firstOperationId);
+        activePlayers.finish(firstPlayerId, firstOperationId);
+        UUID resumedOperationId = UUID.randomUUID();
+        assertTrue(activeBlocks.tryBegin("third-block", resumedOperationId));
+        assertTrue(activePlayers.tryBegin(firstPlayerId, resumedOperationId));
     }
 
     @Test
