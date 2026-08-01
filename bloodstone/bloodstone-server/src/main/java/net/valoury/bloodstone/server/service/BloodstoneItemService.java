@@ -3,6 +3,7 @@ package net.valoury.bloodstone.server.service;
 import net.kyori.adventure.text.Component;
 import net.valoury.bloodstone.server.BloodstoneText;
 import net.valoury.bloodstone.server.CombinedEffectAxeDefinitions;
+import net.valoury.bloodstone.server.CombinedEffectAxeDefinitions.CombinedEffectAxeDefinition;
 import net.valoury.bloodstone.server.EffectAxeDefinitions;
 import net.valoury.bloodstone.server.EffectAxeDefinitions.EffectAxeDefinition;
 import net.valoury.bloodstone.server.EffectAxeItemDefinition;
@@ -55,9 +56,9 @@ public final class BloodstoneItemService {
     private static final String OPERATION_ID_KEY = "valoury_bloodstone_operation";
     private static final int RESISTANCE_DURATION_TICKS = 3 * 60 * 20;
     private static final int EFFECT_AXE_DURABILITY_COST_PER_HIT = 2;
+    private static final int BASE_EFFECT_AXE_SHARPNESS_LEVEL = 3;
+    private static final int FUSED_EFFECT_AXE_SHARPNESS_LEVEL = 4;
     private static final int EFFECT_AXE_UNBREAKING_LEVEL = 1;
-    private static final List<String> EFFECT_AXE_MENU_LORE =
-            List.of("<gray>Unbreaking I</gray>");
 
     private final UnsafeItemTags itemTags;
 
@@ -89,6 +90,8 @@ public final class BloodstoneItemService {
         EffectAxeDefinition speedAxeDefinition = EffectAxeDefinitions.SPEED;
         ItemStack effectAxe = createEffectAxe(speedAxeDefinition);
         if (effectAxeDefinition(effectAxe).filter(speedAxeDefinition::equals).isEmpty()
+                || effectAxe.getEnchantmentLevel(Enchantment.DAMAGE_ALL)
+                != BASE_EFFECT_AXE_SHARPNESS_LEVEL
                 || effectAxe.getEnchantmentLevel(Enchantment.DURABILITY)
                 != EFFECT_AXE_UNBREAKING_LEVEL
                 || !effectAxe.hasItemMeta()
@@ -99,6 +102,15 @@ public final class BloodstoneItemService {
                     "Effect Axe id or presentation did not survive Carbon item conversion"
             );
         }
+        ItemStack fusedEffectAxe = createEffectAxe(
+                CombinedEffectAxeDefinitions.BERSERKER
+        );
+        if (fusedEffectAxe.getEnchantmentLevel(Enchantment.DAMAGE_ALL)
+                != FUSED_EFFECT_AXE_SHARPNESS_LEVEL) {
+            throw new IllegalStateException(
+                    "Fused Effect Axe Sharpness level is invalid"
+            );
+        }
         ItemStack selectedFuserDisplay = createEffectAxeFuserDisplay(
                 speedAxeDefinition,
                 true
@@ -107,13 +119,25 @@ public final class BloodstoneItemService {
                 speedAxeDefinition,
                 false
         );
-        Component unbreakingLore = BloodstoneText.deserialize(
-                EFFECT_AXE_MENU_LORE.getFirst()
+        List<String> effectAxeMenuLore = effectAxeMenuLore(speedAxeDefinition);
+        Component sharpnessLore = BloodstoneText.deserialize(
+                effectAxeMenuLore.getFirst()
         );
-        if (selectedFuserDisplay.getEnchantmentLevel(Enchantment.DURABILITY)
+        Component unbreakingLore = BloodstoneText.deserialize(
+                effectAxeMenuLore.getLast()
+        );
+        if (selectedFuserDisplay.getEnchantmentLevel(Enchantment.DAMAGE_ALL)
+                != BASE_EFFECT_AXE_SHARPNESS_LEVEL
+                || selectedFuserDisplay.getEnchantmentLevel(Enchantment.DURABILITY)
                 != EFFECT_AXE_UNBREAKING_LEVEL
                 || unselectedFuserDisplay.getEnchantmentLevel(
+                Enchantment.DAMAGE_ALL) != 0
+                || unselectedFuserDisplay.getEnchantmentLevel(
                 Enchantment.DURABILITY) != 0
+                || !selectedFuserDisplay.getItemMeta().lore()
+                .contains(sharpnessLore)
+                || !unselectedFuserDisplay.getItemMeta().lore()
+                .contains(sharpnessLore)
                 || !selectedFuserDisplay.getItemMeta().lore()
                 .contains(unbreakingLore)
                 || !unselectedFuserDisplay.getItemMeta().lore()
@@ -310,6 +334,10 @@ public final class BloodstoneItemService {
         itemMeta.lore(List.copyOf(lore));
         axe.setItemMeta(itemMeta);
         axe.addUnsafeEnchantment(
+                Enchantment.DAMAGE_ALL,
+                effectAxeSharpnessLevel(definition)
+        );
+        axe.addUnsafeEnchantment(
                 Enchantment.DURABILITY,
                 EFFECT_AXE_UNBREAKING_LEVEL
         );
@@ -366,6 +394,20 @@ public final class BloodstoneItemService {
                 maximumDurability,
                 remainingUses * EFFECT_AXE_DURABILITY_COST_PER_HIT
         );
+        setRemainingDurability(item, remainingDurability);
+    }
+
+    public void setRemainingDurability(
+            @NonNull ItemStack item,
+            int remainingDurability
+    ) {
+        requireDamageable(item);
+        int maximumDurability = item.getType().getMaxDurability();
+        if (remainingDurability < 1 || remainingDurability > maximumDurability) {
+            throw new IllegalArgumentException(
+                    "Remaining durability must be between 1 and " + maximumDurability
+            );
+        }
         item.setDurability((short) (maximumDurability - remainingDurability));
     }
 
@@ -515,7 +557,7 @@ public final class BloodstoneItemService {
     ) {
         return prepareForMenuDisplay(
                 createEffectAxe(definition),
-                EFFECT_AXE_MENU_LORE
+                effectAxeMenuLore(definition)
         );
     }
 
@@ -525,9 +567,10 @@ public final class BloodstoneItemService {
     ) {
         ItemStack display = prepareForMenuDisplay(
                 createEffectAxe(definition),
-                EFFECT_AXE_MENU_LORE
+                effectAxeMenuLore(definition)
         );
         if (!selected) {
+            display.removeEnchantment(Enchantment.DAMAGE_ALL);
             display.removeEnchantment(Enchantment.DURABILITY);
         }
         return display;
@@ -535,13 +578,34 @@ public final class BloodstoneItemService {
 
     public @NonNull ItemStack createCombinedEffectAxeMenuDisplay(
             @NonNull EffectAxeItemDefinition definition,
-            int remainingUses
+            int remainingDurability
     ) {
         ItemStack result = createEffectAxe(definition);
-        setRemainingUses(result, remainingUses);
+        setRemainingDurability(result, remainingDurability);
         return prepareForMenuDisplay(
                 result,
-                EFFECT_AXE_MENU_LORE
+                effectAxeMenuLore(definition)
+        );
+    }
+
+    static int effectAxeSharpnessLevel(
+            @NonNull EffectAxeItemDefinition definition
+    ) {
+        return definition instanceof CombinedEffectAxeDefinition
+                ? FUSED_EFFECT_AXE_SHARPNESS_LEVEL
+                : BASE_EFFECT_AXE_SHARPNESS_LEVEL;
+    }
+
+    private static List<String> effectAxeMenuLore(
+            EffectAxeItemDefinition definition
+    ) {
+        String sharpnessLevel = effectAxeSharpnessLevel(definition)
+                == FUSED_EFFECT_AXE_SHARPNESS_LEVEL
+                ? "IV"
+                : "III";
+        return List.of(
+                "<gray>Sharpness " + sharpnessLevel + "</gray>",
+                "<gray>Unbreaking I</gray>"
         );
     }
 

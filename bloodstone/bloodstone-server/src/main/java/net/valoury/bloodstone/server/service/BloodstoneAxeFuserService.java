@@ -236,9 +236,10 @@ public final class BloodstoneAxeFuserService {
             );
             return;
         }
-        int remainingUses = Math.min(
-                firstOwned.get().remainingUses(),
-                secondOwned.get().remainingUses()
+        int remainingDurability = mergedRemainingDurability(
+                Material.DIAMOND_AXE.getMaxDurability(),
+                firstOwned.get().remainingDurability(),
+                secondOwned.get().remainingDurability()
         );
         menuView.render(
                 inventory,
@@ -246,7 +247,7 @@ public final class BloodstoneAxeFuserService {
                 context.selectedEffects(),
                 itemService.createCombinedEffectAxeMenuDisplay(
                         combinedDefinition,
-                        remainingUses
+                        remainingDurability
                 ),
                 false
         );
@@ -300,11 +301,12 @@ public final class BloodstoneAxeFuserService {
                 CombinedEffectAxeDefinitions.find(firstEffect, secondEffect)
                         .orElseThrow();
         ItemStack fusedAxe = itemService.createEffectAxe(combinedDefinition);
-        itemService.setRemainingUses(
+        itemService.setRemainingDurability(
                 fusedAxe,
-                Math.min(
-                        firstOwned.get().remainingUses(),
-                        secondOwned.get().remainingUses()
+                mergedRemainingDurability(
+                        fusedAxe.getType().getMaxDurability(),
+                        firstOwned.get().remainingDurability(),
+                        secondOwned.get().remainingDurability()
                 )
         );
         reserveAndAnimate(
@@ -564,16 +566,38 @@ public final class BloodstoneAxeFuserService {
                 matches.add(new OwnedEffectAxe(
                         slot,
                         item,
-                        itemService.remainingUses(item)
+                        itemService.remainingDurability(item)
                 ));
             }
         }
         return matches.stream().max(
-                Comparator.comparingInt(OwnedEffectAxe::remainingUses)
+                Comparator.comparingInt(OwnedEffectAxe::remainingDurability)
                         .thenComparing(
                                 Comparator.comparingInt(OwnedEffectAxe::slot)
                                         .reversed()
                         )
+        );
+    }
+
+    static int mergedRemainingDurability(
+            int maximumDurability,
+            int firstRemainingDurability,
+            int secondRemainingDurability
+    ) {
+        if (maximumDurability < 1) {
+            throw new IllegalArgumentException("Maximum durability must be positive");
+        }
+        if (firstRemainingDurability < 1
+                || firstRemainingDurability > maximumDurability
+                || secondRemainingDurability < 1
+                || secondRemainingDurability > maximumDurability) {
+            throw new IllegalArgumentException(
+                    "Input durability must be between 1 and " + maximumDurability
+            );
+        }
+        return (int) Math.min(
+                maximumDurability,
+                (long) firstRemainingDurability + secondRemainingDurability
         );
     }
 
@@ -671,7 +695,7 @@ public final class BloodstoneAxeFuserService {
     private record OwnedEffectAxe(
             int slot,
             ItemStack item,
-            int remainingUses
+            int remainingDurability
     ) {
     }
 

@@ -2,6 +2,7 @@ package net.valoury.bloodstone.server.service;
 
 import net.valoury.bloodstone.server.BloodstoneServerConstants;
 import net.valoury.bloodstone.server.BloodstoneText;
+import net.valoury.bloodstone.server.CombinedEffectAxeDefinitions;
 import net.valoury.bloodstone.server.EffectAxeDefinitions;
 import net.valoury.bloodstone.server.model.BloodstoneRank;
 import org.bukkit.potion.Potion;
@@ -12,6 +13,7 @@ import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class BloodstoneItemMenuLoreTest {
@@ -193,6 +195,50 @@ final class BloodstoneItemMenuLoreTest {
                 );
             }
         }
+    }
+
+    @Test
+    void effectAxeSharpnessReflectsWhetherTheAxeIsFused() {
+        assertEquals(
+                3,
+                BloodstoneItemService.effectAxeSharpnessLevel(
+                        EffectAxeDefinitions.SPEED
+                )
+        );
+        assertEquals(
+                4,
+                BloodstoneItemService.effectAxeSharpnessLevel(
+                        CombinedEffectAxeDefinitions.BERSERKER
+                )
+        );
+    }
+
+    @Test
+    void axeFuserAddsAndCapsRemainingDurability() {
+        assertEquals(
+                900,
+                BloodstoneAxeFuserService.mergedRemainingDurability(
+                        1_000,
+                        400,
+                        500
+                )
+        );
+        assertEquals(
+                1_000,
+                BloodstoneAxeFuserService.mergedRemainingDurability(
+                        1_000,
+                        600,
+                        500
+                )
+        );
+        assertThrows(
+                IllegalArgumentException.class,
+                () -> BloodstoneAxeFuserService.mergedRemainingDurability(
+                        1_000,
+                        0,
+                        500
+                )
+        );
     }
 
     private void assertStandardPotion(
