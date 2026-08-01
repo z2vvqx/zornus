@@ -23,6 +23,10 @@
         <maven.compiler.target>25</maven.compiler.target>
         <maven.compiler.plugin.version>3.15.0</maven.compiler.plugin.version>
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+        <valoury.runtime.root>\\wsl.localhost\Ubuntu-24.04\home\computer\valoury\java</valoury.runtime.root>
+        <valoury.proxy.plugins.directory>${valoury.runtime.root}\proxy\plugins</valoury.proxy.plugins.directory>
+        <valoury.carbon.plugins.directory>${valoury.runtime.root}\carbon\plugins</valoury.carbon.plugins.directory>
+        <valoury.discord.directory>${valoury.runtime.root}\discord</valoury.discord.directory>
     </properties>
 
     <repositories>

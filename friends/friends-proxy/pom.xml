@@ -64,7 +64,7 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <outputDirectory>D:\LocalHost\proxy\plugins</outputDirectory>
+                            <outputDirectory>${valoury.proxy.plugins.directory}</outputDirectory>
                             <finalName>friends-proxy</finalName>
                             <shadedClassifierName>shaded</shadedClassifierName>
                         </configuration>
@@ -83,7 +83,7 @@
                         </goals>
                         <configuration>
                             <target>
-                                <delete file="D:\LocalHost\proxy\plugins\original-friends-proxy.jar"/>
+                                <delete file="${valoury.proxy.plugins.directory}\original-friends-proxy.jar"/>
                             </target>
                         </configuration>
                     </execution>

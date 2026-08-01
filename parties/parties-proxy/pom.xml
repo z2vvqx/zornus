@@ -65,7 +65,7 @@
                         </goals>
                         <configuration>
                             <createDependencyReducedPom>false</createDependencyReducedPom>
-                            <outputDirectory>D:\LocalHost\proxy\plugins</outputDirectory>
+                            <outputDirectory>${valoury.proxy.plugins.directory}</outputDirectory>
                             <finalName>parties-proxy</finalName>
                             <shadedClassifierName>shaded</shadedClassifierName>
                         </configuration>
@@ -84,7 +84,7 @@
                         </goals>
                         <configuration>
                             <target>
-                                <delete file="D:\LocalHost\proxy\plugins\original-parties-proxy.jar"/>
+                                <delete file="${valoury.proxy.plugins.directory}\original-parties-proxy.jar"/>
                             </target>
                         </configuration>
                     </execution>
