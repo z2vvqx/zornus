@@ -1,6 +1,5 @@
 package net.valoury.bloodstone.server.listener.player;
 
-import net.kyori.adventure.text.Component;
 import net.valoury.bloodstone.server.service.*;
 import net.valoury.bloodstone.server.registrar.BloodstoneEffectAxePacketRegistrar;
 import org.bukkit.event.EventHandler;
@@ -11,8 +10,6 @@ import org.bukkit.event.player.PlayerQuitEvent;
 import org.jspecify.annotations.NonNull;
 
 public final class BloodstoneConnectionListener implements Listener {
-
-    private static final int JOIN_MESSAGE_SPACER_LINE_COUNT = 20;
 
     private final BloodstonePlayerService playerService;
     private final BloodstoneCombatService combatService;
@@ -44,13 +41,6 @@ public final class BloodstoneConnectionListener implements Listener {
         this.guildProfileCache = guildProfileCache;
         this.effectAxePacketRegistrar = effectAxePacketRegistrar;
         this.messageService = messageService;
-    }
-
-    @EventHandler(priority = EventPriority.LOWEST)
-    public void sendJoinMessageSpacer(@NonNull PlayerJoinEvent event) {
-        for (int line = 0; line < JOIN_MESSAGE_SPACER_LINE_COUNT; line++) {
-            event.getPlayer().sendMessage(Component.empty());
-        }
     }
 
     @EventHandler(priority = EventPriority.MONITOR)

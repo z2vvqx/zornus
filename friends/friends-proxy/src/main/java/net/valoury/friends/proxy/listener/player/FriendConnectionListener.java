@@ -2,9 +2,10 @@ package net.valoury.friends.proxy.listener.player;
 
 import com.velocitypowered.api.event.EventTask;
 import com.velocitypowered.api.event.Subscribe;
-import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.event.connection.DisconnectEvent;
+import com.velocitypowered.api.event.connection.PostLoginEvent;
 import com.velocitypowered.api.proxy.Player;
+import net.kyori.adventure.text.Component;
 import net.valoury.friends.proxy.service.FriendService;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -16,6 +17,8 @@ import org.slf4j.LoggerFactory;
  */
 public class FriendConnectionListener {
     private static final Logger LOGGER = LoggerFactory.getLogger(FriendConnectionListener.class);
+    private static final int JOIN_MESSAGE_SPACER_LINE_COUNT = 20;
+    private static final short FIRST_POST_LOGIN_PRIORITY = Short.MAX_VALUE;
 
     private final @NonNull FriendService friendService;
 
@@ -23,9 +26,12 @@ public class FriendConnectionListener {
         this.friendService = friendService;
     }
 
-    @Subscribe
+    @Subscribe(priority = FIRST_POST_LOGIN_PRIORITY)
     public @NonNull EventTask onPostLogin(@NonNull PostLoginEvent event) {
         Player player = event.getPlayer();
+        for (int line = 0; line < JOIN_MESSAGE_SPACER_LINE_COUNT; line++) {
+            player.sendMessage(Component.empty());
+        }
         return EventTask.resumeWhenComplete(
                 friendService.handlePlayerJoin(player.getUniqueId(), player.getUsername())
                         .exceptionally(throwable -> {
