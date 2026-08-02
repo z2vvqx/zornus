@@ -5,6 +5,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import net.valoury.parties.proxy.PartyProxyConstants;
 import net.valoury.parties.proxy.model.Party;
 import net.valoury.parties.proxy.model.PartySettings;
+import net.valoury.shared.utilities.SocialRequestActions;
 import net.valoury.shared.utilities.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -87,10 +88,19 @@ public final class PartyNotificationService {
         member.sendMessage(kickedPlayerMessage);
     }
 
-    public void sendInviteReceived(@NonNull Player target, @NonNull Player sender, @NonNull Party party) {
+    public void sendInviteReceived(@NonNull Player target, @NonNull Player sender) {
         Component message = StringUtils.deserialize(PartyProxyConstants.NOTIFICATION_INVITE_RECEIVED,
                 TagResolver.resolver(
-                        Placeholder.parsed("player", StringUtils.escapeTags(sender.getUsername()))));
+                        Placeholder.unparsed("player", sender.getUsername()),
+                        Placeholder.component(
+                                "checkmark_action",
+                                SocialRequestActions.checkmarkAction("/party accept " + sender.getUsername())
+                        ),
+                        Placeholder.component(
+                                "crossmark_action",
+                                SocialRequestActions.crossmarkAction("/party reject " + sender.getUsername())
+                        )
+                ));
         target.sendMessage(message);
     }
 
@@ -107,6 +117,21 @@ public final class PartyNotificationService {
                 TagResolver.resolver(
                         Placeholder.unparsed("sender", oldLeaderName),
                         Placeholder.unparsed("member", newLeader.getUsername())));
+        broadcastToParty(party, message);
+    }
+
+    public void notifyModeratorStatusChanged(
+            @NonNull Party party,
+            @NonNull String memberName,
+            boolean moderator
+    ) {
+        String messageTemplate = moderator
+                ? PartyProxyConstants.NOTIFICATION_MEMBER_PROMOTED
+                : PartyProxyConstants.NOTIFICATION_MEMBER_DEMOTED;
+        Component message = StringUtils.deserialize(
+                messageTemplate,
+                Placeholder.unparsed("member", memberName)
+        );
         broadcastToParty(party, message);
     }
 

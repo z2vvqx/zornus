@@ -79,10 +79,11 @@ public final class PartyInviteCommand {
         partyService.sendInvitation(sender, target)
                 .thenAccept(result -> {
                     switch (result.legacy()) {
-                        case NOT_IN_PARTY ->
-                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.INVITE_ERROR_NOT_IN_PARTY));
                         case NOT_LEADER ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_NOT_LEADER));
+                        case INSUFFICIENT_ROLE ->
+                                sender.sendMessage(StringUtils.deserialize(
+                                        PartyProxyConstants.ERROR_INSUFFICIENT_ROLE));
                         case CANNOT_INVITE_SELF ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.INVITE_ERROR_CANNOT_INVITE_SELF));
                         case TARGET_ALREADY_IN_PARTY ->

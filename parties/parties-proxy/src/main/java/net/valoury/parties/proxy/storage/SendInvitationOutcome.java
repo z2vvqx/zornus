@@ -1,5 +1,11 @@
 package net.valoury.parties.proxy.storage;
 
+import org.jspecify.annotations.NonNull;
+
+import java.util.Objects;
+import java.util.Optional;
+import java.util.UUID;
+
 public sealed interface SendInvitationOutcome permits
         SendInvitationOutcome.Sent,
         SendInvitationOutcome.TargetAlreadyInParty,
@@ -9,9 +15,12 @@ public sealed interface SendInvitationOutcome permits
         SendInvitationOutcome.ReceiverLimitReached,
         SendInvitationOutcome.InvitesDisabled,
         SendInvitationOutcome.AlreadyInvited,
-        SendInvitationOutcome.SenderNoLongerLeader,
+        SendInvitationOutcome.SenderInsufficientRole,
         SendInvitationOutcome.PartyNoLongerExists {
-    record Sent() implements SendInvitationOutcome {
+    record Sent(@NonNull Optional<UUID> partyId) implements SendInvitationOutcome {
+        public Sent {
+            partyId = Objects.requireNonNull(partyId, "partyId");
+        }
     }
 
     record TargetAlreadyInParty() implements SendInvitationOutcome {
@@ -35,7 +44,7 @@ public sealed interface SendInvitationOutcome permits
     record AlreadyInvited() implements SendInvitationOutcome {
     }
 
-    record SenderNoLongerLeader() implements SendInvitationOutcome {
+    record SenderInsufficientRole() implements SendInvitationOutcome {
     }
 
     record PartyNoLongerExists() implements SendInvitationOutcome {

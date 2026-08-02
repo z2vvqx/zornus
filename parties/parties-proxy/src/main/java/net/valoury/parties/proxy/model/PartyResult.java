@@ -2,12 +2,12 @@ package net.valoury.parties.proxy.model;
 
 public enum PartyResult {
     SUCCESS,
-    PARTY_CREATED,
     PARTY_DISBANDED,
     DISBAND_CONFIRMATION_REQUIRED,
     ALREADY_IN_PARTY,
     NOT_IN_PARTY,
     NOT_LEADER,
+    INSUFFICIENT_ROLE,
     PLAYER_NOT_IN_PARTY,
     PARTY_FULL,
     CANNOT_INVITE_SELF,
@@ -29,6 +29,8 @@ public enum PartyResult {
     LEADER_TRANSFERRED,
     MEMBER_KICKED,
     CANNOT_KICK_SELF,
+    CANNOT_KICK_LEADER,
+    CANNOT_KICK_MODERATOR,
     LIST_EMPTY,
     INVALID_PAGE,
     CHAT_SENT,

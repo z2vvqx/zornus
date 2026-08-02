@@ -8,10 +8,11 @@ public record PartySettings(
         @NonNull UUID playerId,
         boolean allowChat,
         boolean allowWarp,
+        boolean autoWarp,
         @NonNull String invitePrivacy
 ) {
 
     public PartySettings(@NonNull UUID playerId) {
-        this(playerId, true, true, "all");
+        this(playerId, true, true, false, "all");
     }
 }

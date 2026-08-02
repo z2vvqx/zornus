@@ -1,12 +1,16 @@
 package net.valoury.parties.proxy.storage;
 
+import org.jspecify.annotations.NonNull;
+
+import java.util.UUID;
+
 public sealed interface JoinOutcome permits
         JoinOutcome.Joined,
         JoinOutcome.PartyFull,
         JoinOutcome.AlreadyMember,
         JoinOutcome.InvitationExpired,
         JoinOutcome.InvitationNoLongerValid {
-    record Joined() implements JoinOutcome {
+    record Joined(@NonNull UUID partyId) implements JoinOutcome {
     }
 
     record PartyFull() implements JoinOutcome {

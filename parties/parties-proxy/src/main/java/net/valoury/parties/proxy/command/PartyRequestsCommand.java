@@ -19,6 +19,7 @@ import net.valoury.parties.proxy.model.result.PartyRequestsResult;
 import net.valoury.parties.proxy.service.PartyService;
 import net.valoury.shared.SharedConstants;
 import net.valoury.shared.utilities.PaginationResult;
+import net.valoury.shared.utilities.SocialRequestActions;
 import net.valoury.shared.utilities.StringUtils;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -117,13 +118,31 @@ public final class PartyRequestsCommand {
             String playerName = getPlayerName(proxyServer, playerId);
             Component timestampComponent = StringUtils.formatRelativeTime(invitation.timestamp());
 
-            invitationEntries.add(StringUtils.deserialize(
-                    SharedConstants.BULLET_POINT + entryFormat,
-                    TagResolver.resolver(
-                            Placeholder.parsed("player", StringUtils.escapeTags(playerName)),
-                            Placeholder.component("timestamp", timestampComponent)
-                    )
-            ));
+            TagResolver resolver;
+            if (isIncoming) {
+                resolver = TagResolver.resolver(
+                        Placeholder.unparsed("player", playerName),
+                        Placeholder.component("timestamp", timestampComponent),
+                        Placeholder.component(
+                                "checkmark_action",
+                                SocialRequestActions.checkmarkAction("/party accept " + playerName)
+                        ),
+                        Placeholder.component(
+                                "crossmark_action",
+                                SocialRequestActions.crossmarkAction("/party reject " + playerName)
+                        )
+                );
+            } else {
+                resolver = TagResolver.resolver(
+                        Placeholder.unparsed("player", playerName),
+                        Placeholder.component("timestamp", timestampComponent),
+                        Placeholder.component(
+                                "crossmark_action",
+                                SocialRequestActions.crossmarkAction("/party uninvite " + playerName)
+                        )
+                );
+            }
+            invitationEntries.add(StringUtils.deserialize(SharedConstants.BULLET_POINT + entryFormat, resolver));
         }
 
         messageBuilder.append(Component.join(JoinConfiguration.newlines(), invitationEntries));

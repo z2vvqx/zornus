@@ -78,10 +78,11 @@ public final class PartyUninviteCommand {
         partyService.revokeInvitation(sender, target)
                 .thenAccept(result -> {
                     switch (result.legacy()) {
-                        case NOT_IN_PARTY ->
-                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.UNINVITE_ERROR_NOT_IN_PARTY));
                         case NOT_LEADER ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_NOT_LEADER));
+                        case INSUFFICIENT_ROLE ->
+                                sender.sendMessage(StringUtils.deserialize(
+                                        PartyProxyConstants.ERROR_INSUFFICIENT_ROLE));
                         case NO_INVITATION_FOUND ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.UNINVITE_ERROR_NO_INVITATION,
                                         Placeholder.unparsed("target", targetUsername)));

@@ -113,9 +113,14 @@ public final class PartyListCommand {
                     .orElse("Unknown");
 
             TagResolver memberResolver = Placeholder.unparsed("member", memberName);
-            String format = party.isLeader(memberId)
-                    ? PartyProxyConstants.UI_LIST_MEMBER_LEADER
-                    : PartyProxyConstants.UI_LIST_MEMBER_NORMAL;
+            String format;
+            if (party.isLeader(memberId)) {
+                format = PartyProxyConstants.UI_LIST_MEMBER_LEADER;
+            } else if (party.isModerator(memberId)) {
+                format = PartyProxyConstants.UI_LIST_MEMBER_MODERATOR;
+            } else {
+                format = PartyProxyConstants.UI_LIST_MEMBER_NORMAL;
+            }
 
             messageBuilder.append(StringUtils.deserialize(SharedConstants.BULLET_POINT + format, memberResolver));
             if (i < members.size() - 1) {

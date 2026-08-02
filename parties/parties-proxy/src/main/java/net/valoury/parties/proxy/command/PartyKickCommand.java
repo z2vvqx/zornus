@@ -91,11 +91,20 @@ public final class PartyKickCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.KICK_ERROR_NOT_IN_PARTY));
                         case NOT_LEADER ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_NOT_LEADER));
+                        case INSUFFICIENT_ROLE ->
+                                sender.sendMessage(StringUtils.deserialize(
+                                        PartyProxyConstants.ERROR_INSUFFICIENT_ROLE));
                         case PLAYER_NOT_IN_PARTY ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.KICK_ERROR_PLAYER_NOT_IN_PARTY,
                                         Placeholder.unparsed("target", targetUsername)));
                         case CANNOT_KICK_SELF ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.KICK_ERROR_CANNOT_KICK_SELF));
+                        case CANNOT_KICK_LEADER ->
+                                sender.sendMessage(StringUtils.deserialize(
+                                        PartyProxyConstants.KICK_ERROR_CANNOT_KICK_LEADER));
+                        case CANNOT_KICK_MODERATOR ->
+                                sender.sendMessage(StringUtils.deserialize(
+                                        PartyProxyConstants.KICK_ERROR_CANNOT_KICK_MODERATOR));
                         case MEMBER_KICKED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.KICK_SUCCESS,
                                         Placeholder.unparsed("target", targetUsername)));

@@ -6,6 +6,7 @@ import net.valoury.parties.proxy.PartyProxyConstants;
 import net.valoury.parties.proxy.model.*;
 import net.valoury.shared.database.DatabaseDefaults;
 import net.valoury.shared.database.DatabaseExecutor;
+import net.valoury.shared.model.GroupJoinPolicy;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -72,6 +73,51 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
         }
     }
 
+    private static boolean columnExists(
+            Connection connection,
+            String tableName,
+            String columnName
+    ) throws SQLException {
+        String sql = """
+                SELECT EXISTS (
+                    SELECT 1
+                    FROM information_schema.columns
+                    WHERE table_schema = current_schema()
+                      AND table_name = ?
+                      AND column_name = ?
+                )
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, tableName);
+            statement.setString(2, columnName);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                resultSet.next();
+                return resultSet.getBoolean(1);
+            }
+        }
+    }
+
+    private static boolean columnIsNullable(
+            Connection connection,
+            String tableName,
+            String columnName
+    ) throws SQLException {
+        String sql = """
+                SELECT is_nullable = 'YES'
+                FROM information_schema.columns
+                WHERE table_schema = current_schema()
+                  AND table_name = ?
+                  AND column_name = ?
+                """;
+        try (PreparedStatement statement = connection.prepareStatement(sql)) {
+            statement.setString(1, tableName);
+            statement.setString(2, columnName);
+            try (ResultSet resultSet = statement.executeQuery()) {
+                return resultSet.next() && resultSet.getBoolean(1);
+            }
+        }
+    }
+
     @Override
     public void close() {
         databaseExecutor.shutdown();
@@ -89,6 +135,13 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     private void initializeSchema() {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
             if (schemaExists(connection, "parties")) {
+                if (!columnExists(connection, "party_members", "is_moderator")
+                        || !columnExists(connection, "party_settings", "auto_warp")
+                        || !schemaExists(connection, "party_group_settings")
+                        || !columnIsNullable(connection, "party_invitations", "party_id")) {
+                    throw new IllegalStateException(
+                            "Existing party schema does not support the current party lifecycle");
+                }
                 return;
             }
             // STEP 1: Create party_members WITHOUT FK to parties (avoids circular dependency)
@@ -96,6 +149,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                     CREATE TABLE IF NOT EXISTS party_members (
                         party_id UUID NOT NULL,
                         player_id UUID NOT NULL UNIQUE,
+                        is_moderator BOOLEAN NOT NULL DEFAULT FALSE,
                         PRIMARY KEY (party_id, player_id)
                     )
                     """);
@@ -130,23 +184,37 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             // Remaining tables (unchanged structure)
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS party_invitations (
-                        party_id UUID NOT NULL REFERENCES parties(party_id) ON DELETE CASCADE,
+                        party_id UUID REFERENCES parties(party_id) ON DELETE CASCADE,
                         sender_id UUID NOT NULL,
                         target_id UUID NOT NULL,
                         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-                        PRIMARY KEY (party_id, sender_id, target_id)
+                        PRIMARY KEY (sender_id, target_id)
                     )
                     """);
             statement.execute("CREATE INDEX IF NOT EXISTS idx_invitations_target ON party_invitations(target_id)");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_invitations_sender ON party_invitations(sender_id)");
             statement.execute("CREATE INDEX IF NOT EXISTS idx_invitations_created ON party_invitations(created_at DESC)");
+            statement.execute("""
+                    CREATE UNIQUE INDEX IF NOT EXISTS idx_invitations_party_target
+                    ON party_invitations(party_id, target_id)
+                    WHERE party_id IS NOT NULL
+                    """);
 
             statement.execute("""
                     CREATE TABLE IF NOT EXISTS party_settings (
                         player_id UUID PRIMARY KEY,
                         allow_chat BOOLEAN NOT NULL DEFAULT TRUE,
                         allow_warp BOOLEAN NOT NULL DEFAULT TRUE,
+                        auto_warp BOOLEAN NOT NULL DEFAULT FALSE,
                         invite_privacy VARCHAR(8) NOT NULL DEFAULT 'all' CHECK (invite_privacy IN ('all', 'friend', 'none'))
+                    )
+                    """);
+
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS party_group_settings (
+                        party_id UUID PRIMARY KEY REFERENCES parties(party_id) ON DELETE CASCADE,
+                        join_policy VARCHAR(8) NOT NULL DEFAULT 'private'
+                            CHECK (join_policy IN ('private', 'public'))
                     )
                     """);
 
@@ -210,60 +278,17 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     // Compound operations
 
     @Override
-    public CompletableFuture<CreatePartyOutcome> createParty(@NonNull Party party) {
-        return databaseExecutor.supply(() -> {
-            try (Connection connection = dataSource.getConnection()) {
-                connection.setAutoCommit(false);
-                try {
-                    // Defer the leader-is-member FK check until commit
-                    try (Statement deferStatement = connection.createStatement()) {
-                        deferStatement.execute("SET CONSTRAINTS fk_leader_is_member DEFERRED");
-                    }
-
-                    Instant now = party.lastWarpTime().orElse(Instant.now());
-
-                    // 1. Insert party FIRST (deferred fk_leader_is_member allows leader to not exist yet)
-                    String insertPartySql = "INSERT INTO parties (party_id, leader_id, last_warp_time) VALUES (?, ?, ?)";
-                    try (PreparedStatement statement = connection.prepareStatement(insertPartySql)) {
-                        statement.setObject(1, party.partyId());
-                        statement.setObject(2, party.leaderId());
-                        statement.setTimestamp(3, Timestamp.from(now));
-                        statement.executeUpdate();
-                    }
-
-                    // 2. Insert leader into party_members (satisfies immediate fk_party_members_party)
-                    // UNIQUE constraint on player_id catches AlreadyInParty here
-                    String insertMemberSql = "INSERT INTO party_members (party_id, player_id) VALUES (?, ?)";
-                    try (PreparedStatement statement = connection.prepareStatement(insertMemberSql)) {
-                        statement.setObject(1, party.partyId());
-                        statement.setObject(2, party.leaderId());
-                        statement.executeUpdate();
-                    }
-
-                    // Both FKs validated here (deferred fk_leader_is_member checks leader is member)
-                    connection.commit();
-                    return new CreatePartyOutcome.Created();
-
-                } catch (SQLException exception) {
-                    connection.rollback();
-                    // Check for unique_violation on player_id (player already in party)
-                    if ("23505".equals(exception.getSQLState())) {
-                        return new CreatePartyOutcome.AlreadyInParty();
-                    }
-                    throw new RuntimeException("Failed to create party", exception);
-                }
-            } catch (SQLException exception) {
-                throw new RuntimeException("Failed to create party", exception);
-            }
-        });
-    }
-
-    @Override
     public CompletableFuture<DisbandPartyOutcome> disbandParty(@NonNull UUID partyId, @NonNull UUID leaderId) {
         return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            "SELECT pg_advisory_xact_lock(hashtextextended(?, 1))")) {
+                        statement.setString(1, partyId.toString());
+                        statement.executeQuery();
+                    }
+
                     // Defer FK constraint so we can delete members before the party
                     try (PreparedStatement deferFkStatement = connection.prepareStatement(
                             "SET CONSTRAINTS fk_leader_is_member DEFERRED")) {
@@ -353,6 +378,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            "SELECT pg_advisory_xact_lock(hashtextextended(?, 1))")) {
+                        statement.setString(1, partyId.toString());
+                        statement.executeQuery();
+                    }
+
                     // 1. Lock party_members rows first (FOR UPDATE cannot be used with aggregate functions)
                     String lockSql = "SELECT 1 FROM party_members WHERE party_id = ? FOR UPDATE";
                     try (PreparedStatement statement = connection.prepareStatement(lockSql)) {
@@ -401,6 +432,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         return new RemoveMemberOutcome.MemberNotFound();
                     }
 
+                    PartyMemberPostgresOperations.deleteOutgoingInvitations(
+                            connection,
+                            partyId,
+                            memberId
+                    );
+
                     // 5. Clean up any pending confirmation for the removed member
                     String deleteConfirmationSql = "DELETE FROM party_confirmations WHERE player_id = ?";
                     try (PreparedStatement statement = connection.prepareStatement(deleteConfirmationSql)) {
@@ -408,8 +445,17 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         statement.executeUpdate();
                     }
 
-                    // 6. If count was 1: delete party → return PartyDisbanded
-                    if (memberCount == 1) {
+                    // 6. Disband instead of allowing a one-member party to survive.
+                    if (memberCount <= 2) {
+                        try (PreparedStatement statement = connection.prepareStatement("""
+                                DELETE FROM party_confirmations
+                                WHERE player_id IN (
+                                    SELECT player_id FROM party_members WHERE party_id = ?
+                                )
+                                """)) {
+                            statement.setObject(1, partyId);
+                            statement.executeUpdate();
+                        }
                         String deletePartySql = "DELETE FROM parties WHERE party_id = ?";
                         try (PreparedStatement statement = connection.prepareStatement(deletePartySql)) {
                             statement.setObject(1, partyId);
@@ -419,12 +465,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         return new RemoveMemberOutcome.PartyDisbanded();
                     }
 
-                    // 7. If leader left: select new leader (alphabetically first UUID among remaining)
+                    // 7. If leader left: prefer a moderator, then use stable UUID ordering.
                     if (wasLeader) {
                         String selectNewLeaderSql = """
                                 SELECT player_id FROM party_members
                                 WHERE party_id = ? AND player_id != ?
-                                ORDER BY player_id ASC LIMIT 1
+                                ORDER BY is_moderator DESC, player_id ASC LIMIT 1
                                 """;
                         UUID newLeaderId;
                         try (PreparedStatement statement = connection.prepareStatement(selectNewLeaderSql)) {
@@ -440,6 +486,15 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         try (PreparedStatement statement = connection.prepareStatement(updateLeaderSql)) {
                             statement.setObject(1, newLeaderId);
                             statement.setObject(2, partyId);
+                            statement.executeUpdate();
+                        }
+                        try (PreparedStatement statement = connection.prepareStatement("""
+                                UPDATE party_members
+                                SET is_moderator = FALSE
+                                WHERE party_id = ? AND player_id = ?
+                                """)) {
+                            statement.setObject(1, partyId);
+                            statement.setObject(2, newLeaderId);
                             statement.executeUpdate();
                         }
                         connection.commit();
@@ -459,127 +514,43 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<JoinOutcome> acceptInvitationAndJoin(@NonNull UUID partyId, @NonNull UUID playerId, @NonNull UUID invitationSenderId) {
-        return databaseExecutor.supply(() -> {
-            try (Connection connection = dataSource.getConnection()) {
-                connection.setAutoCommit(false);
-                // Serialize joins per party to prevent concurrent accepts exceeding MAX_PARTY_SIZE
-                try (PreparedStatement lockStatement = connection.prepareStatement(
-                        "SELECT pg_advisory_xact_lock(hashtextextended(?, 1))")) {
-                    lockStatement.setString(1, partyId.toString());
-                    lockStatement.executeQuery();
-                }
+    public CompletableFuture<KickPartyMemberOutcome> tryKickMember(
+            @NonNull UUID partyId,
+            @NonNull UUID requesterId,
+            @NonNull UUID memberId
+    ) {
+        return databaseExecutor.supply(() -> PartyMemberPostgresOperations.kickMember(
+                dataSource,
+                partyId,
+                requesterId,
+                memberId
+        ));
+    }
 
-                try {
-                    // 1. Check if player is already in a party (UNIQUE constraint on party_members.player_id)
-                    // This is caught by the INSERT later, but we check early for better error messages
+    @Override
+    public CompletableFuture<JoinOutcome> acceptInvitationAndJoin(
+            @NonNull UUID playerId,
+            @NonNull UUID invitationSenderId
+    ) {
+        return databaseExecutor.supply(() -> PartyInvitationPostgresOperations.acceptInvitation(
+                dataSource,
+                playerId,
+                invitationSenderId
+        ));
+    }
 
-                    // 2. Check invitation exists and is valid
-                    String checkInviteSql = "SELECT created_at FROM party_invitations WHERE party_id = ? AND sender_id = ? AND target_id = ?";
-                    Timestamp invitationCreated;
-                    try (PreparedStatement statement = connection.prepareStatement(checkInviteSql)) {
-                        statement.setObject(1, partyId);
-                        statement.setObject(2, invitationSenderId);
-                        statement.setObject(3, playerId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            if (!resultSet.next()) {
-                                connection.rollback();
-                                return new JoinOutcome.InvitationNoLongerValid();
-                            }
-                            invitationCreated = resultSet.getTimestamp("created_at");
-                        }
-                    }
-
-                    // Check if invitation is expired
-                    Instant expiryTime = invitationCreated.toInstant().plus(PartyProxyConstants.INVITATION_EXPIRY);
-                    if (Instant.now().isAfter(expiryTime)) {
-                        // Delete expired invitation and commit to persist cleanup
-                        String deleteExpiredSql = "DELETE FROM party_invitations WHERE party_id = ? AND sender_id = ? AND target_id = ?";
-                        try (PreparedStatement statement = connection.prepareStatement(deleteExpiredSql)) {
-                            statement.setObject(1, partyId);
-                            statement.setObject(2, invitationSenderId);
-                            statement.setObject(3, playerId);
-                            statement.executeUpdate();
-                        }
-                        connection.commit();
-                        return new JoinOutcome.InvitationExpired();
-                    }
-
-                    // 3. Get party member count
-                    int memberCount;
-                    String countSql = "SELECT COUNT(*) FROM party_members WHERE party_id = ?";
-                    try (PreparedStatement statement = connection.prepareStatement(countSql)) {
-                        statement.setObject(1, partyId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            resultSet.next();
-                            memberCount = resultSet.getInt(1);
-                        }
-                    }
-
-                    // 4. If count >= MAX_PARTY_SIZE: rollback, return PartyFull
-                    if (memberCount >= PartyProxyConstants.MAX_PARTY_SIZE) {
-                        connection.rollback();
-                        return new JoinOutcome.PartyFull();
-                    }
-
-                    // 5. Verify sender is still the party leader
-                    String checkLeaderSql = "SELECT leader_id FROM parties WHERE party_id = ?";
-                    UUID currentLeaderId;
-                    try (PreparedStatement statement = connection.prepareStatement(checkLeaderSql)) {
-                        statement.setObject(1, partyId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            if (!resultSet.next()) {
-                                connection.rollback();
-                                return new JoinOutcome.InvitationNoLongerValid();
-                            }
-                            currentLeaderId = (UUID) resultSet.getObject("leader_id");
-                        }
-                    }
-
-                    if (!currentLeaderId.equals(invitationSenderId)) {
-                        // Sender is no longer leader - invalidate invitation
-                        String deleteInvalidSql = "DELETE FROM party_invitations WHERE party_id = ? AND sender_id = ? AND target_id = ?";
-                        try (PreparedStatement statement = connection.prepareStatement(deleteInvalidSql)) {
-                            statement.setObject(1, partyId);
-                            statement.setObject(2, invitationSenderId);
-                            statement.setObject(3, playerId);
-                            statement.executeUpdate();
-                        }
-                        connection.commit();
-                        return new JoinOutcome.InvitationNoLongerValid();
-                    }
-
-                    // 6. Insert player into party_members - UNIQUE constraint catches AlreadyMember
-                    String insertMemberSql = "INSERT INTO party_members (party_id, player_id) VALUES (?, ?)";
-                    try (PreparedStatement statement = connection.prepareStatement(insertMemberSql)) {
-                        statement.setObject(1, partyId);
-                        statement.setObject(2, playerId);
-                        statement.executeUpdate();
-                    }
-
-                    // 7. Delete the invitation
-                    String deleteInvitationSql = "DELETE FROM party_invitations WHERE party_id = ? AND sender_id = ? AND target_id = ?";
-                    try (PreparedStatement statement = connection.prepareStatement(deleteInvitationSql)) {
-                        statement.setObject(1, partyId);
-                        statement.setObject(2, invitationSenderId);
-                        statement.setObject(3, playerId);
-                        statement.executeUpdate();
-                    }
-
-                    connection.commit();
-                    return new JoinOutcome.Joined();
-                } catch (SQLException exception) {
-                    connection.rollback();
-                    // Check for unique_violation on player_id (player already in party)
-                    if ("23505".equals(exception.getSQLState())) {
-                        return new JoinOutcome.AlreadyMember();
-                    }
-                    throw new RuntimeException("Failed to accept invitation and join", exception);
-                }
-            } catch (SQLException exception) {
-                throw new RuntimeException("Failed to accept invitation and join", exception);
-            }
-        });
+    @Override
+    public CompletableFuture<JoinPublicPartyOutcome> tryJoinPublicParty(
+            @NonNull UUID partyId,
+            @NonNull UUID expectedLeaderId,
+            @NonNull UUID playerId
+    ) {
+        return databaseExecutor.supply(() -> PartyGroupPostgresOperations.joinPublicParty(
+                dataSource,
+                partyId,
+                expectedLeaderId,
+                playerId
+        ));
     }
 
     @Override
@@ -588,8 +559,13 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
-                    // 1. Verify target is still a party member with FOR UPDATE
-                    String checkMemberSql = "SELECT 1 FROM party_members WHERE party_id = ? AND player_id = ? FOR UPDATE";
+                    // 1. Lock the target membership before the party.
+                    String checkMemberSql = """
+                            SELECT 1
+                            FROM party_members
+                            WHERE party_id = ? AND player_id = ?
+                            FOR UPDATE
+                            """;
                     boolean isMember;
                     try (PreparedStatement statement = connection.prepareStatement(checkMemberSql)) {
                         statement.setObject(1, partyId);
@@ -599,37 +575,60 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         }
                     }
 
-                    if (!isMember) {
-                        // Check if party exists at all
-                        String checkPartySql = "SELECT 1 FROM parties WHERE party_id = ?";
-                        try (PreparedStatement statement = connection.prepareStatement(checkPartySql)) {
-                            statement.setObject(1, partyId);
-                            try (ResultSet resultSet = statement.executeQuery()) {
-                                if (!resultSet.next()) {
-                                    connection.rollback();
-                                    return new TransferLeadershipOutcome.PartyNotFound();
-                                }
+                    // 2. Lock the party and atomically verify the current leader.
+                    UUID currentLeaderId;
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            "SELECT leader_id FROM parties WHERE party_id = ? FOR UPDATE")) {
+                        statement.setObject(1, partyId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (!resultSet.next()) {
+                                connection.rollback();
+                                return new TransferLeadershipOutcome.PartyNotFound();
                             }
+                            currentLeaderId = resultSet.getObject("leader_id", UUID.class);
                         }
+                    }
+                    if (!currentLeaderId.equals(confirmedByPlayerId)) {
+                        connection.rollback();
+                        return new TransferLeadershipOutcome.NotLeader();
+                    }
+
+                    if (!isMember) {
                         connection.rollback();
                         return new TransferLeadershipOutcome.TargetNotMember();
                     }
 
-                    // 2. UPDATE parties SET leader_id = ? WHERE party_id = ?
-                    String updateLeaderSql = "UPDATE parties SET leader_id = ? WHERE party_id = ?";
+                    // 3. Transfer leadership with the leader predicate repeated in the update.
+                    String updateLeaderSql = """
+                            UPDATE parties
+                            SET leader_id = ?
+                            WHERE party_id = ? AND leader_id = ?
+                            """;
                     int rowsUpdated;
                     try (PreparedStatement statement = connection.prepareStatement(updateLeaderSql)) {
                         statement.setObject(1, newLeaderId);
                         statement.setObject(2, partyId);
+                        statement.setObject(3, confirmedByPlayerId);
                         rowsUpdated = statement.executeUpdate();
                     }
 
                     if (rowsUpdated == 0) {
                         connection.rollback();
-                        return new TransferLeadershipOutcome.PartyNotFound();
+                        return new TransferLeadershipOutcome.NotLeader();
                     }
 
-                    // 3. DELETE FROM party_confirmations WHERE player_id = ?
+                    try (PreparedStatement statement = connection.prepareStatement("""
+                            UPDATE party_members
+                            SET is_moderator = FALSE
+                            WHERE party_id = ? AND player_id IN (?, ?)
+                            """)) {
+                        statement.setObject(1, partyId);
+                        statement.setObject(2, confirmedByPlayerId);
+                        statement.setObject(3, newLeaderId);
+                        statement.executeUpdate();
+                    }
+
+                    // 4. Delete the completed confirmation.
                     String deleteConfirmationSql = "DELETE FROM party_confirmations WHERE player_id = ?";
                     try (PreparedStatement statement = connection.prepareStatement(deleteConfirmationSql)) {
                         statement.setObject(1, confirmedByPlayerId);
@@ -649,19 +648,49 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<WarpOutcome> checkAndUpdateLastWarpTime(@NonNull UUID partyId, @NonNull Instant now,
-                                                                     @NonNull Duration cooldown) {
+    public CompletableFuture<PartyModeratorChangeOutcome> updateModeratorStatus(
+            @NonNull UUID partyId,
+            @NonNull UUID leaderId,
+            @NonNull UUID memberId,
+            boolean moderator
+    ) {
+        return databaseExecutor.supply(() -> PartyMemberPostgresOperations.updateModeratorStatus(
+                dataSource,
+                partyId,
+                leaderId,
+                memberId,
+                moderator
+        ));
+    }
+
+    @Override
+    public CompletableFuture<WarpOutcome> checkAndUpdateLastWarpTime(
+            @NonNull UUID partyId,
+            @NonNull UUID leaderId,
+            @NonNull Instant now,
+            @NonNull Duration cooldown
+    ) {
         return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
-                    // 1. SELECT last_warp_time FROM parties WHERE party_id = ? FOR UPDATE
+                    // 1. Lock the party and verify the current leader.
                     Optional<Instant> lastWarpOptional;
-                    String selectSql = "SELECT last_warp_time FROM parties WHERE party_id = ? FOR UPDATE";
+                    String selectSql = """
+                            SELECT leader_id, last_warp_time
+                            FROM parties
+                            WHERE party_id = ?
+                            FOR UPDATE
+                            """;
                     try (PreparedStatement statement = connection.prepareStatement(selectSql)) {
                         statement.setObject(1, partyId);
                         try (ResultSet resultSet = statement.executeQuery()) {
                             if (resultSet.next()) {
+                                UUID currentLeaderId = resultSet.getObject("leader_id", UUID.class);
+                                if (!currentLeaderId.equals(leaderId)) {
+                                    connection.rollback();
+                                    return new WarpOutcome.NotLeader();
+                                }
                                 Timestamp lastWarpTimestamp = resultSet.getTimestamp("last_warp_time");
                                 lastWarpOptional = Optional.ofNullable(lastWarpTimestamp).map(Timestamp::toInstant);
                             } else {
@@ -671,7 +700,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         }
                     }
 
-                    // 2. If cooldown not elapsed: rollback, return OnCooldown
+                    // 2. If cooldown has not elapsed, do not update it.
                     if (lastWarpOptional.isPresent()) {
                         Instant cooldownEnd = lastWarpOptional.get().plus(cooldown);
                         if (now.isBefore(cooldownEnd)) {
@@ -680,12 +709,20 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         }
                     }
 
-                    // 3. UPDATE parties SET last_warp_time = ?
-                    String updateSql = "UPDATE parties SET last_warp_time = ? WHERE party_id = ?";
+                    // 3. Repeat the leader predicate in the update.
+                    String updateSql = """
+                            UPDATE parties
+                            SET last_warp_time = ?
+                            WHERE party_id = ? AND leader_id = ?
+                            """;
                     try (PreparedStatement statement = connection.prepareStatement(updateSql)) {
                         statement.setTimestamp(1, Timestamp.from(now));
                         statement.setObject(2, partyId);
-                        statement.executeUpdate();
+                        statement.setObject(3, leaderId);
+                        if (statement.executeUpdate() != 1) {
+                            connection.rollback();
+                            return new WarpOutcome.NotLeader();
+                        }
                     }
 
                     connection.commit();
@@ -707,7 +744,11 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 return Map.of();
             }
 
-            String sql = "SELECT player_id, allow_chat, allow_warp, invite_privacy FROM party_settings WHERE player_id = ANY(?)";
+            String sql = """
+                    SELECT player_id, allow_chat, allow_warp, auto_warp, invite_privacy
+                    FROM party_settings
+                    WHERE player_id = ANY(?)
+                    """;
             try (Connection connection = dataSource.getConnection();
                  PreparedStatement statement = connection.prepareStatement(sql)) {
                 Array array = connection.createArrayOf("uuid", memberIds.toArray());
@@ -731,202 +772,48 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<SendInvitationOutcome> trySendInvitation(@NonNull UUID partyId, @NonNull UUID senderId, @NonNull UUID targetId, boolean isFriend) {
-        return databaseExecutor.supply(() -> {
-            try (Connection connection = dataSource.getConnection()) {
-                connection.setAutoCommit(false);
-                connection.setTransactionIsolation(Connection.TRANSACTION_REPEATABLE_READ);
-                try {
-                    // 1. Verify sender is still leader of the party
-                    String checkLeaderSql = "SELECT leader_id FROM parties WHERE party_id = ?";
-                    UUID actualLeaderId;
-                    try (PreparedStatement statement = connection.prepareStatement(checkLeaderSql)) {
-                        statement.setObject(1, partyId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            if (!resultSet.next()) {
-                                connection.rollback();
-                                return new SendInvitationOutcome.PartyNoLongerExists();
-                            }
-                            actualLeaderId = (UUID) resultSet.getObject("leader_id");
-                        }
-                    }
+    public CompletableFuture<SendInvitationOutcome> trySendInvitation(
+            @NonNull Optional<UUID> expectedPartyId,
+            @NonNull UUID senderId,
+            @NonNull UUID targetId,
+            boolean isFriend
+    ) {
+        return databaseExecutor.supply(() -> PartyInvitationPostgresOperations.sendInvitation(
+                dataSource,
+                expectedPartyId,
+                senderId,
+                targetId,
+                isFriend
+        ));
+    }
 
-                    if (!actualLeaderId.equals(senderId)) {
-                        connection.rollback();
-                        return new SendInvitationOutcome.SenderNoLongerLeader();
-                    }
-
-                    // 2. Check target privacy settings
-                    String targetPrivacy = "all"; // default
-                    String checkPrivacySql = "SELECT invite_privacy FROM party_settings WHERE player_id = ?";
-                    try (PreparedStatement statement = connection.prepareStatement(checkPrivacySql)) {
-                        statement.setObject(1, targetId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            if (resultSet.next()) {
-                                targetPrivacy = resultSet.getString("invite_privacy");
-                            }
-                        }
-                    }
-
-                    // Enforce privacy rules atomically - fail closed for any unexpected value
-                    switch (targetPrivacy) {
-                        case "none" -> {
-                            connection.rollback();
-                            return new SendInvitationOutcome.InvitesDisabled("none");
-                        }
-                        case "friend" -> {
-                            // Verify friendship - fail closed if not a friend
-                            if (!isFriend) {
-                                connection.rollback();
-                                return new SendInvitationOutcome.InvitesDisabled("friend");
-                            }
-                        }
-                        case "all" -> {
-                            // Allowed - proceed
-                        }
-                        default -> {
-                            // Fail closed: reject for any unexpected privacy value
-                            connection.rollback();
-                            return new SendInvitationOutcome.InvitesDisabled(targetPrivacy);
-                        }
-                    }
-
-                    // 3. Check if target is already in a party (via party_members UNIQUE constraint check)
-                    String checkTargetInPartySql = "SELECT 1 FROM party_members WHERE player_id = ?";
-                    try (PreparedStatement statement = connection.prepareStatement(checkTargetInPartySql)) {
-                        statement.setObject(1, targetId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            if (resultSet.next()) {
-                                connection.rollback();
-                                return new SendInvitationOutcome.TargetAlreadyInParty();
-                            }
-                        }
-                    }
-
-                    // 4. Check if party is full
-                    String checkPartySizeSql = "SELECT COUNT(*) FROM party_members WHERE party_id = ?";
-                    int memberCount;
-                    try (PreparedStatement statement = connection.prepareStatement(checkPartySizeSql)) {
-                        statement.setObject(1, partyId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            resultSet.next();
-                            memberCount = resultSet.getInt(1);
-                        }
-                    }
-                    if (memberCount >= PartyProxyConstants.MAX_PARTY_SIZE) {
-                        connection.rollback();
-                        return new SendInvitationOutcome.PartyFull();
-                    }
-
-                    // 5. Check invitation cooldown
-                    String checkCooldownSql = "SELECT timestamp FROM party_cooldowns WHERE sender_id = ? AND receiver_id = ?";
-                    try (PreparedStatement statement = connection.prepareStatement(checkCooldownSql)) {
-                        statement.setObject(1, senderId);
+    @Override
+    public CompletableFuture<RevokePartyInvitationOutcome> tryRevokeInvitation(
+            @NonNull Optional<UUID> partyId,
+            @NonNull UUID requesterId,
+            @NonNull UUID targetId
+    ) {
+        return partyId
+                .map(existingPartyId -> databaseExecutor.supply(
+                        () -> PartyMemberPostgresOperations.revokeInvitation(
+                                dataSource,
+                                existingPartyId,
+                                requesterId,
+                                targetId
+                        )))
+                .orElseGet(() -> databaseExecutor.supply(() -> {
+                    String sql = """
+                            DELETE FROM party_invitations
+                            WHERE party_id IS NULL AND sender_id = ? AND target_id = ?
+                            """;
+                    int deletedRows = executeUpdate(sql, statement -> {
+                        statement.setObject(1, requesterId);
                         statement.setObject(2, targetId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            if (resultSet.next()) {
-                                Timestamp lastTimestamp = resultSet.getTimestamp("timestamp");
-                                Instant nextAllowed = lastTimestamp.toInstant().plus(PartyProxyConstants.INVITATION_COOLDOWN);
-                                if (Instant.now().isBefore(nextAllowed)) {
-                                    connection.rollback();
-                                    return new SendInvitationOutcome.CooldownActive();
-                                }
-                            }
-                        }
-                    }
-
-                    // Serialize invitation limit checks per player
-                    acquirePerPlayerLocks(connection, senderId, targetId);
-
-                    // 6. Check sender invitation limits
-                    String countSenderInvitesSql = """
-                            SELECT (SELECT COUNT(*) FROM party_invitations WHERE sender_id = ?) +
-                                   (SELECT COUNT(*) FROM party_invitations WHERE target_id = ?)
-                            """;
-                    int senderTotal;
-                    try (PreparedStatement statement = connection.prepareStatement(countSenderInvitesSql)) {
-                        statement.setObject(1, senderId);
-                        statement.setObject(2, senderId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            resultSet.next();
-                            senderTotal = resultSet.getInt(1);
-                        }
-                    }
-                    if (senderTotal >= PartyProxyConstants.MAX_PARTY_INVITATIONS) {
-                        connection.rollback();
-                        return new SendInvitationOutcome.SenderLimitReached();
-                    }
-
-                    // 7. Check receiver invitation limits
-                    String countReceiverInvitesSql = """
-                            SELECT (SELECT COUNT(*) FROM party_invitations WHERE sender_id = ?) +
-                                   (SELECT COUNT(*) FROM party_invitations WHERE target_id = ?)
-                            """;
-                    int receiverTotal;
-                    try (PreparedStatement statement = connection.prepareStatement(countReceiverInvitesSql)) {
-                        statement.setObject(1, targetId);
-                        statement.setObject(2, targetId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            resultSet.next();
-                            receiverTotal = resultSet.getInt(1);
-                        }
-                    }
-                    if (receiverTotal >= PartyProxyConstants.MAX_PARTY_INVITATIONS) {
-                        connection.rollback();
-                        return new SendInvitationOutcome.ReceiverLimitReached();
-                    }
-
-                    // 8. Check if already invited
-                    String checkExistingInviteSql = "SELECT 1 FROM party_invitations WHERE party_id = ? AND sender_id = ? AND target_id = ?";
-                    try (PreparedStatement statement = connection.prepareStatement(checkExistingInviteSql)) {
-                        statement.setObject(1, partyId);
-                        statement.setObject(2, senderId);
-                        statement.setObject(3, targetId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            if (resultSet.next()) {
-                                connection.rollback();
-                                return new SendInvitationOutcome.AlreadyInvited();
-                            }
-                        }
-                    }
-
-                    // 9. Insert invitation (no name columns)
-                    String insertInviteSql = """
-                            INSERT INTO party_invitations (party_id, sender_id, target_id, created_at)
-                            VALUES (?, ?, ?, NOW())
-                            """;
-                    try (PreparedStatement statement = connection.prepareStatement(insertInviteSql)) {
-                        statement.setObject(1, partyId);
-                        statement.setObject(2, senderId);
-                        statement.setObject(3, targetId);
-                        statement.executeUpdate();
-                    }
-
-                    // 10. Record/refresh cooldown
-                    String upsertCooldownSql = """
-                            INSERT INTO party_cooldowns (sender_id, receiver_id, timestamp)
-                            VALUES (?, ?, NOW())
-                            ON CONFLICT (sender_id, receiver_id) DO UPDATE SET timestamp = EXCLUDED.timestamp
-                            """;
-                    try (PreparedStatement statement = connection.prepareStatement(upsertCooldownSql)) {
-                        statement.setObject(1, senderId);
-                        statement.setObject(2, targetId);
-                        statement.executeUpdate();
-                    }
-
-                    connection.commit();
-                    return new SendInvitationOutcome.Sent();
-                } catch (SQLException exception) {
-                    connection.rollback();
-                    if ("23505".equals(exception.getSQLState()) || "40001".equals(exception.getSQLState())) {
-                        return new SendInvitationOutcome.AlreadyInvited();
-                    }
-                    throw new RuntimeException("Failed to send invitation", exception);
-                }
-            } catch (SQLException exception) {
-                throw new RuntimeException("Failed to send invitation", exception);
-            }
-        });
+                    }, "revoke standalone party invitation");
+                    return deletedRows > 0
+                            ? new RevokePartyInvitationOutcome.Revoked()
+                            : new RevokePartyInvitationOutcome.InvitationNotFound();
+                }));
     }
 
     // Single-query operations
@@ -939,7 +826,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     private Optional<Party> fetchPartySync(@NonNull UUID partyId) {
         String sql = """
                 SELECT p.party_id, p.leader_id, p.last_warp_time,
-                       pm.player_id
+                       pm.player_id, pm.is_moderator
                 FROM parties p
                 LEFT JOIN party_members pm ON p.party_id = pm.party_id
                 WHERE p.party_id = ?
@@ -965,14 +852,24 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
         Optional<Instant> lastWarpTime = Optional.ofNullable(lastWarpTimestamp).map(Timestamp::toInstant);
 
         Set<UUID> memberIds = new HashSet<>();
+        Set<UUID> moderatorIds = new HashSet<>();
         do {
             UUID memberId = (UUID) resultSet.getObject("player_id");
             if (memberId != null) {
                 memberIds.add(memberId);
+                if (resultSet.getBoolean("is_moderator")) {
+                    moderatorIds.add(memberId);
+                }
             }
         } while (resultSet.next());
 
-        return Optional.of(new Party(partyId, leaderId, memberIds, lastWarpTime));
+        return Optional.of(new Party(
+                partyId,
+                leaderId,
+                memberIds,
+                moderatorIds,
+                lastWarpTime
+        ));
     }
 
     @Override
@@ -991,7 +888,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     private Optional<Party> fetchPartyByPlayerSync(@NonNull UUID playerId) {
         String sql = """
                 SELECT p.party_id, p.leader_id, p.last_warp_time,
-                       pm.player_id
+                       pm.player_id, pm.is_moderator
                 FROM party_members pm_leader
                 JOIN parties p ON pm_leader.party_id = p.party_id
                 LEFT JOIN party_members pm ON p.party_id = pm.party_id
@@ -1012,32 +909,17 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<Boolean> removePendingInvitation(@NonNull UUID partyId, @NonNull UUID senderId, @NonNull UUID targetId) {
+    public CompletableFuture<Boolean> removePendingInvitation(
+            @NonNull UUID senderId,
+            @NonNull UUID targetId
+    ) {
         return databaseExecutor.supply(() -> {
-            String sql = "DELETE FROM party_invitations WHERE party_id = ? AND sender_id = ? AND target_id = ?";
+            String sql = "DELETE FROM party_invitations WHERE sender_id = ? AND target_id = ?";
             int rows = executeUpdate(sql, statement -> {
-                statement.setObject(1, partyId);
-                statement.setObject(2, senderId);
-                statement.setObject(3, targetId);
+                statement.setObject(1, senderId);
+                statement.setObject(2, targetId);
             }, "remove pending invitation");
             return rows > 0;
-        });
-    }
-
-    @Override
-    public CompletableFuture<Optional<PartyInvitation>> fetchInvitation(@NonNull UUID partyId, @NonNull UUID senderId, @NonNull UUID targetId) {
-        return databaseExecutor.supply(() -> {
-            String sql = "SELECT party_id, sender_id, target_id, created_at FROM party_invitations WHERE party_id = ? AND sender_id = ? AND target_id = ?";
-            return executeQuery(sql, statement -> {
-                statement.setObject(1, partyId);
-                statement.setObject(2, senderId);
-                statement.setObject(3, targetId);
-            }, resultSet -> {
-                if (resultSet.next()) {
-                    return Optional.of(mapResultSetToPartyInvitation(resultSet));
-                }
-                return Optional.empty();
-            }, "fetch invitation");
         });
     }
 
@@ -1070,59 +952,18 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     }
 
     @Override
-    public CompletableFuture<List<PartyInvitation>> fetchPartyOutgoingInvitations(@NonNull UUID partyId) {
-        return databaseExecutor.supply(() -> {
-            String sql = "SELECT party_id, sender_id, target_id, created_at FROM party_invitations WHERE party_id = ? ORDER BY created_at DESC";
-            return executeQuery(sql, statement -> statement.setObject(1, partyId), resultSet -> {
-                List<PartyInvitation> invitations = new ArrayList<>();
-                while (resultSet.next()) {
-                    invitations.add(mapResultSetToPartyInvitation(resultSet));
-                }
-                return invitations;
-            }, "fetch party outgoing invitations");
-        });
-    }
-
-    @Override
-    public CompletableFuture<Optional<PartyInvitation>> findInvitationFromLeader(@NonNull UUID inviteeId, @NonNull UUID leaderId) {
+    public CompletableFuture<Optional<PartyInvitation>> findInvitationFromSender(@NonNull UUID inviteeId, @NonNull UUID senderId) {
         return databaseExecutor.supply(() -> {
             String sql = "SELECT party_id, sender_id, target_id, created_at FROM party_invitations WHERE target_id = ? AND sender_id = ? ORDER BY created_at DESC LIMIT 1";
             return executeQuery(sql, statement -> {
                 statement.setObject(1, inviteeId);
-                statement.setObject(2, leaderId);
+                statement.setObject(2, senderId);
             }, resultSet -> {
                 if (resultSet.next()) {
                     return Optional.of(mapResultSetToPartyInvitation(resultSet));
                 }
                 return Optional.empty();
             }, "find invitation from leader");
-        });
-    }
-
-    @Override
-    public CompletableFuture<Optional<PartyInvitation>> findInvitationForParty(@NonNull UUID inviteeId, @NonNull UUID partyId) {
-        return databaseExecutor.supply(() -> {
-            String sql = "SELECT party_id, sender_id, target_id, created_at FROM party_invitations WHERE target_id = ? AND party_id = ? ORDER BY created_at DESC LIMIT 1";
-            return executeQuery(sql, statement -> {
-                statement.setObject(1, inviteeId);
-                statement.setObject(2, partyId);
-            }, resultSet -> {
-                if (resultSet.next()) {
-                    return Optional.of(mapResultSetToPartyInvitation(resultSet));
-                }
-                return Optional.empty();
-            }, "find invitation for party");
-        });
-    }
-
-    @Override
-    public CompletableFuture<Boolean> hasInvitation(@NonNull UUID inviteeId, @NonNull UUID partyId) {
-        return databaseExecutor.supply(() -> {
-            String sql = "SELECT 1 FROM party_invitations WHERE target_id = ? AND party_id = ?";
-            return executeQuery(sql, statement -> {
-                statement.setObject(1, inviteeId);
-                statement.setObject(2, partyId);
-            }, ResultSet::next, "check has invitation");
         });
     }
 
@@ -1243,7 +1084,11 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     @Override
     public CompletableFuture<Optional<PartySettings>> fetchSettings(@NonNull UUID playerId) {
         return databaseExecutor.supply(() -> {
-            String sql = "SELECT player_id, allow_chat, allow_warp, invite_privacy FROM party_settings WHERE player_id = ?";
+            String sql = """
+                    SELECT player_id, allow_chat, allow_warp, auto_warp, invite_privacy
+                    FROM party_settings
+                    WHERE player_id = ?
+                    """;
             return executeQuery(sql, statement -> statement.setObject(1, playerId), resultSet -> {
                 if (resultSet.next()) {
                     return Optional.of(mapResultSetToPartySettings(resultSet));
@@ -1251,6 +1096,14 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 return Optional.empty();
             }, "fetch settings");
         });
+    }
+
+    @Override
+    public CompletableFuture<Optional<PartyGroupSettings>> fetchGroupSettings(
+            @NonNull UUID partyId
+    ) {
+        return databaseExecutor.supply(() ->
+                PartyGroupPostgresOperations.fetchSettings(dataSource, partyId));
     }
 
     @Override
@@ -1284,6 +1137,20 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     }
 
     @Override
+    public CompletableFuture<Void> updateAutoWarp(@NonNull UUID playerId, boolean autoWarp) {
+        return databaseExecutor.run(() -> {
+            String sql = """
+                    INSERT INTO party_settings (player_id, auto_warp) VALUES (?, ?)
+                    ON CONFLICT (player_id) DO UPDATE SET auto_warp = EXCLUDED.auto_warp
+                    """;
+            executeUpdate(sql, statement -> {
+                statement.setObject(1, playerId);
+                statement.setBoolean(2, autoWarp);
+            }, "update auto warp");
+        });
+    }
+
+    @Override
     public CompletableFuture<Void> updateInvitePrivacy(@NonNull UUID playerId, @NonNull String invitePrivacy) {
         return databaseExecutor.run(() -> {
             String sql = """
@@ -1296,6 +1163,20 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 statement.setString(2, invitePrivacy);
             }, "update invite_privacy");
         });
+    }
+
+    @Override
+    public CompletableFuture<UpdatePartyJoinPolicyOutcome> updateJoinPolicy(
+            @NonNull UUID partyId,
+            @NonNull UUID requesterId,
+            @NonNull GroupJoinPolicy joinPolicy
+    ) {
+        return databaseExecutor.supply(() -> PartyGroupPostgresOperations.updateJoinPolicy(
+                dataSource,
+                partyId,
+                requesterId,
+                joinPolicy
+        ));
     }
 
     @Override
@@ -1330,7 +1211,19 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     @Override
     public CompletableFuture<Void> cleanupExpiredInvitations(@NonNull Instant now, @NonNull Duration expiry) {
         return databaseExecutor.run(() -> {
-            String sql = "DELETE FROM party_invitations WHERE created_at < ?";
+            String sql = """
+                    DELETE FROM party_invitations AS invitation
+                    WHERE invitation.created_at < ?
+                       OR (
+                           invitation.party_id IS NOT NULL
+                           AND NOT EXISTS (
+                               SELECT 1
+                               FROM party_members AS member
+                               WHERE member.party_id = invitation.party_id
+                                 AND member.player_id = invitation.sender_id
+                           )
+                       )
+                    """;
             executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired invitations");
         });
     }
@@ -1354,7 +1247,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
     @Contract("_ -> new")
     private @NonNull PartyInvitation mapResultSetToPartyInvitation(@NonNull ResultSet resultSet) throws SQLException {
         return new PartyInvitation(
-                (UUID) resultSet.getObject("party_id"),
+                Optional.ofNullable(resultSet.getObject("party_id", UUID.class)),
                 (UUID) resultSet.getObject("sender_id"),
                 (UUID) resultSet.getObject("target_id"),
                 resultSet.getTimestamp("created_at").toInstant()
@@ -1379,6 +1272,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                 (UUID) resultSet.getObject("player_id"),
                 resultSet.getBoolean("allow_chat"),
                 resultSet.getBoolean("allow_warp"),
+                resultSet.getBoolean("auto_warp"),
                 resultSet.getString("invite_privacy")
         );
     }

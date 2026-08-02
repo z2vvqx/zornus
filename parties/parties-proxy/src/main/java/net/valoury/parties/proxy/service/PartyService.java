@@ -13,6 +13,7 @@ import net.valoury.parties.proxy.model.result.PartyRequestsResult;
 import net.valoury.parties.proxy.model.result.PartyResults;
 import net.valoury.parties.proxy.storage.*;
 import net.valoury.shared.SharedConstants;
+import net.valoury.shared.model.GroupJoinPolicy;
 import net.valoury.shared.utilities.PaginationResult;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -55,20 +56,6 @@ public final class PartyService implements AutoCloseable {
         return notificationService;
     }
 
-    public @NonNull CompletableFuture<PartyResults.Create> createParty(@NonNull Player sender) {
-        return createPartyLegacy(sender).thenApply(PartyResults.Create::from);
-    }
-
-    private @NonNull CompletableFuture<PartyResult> createPartyLegacy(@NonNull Player sender) {
-        UUID senderId = sender.getUniqueId();
-        Party party = new Party(senderId);
-        return storage.createParty(party)
-                .thenApply(outcome -> switch (outcome) {
-                    case CreatePartyOutcome.Created created -> PartyResult.PARTY_CREATED;
-                    case CreatePartyOutcome.AlreadyInParty alreadyInParty -> PartyResult.ALREADY_IN_PARTY;
-                });
-    }
-
     public @NonNull CompletableFuture<PartyResults.Disband> disbandParty(
             @NonNull Player sender,
             boolean isConfirming
@@ -88,7 +75,8 @@ public final class PartyService implements AutoCloseable {
                     }
                     Party party = partyOptional.get();
                     if (!party.isLeader(senderId)) {
-                        return CompletableFuture.<PartyResult>completedFuture(PartyResult.NOT_LEADER);
+                        return CompletableFuture.<PartyResult>completedFuture(
+                                PartyResult.NOT_LEADER);
                     }
                     return handleDisbandConfirmation(senderId, party, isConfirming);
                 });
@@ -189,18 +177,20 @@ public final class PartyService implements AutoCloseable {
 
         return storage.getPlayerParty(senderId)
                 .thenCompose(partyOptional -> {
-                    if (partyOptional.isEmpty()) {
-                        return CompletableFuture.<PartyResult>completedFuture(PartyResult.NOT_IN_PARTY);
+                    if (partyOptional.isPresent()
+                            && !partyOptional.get().canManageMembers(senderId)) {
+                        return CompletableFuture.<PartyResult>completedFuture(
+                                PartyResult.INSUFFICIENT_ROLE);
                     }
-                    Party party = partyOptional.get();
-                    if (!party.isLeader(senderId)) {
-                        return CompletableFuture.<PartyResult>completedFuture(PartyResult.NOT_LEADER);
-                    }
-                    return executeSendInvitation(sender, target, party);
+                    return executeSendInvitation(sender, target, partyOptional);
                 });
     }
 
-    private @NonNull CompletableFuture<PartyResult> executeSendInvitation(@NonNull Player sender, @NonNull Player target, @NonNull Party party) {
+    private @NonNull CompletableFuture<PartyResult> executeSendInvitation(
+            @NonNull Player sender,
+            @NonNull Player target,
+            @NonNull Optional<Party> party
+    ) {
         UUID senderId = sender.getUniqueId();
         UUID targetId = target.getUniqueId();
 
@@ -208,30 +198,60 @@ public final class PartyService implements AutoCloseable {
                 .thenCompose(areFriends -> executeStorageSendInvitation(sender, target, party, areFriends));
     }
 
-    private @NonNull CompletableFuture<PartyResult> executeStorageSendInvitation(@NonNull Player sender, @NonNull Player target, @NonNull Party party, boolean isPreCheckedFriend) {
+    private @NonNull CompletableFuture<PartyResult> executeStorageSendInvitation(
+            @NonNull Player sender,
+            @NonNull Player target,
+            @NonNull Optional<Party> party,
+            boolean isPreCheckedFriend
+    ) {
         UUID senderId = sender.getUniqueId();
         UUID targetId = target.getUniqueId();
 
-        return storage.trySendInvitation(party.partyId(), senderId, targetId, isPreCheckedFriend)
-                .thenApply(outcome -> switch (outcome) {
+        return storage.trySendInvitation(
+                        party.map(Party::partyId),
+                        senderId,
+                        targetId,
+                        isPreCheckedFriend
+                )
+                .thenCompose(outcome -> switch (outcome) {
                     case SendInvitationOutcome.Sent sent -> {
-                        notificationService.sendInviteReceived(target, sender, party);
-                        notificationService.announceInviteSent(party, sender, target);
-                        yield PartyResult.INVITATION_SENT;
+                        notificationService.sendInviteReceived(target, sender);
+                        if (sent.partyId().isEmpty()) {
+                            yield CompletableFuture.completedFuture(PartyResult.INVITATION_SENT);
+                        }
+                        yield storage.fetchParty(sent.partyId().get())
+                                .thenApply(currentPartyOptional -> {
+                                    currentPartyOptional.ifPresent(currentParty ->
+                                            notificationService.announceInviteSent(
+                                                    currentParty,
+                                                    sender,
+                                                    target
+                                            ));
+                                    return PartyResult.INVITATION_SENT;
+                                });
                     }
                     case SendInvitationOutcome.TargetAlreadyInParty targetAlreadyInParty ->
-                            PartyResult.TARGET_ALREADY_IN_PARTY;
-                    case SendInvitationOutcome.PartyFull partyFull -> PartyResult.PARTY_FULL;
-                    case SendInvitationOutcome.CooldownActive cooldownActive -> PartyResult.INVITATION_COOLDOWN_ACTIVE;
+                            CompletableFuture.completedFuture(PartyResult.TARGET_ALREADY_IN_PARTY);
+                    case SendInvitationOutcome.PartyFull partyFull ->
+                            CompletableFuture.completedFuture(PartyResult.PARTY_FULL);
+                    case SendInvitationOutcome.CooldownActive cooldownActive ->
+                            CompletableFuture.completedFuture(PartyResult.INVITATION_COOLDOWN_ACTIVE);
                     case SendInvitationOutcome.SenderLimitReached senderLimitReached ->
-                            PartyResult.SENDER_INVITATION_LIMIT_REACHED;
+                            CompletableFuture.completedFuture(PartyResult.SENDER_INVITATION_LIMIT_REACHED);
                     case SendInvitationOutcome.ReceiverLimitReached receiverLimitReached ->
-                            PartyResult.RECEIVER_INVITATION_LIMIT_REACHED;
-                    case SendInvitationOutcome.AlreadyInvited alreadyInvited -> PartyResult.ALREADY_INVITED;
+                            CompletableFuture.completedFuture(PartyResult.RECEIVER_INVITATION_LIMIT_REACHED);
+                    case SendInvitationOutcome.AlreadyInvited alreadyInvited ->
+                            CompletableFuture.completedFuture(PartyResult.ALREADY_INVITED);
                     case SendInvitationOutcome.InvitesDisabled invitesDisabled ->
-                            "friend".equals(invitesDisabled.privacy()) ? PartyResult.INVITES_FRIENDS_ONLY : PartyResult.INVITES_DISABLED;
-                    case SendInvitationOutcome.SenderNoLongerLeader senderNoLongerLeader -> PartyResult.NOT_LEADER;
-                    case SendInvitationOutcome.PartyNoLongerExists partyNoLongerExists -> PartyResult.PARTY_NOT_FOUND;
+                            CompletableFuture.completedFuture(
+                                    "friend".equals(invitesDisabled.privacy())
+                                            ? PartyResult.INVITES_FRIENDS_ONLY
+                                            : PartyResult.INVITES_DISABLED
+                            );
+                    case SendInvitationOutcome.SenderInsufficientRole senderInsufficientRole ->
+                            CompletableFuture.completedFuture(PartyResult.INSUFFICIENT_ROLE);
+                    case SendInvitationOutcome.PartyNoLongerExists partyNoLongerExists ->
+                            CompletableFuture.completedFuture(PartyResult.PARTY_NOT_FOUND);
                 });
     }
 
@@ -263,7 +283,7 @@ public final class PartyService implements AutoCloseable {
     }
 
     private @NonNull CompletableFuture<PartyResult> findAndAcceptInvitation(@NonNull UUID senderId, @NonNull UUID targetId) {
-        return storage.findInvitationFromLeader(senderId, targetId)
+        return storage.findInvitationFromSender(senderId, targetId)
                 .thenCompose(invitationOptional -> {
                     if (invitationOptional.isEmpty()) {
                         return CompletableFuture.completedFuture(PartyResult.NO_INVITATION_FOUND);
@@ -274,10 +294,9 @@ public final class PartyService implements AutoCloseable {
     }
 
     private @NonNull CompletableFuture<PartyResult> addMemberToParty(@NonNull UUID playerId, @NonNull PartyInvitation invitation) {
-        UUID partyId = invitation.partyId();
-        return storage.acceptInvitationAndJoin(partyId, playerId, invitation.senderId())
+        return storage.acceptInvitationAndJoin(playerId, invitation.senderId())
                 .thenCompose(outcome -> switch (outcome) {
-                    case JoinOutcome.Joined joined -> storage.fetchParty(partyId)
+                    case JoinOutcome.Joined joined -> storage.fetchParty(joined.partyId())
                             .thenApply(partyOptional -> {
                                 partyOptional.ifPresent(party ->
                                         proxyServer.getPlayer(playerId).ifPresent(player ->
@@ -291,6 +310,75 @@ public final class PartyService implements AutoCloseable {
                             CompletableFuture.completedFuture(PartyResult.NO_INVITATION_FOUND);
                     case JoinOutcome.InvitationNoLongerValid invitationNoLongerValid ->
                             CompletableFuture.completedFuture(PartyResult.NO_INVITATION_FOUND);
+                });
+    }
+
+    public @NonNull CompletableFuture<PartyResults.JoinPublic> joinPublicParty(
+            @NonNull Player sender,
+            @Nullable Player targetLeader
+    ) {
+        if (targetLeader == null) {
+            return CompletableFuture.completedFuture(new PartyResults.JoinPublic.PlayerNotFound());
+        }
+
+        UUID senderId = sender.getUniqueId();
+        return storage.getPlayerParty(targetLeader.getUniqueId())
+                .thenCompose(partyOptional -> {
+                    if (partyOptional.isEmpty()
+                            || !partyOptional.get().isLeader(targetLeader.getUniqueId())) {
+                        return CompletableFuture.completedFuture(
+                                new PartyResults.JoinPublic.TargetNotLeader());
+                    }
+
+                    Party party = partyOptional.get();
+                    return storage.tryJoinPublicParty(
+                                    party.partyId(),
+                                    targetLeader.getUniqueId(),
+                                    senderId
+                            )
+                            .thenCompose(outcome -> switch (outcome) {
+                                case JoinPublicPartyOutcome.Joined ignored ->
+                                        completePublicPartyJoin(
+                                                party.partyId(),
+                                                sender,
+                                                targetLeader.getUsername()
+                                        );
+                                case JoinPublicPartyOutcome.AlreadyInParty ignored ->
+                                        CompletableFuture.completedFuture(
+                                                new PartyResults.JoinPublic.AlreadyInParty());
+                                case JoinPublicPartyOutcome.PartyFull ignored ->
+                                        CompletableFuture.completedFuture(
+                                                new PartyResults.JoinPublic.PartyFull());
+                                case JoinPublicPartyOutcome.PartyPrivate ignored ->
+                                        CompletableFuture.completedFuture(
+                                                new PartyResults.JoinPublic.PartyPrivate());
+                                case JoinPublicPartyOutcome.PartyNotFound ignored ->
+                                        CompletableFuture.completedFuture(
+                                                new PartyResults.JoinPublic.PartyNotFound());
+                                case JoinPublicPartyOutcome.TargetNotLeader ignored ->
+                                        CompletableFuture.completedFuture(
+                                                new PartyResults.JoinPublic.TargetNotLeader());
+                            });
+                });
+    }
+
+    private @NonNull CompletableFuture<PartyResults.JoinPublic> completePublicPartyJoin(
+            @NonNull UUID partyId,
+            @NonNull Player joiningPlayer,
+            @NonNull String fallbackLeaderName
+    ) {
+        return storage.fetchParty(partyId)
+                .thenApply(partyOptional -> {
+                    if (partyOptional.isEmpty()) {
+                        return new PartyResults.JoinPublic.PartyNotFound();
+                    }
+
+                    Party updatedParty = partyOptional.get();
+                    notificationService.notifyMemberJoined(updatedParty, joiningPlayer);
+                    String leaderName = proxyServer.getPlayer(updatedParty.leaderId())
+                            .map(Player::getUsername)
+                            .orElse(fallbackLeaderName);
+                    return new PartyResults.JoinPublic.Joined(leaderName);
                 });
     }
 
@@ -312,13 +400,13 @@ public final class PartyService implements AutoCloseable {
         UUID senderId = sender.getUniqueId();
         UUID targetId = target.getUniqueId();
 
-        return storage.findInvitationFromLeader(senderId, targetId)
+        return storage.findInvitationFromSender(senderId, targetId)
                 .thenCompose(invitationOptional -> {
                     if (invitationOptional.isEmpty()) {
                         return CompletableFuture.<PartyResult>completedFuture(PartyResult.NO_INVITATION_FOUND);
                     }
                     PartyInvitation invitation = invitationOptional.get();
-                    return storage.removePendingInvitation(invitation.partyId(), invitation.senderId(), senderId)
+                    return storage.removePendingInvitation(invitation.senderId(), senderId)
                             .thenApply(removed -> removed ? PartyResult.INVITATION_REJECTED : PartyResult.NO_INVITATION_FOUND);
                 });
     }
@@ -343,26 +431,33 @@ public final class PartyService implements AutoCloseable {
 
         return storage.getPlayerParty(senderId)
                 .thenCompose(partyOptional -> {
-                    if (partyOptional.isEmpty()) {
-                        return CompletableFuture.completedFuture(PartyResult.NOT_IN_PARTY);
+                    if (partyOptional.isPresent()
+                            && !partyOptional.get().canManageMembers(senderId)) {
+                        return CompletableFuture.completedFuture(PartyResult.INSUFFICIENT_ROLE);
                     }
-                    Party party = partyOptional.get();
-                    if (!party.isLeader(senderId)) {
-                        return CompletableFuture.completedFuture(PartyResult.NOT_LEADER);
-                    }
-                    return findAndRevokeInvitation(targetId, party.partyId());
+                    return revokeInvitationFromStorage(
+                            targetId,
+                            partyOptional.map(Party::partyId),
+                            senderId
+                    );
                 });
     }
 
-    private @NonNull CompletableFuture<PartyResult> findAndRevokeInvitation(@NonNull UUID targetId, @NonNull UUID partyId) {
-        return storage.findInvitationForParty(targetId, partyId)
-                .thenCompose(invitationOptional -> {
-                    if (invitationOptional.isEmpty()) {
-                        return CompletableFuture.completedFuture(PartyResult.NO_INVITATION_FOUND);
-                    }
-                    PartyInvitation invitation = invitationOptional.get();
-                    return storage.removePendingInvitation(invitation.partyId(), invitation.senderId(), targetId)
-                            .thenApply(removed -> removed ? PartyResult.INVITATION_REVOKED : PartyResult.NO_INVITATION_FOUND);
+    private @NonNull CompletableFuture<PartyResult> revokeInvitationFromStorage(
+            @NonNull UUID targetId,
+            @NonNull Optional<UUID> partyId,
+            @NonNull UUID requesterId
+    ) {
+        return storage.tryRevokeInvitation(partyId, requesterId, targetId)
+                .thenApply(outcome -> switch (outcome) {
+                    case RevokePartyInvitationOutcome.Revoked ignored ->
+                            PartyResult.INVITATION_REVOKED;
+                    case RevokePartyInvitationOutcome.InvitationNotFound ignored ->
+                            PartyResult.NO_INVITATION_FOUND;
+                    case RevokePartyInvitationOutcome.InsufficientRole ignored ->
+                            PartyResult.INSUFFICIENT_ROLE;
+                    case RevokePartyInvitationOutcome.PartyNotFound ignored ->
+                            PartyResult.PARTY_NOT_FOUND;
                 });
     }
 
@@ -403,7 +498,7 @@ public final class PartyService implements AutoCloseable {
                         return CompletableFuture.completedFuture(PartyResult.NOT_IN_PARTY);
                     }
                     Party party = partyOptional.get();
-                    return removePlayerFromParty(senderId, sender.getUsername(), party, true)
+                    return removePlayerFromParty(senderId, party)
                             .thenCompose(result -> {
                                 if (result == PartyResult.LEADER_TRANSFERRED) {
                                     return storage.fetchParty(party.partyId())
@@ -453,23 +548,105 @@ public final class PartyService implements AutoCloseable {
                         return CompletableFuture.completedFuture(PartyResult.NOT_IN_PARTY);
                     }
                     Party party = partyOptional.get();
-                    if (!party.isLeader(senderId)) {
-                        return CompletableFuture.completedFuture(PartyResult.NOT_LEADER);
+                    if (!party.canManageMembers(senderId)) {
+                        return CompletableFuture.completedFuture(PartyResult.INSUFFICIENT_ROLE);
                     }
                     if (!party.isMember(targetId)) {
                         return CompletableFuture.completedFuture(PartyResult.PLAYER_NOT_IN_PARTY);
                     }
-                    return removePlayerFromParty(targetId, target.getUsername(), party, false)
-                            .thenCompose(result -> {
-                                if (result == PartyResult.LEFT_PARTY) {
-                                    return storage.fetchParty(party.partyId())
-                                            .thenApply(updatedPartyOptional -> {
-                                                updatedPartyOptional.ifPresent(updatedParty ->
-                                                        notificationService.notifyMemberKicked(updatedParty, target, reason));
-                                                return PartyResult.MEMBER_KICKED;
-                                            });
+                    return storage.tryKickMember(party.partyId(), senderId, targetId)
+                            .thenCompose(outcome -> switch (outcome) {
+                                case KickPartyMemberOutcome.Kicked ignored -> {
+                                    notificationService.notifyMemberKicked(party, target, reason);
+                                    yield CompletableFuture.completedFuture(PartyResult.MEMBER_KICKED);
                                 }
-                                return CompletableFuture.completedFuture(result);
+                                case KickPartyMemberOutcome.PartyNotFound ignored ->
+                                        CompletableFuture.completedFuture(PartyResult.PARTY_NOT_FOUND);
+                                case KickPartyMemberOutcome.InsufficientRole ignored ->
+                                        CompletableFuture.completedFuture(PartyResult.INSUFFICIENT_ROLE);
+                                case KickPartyMemberOutcome.MemberNotFound ignored ->
+                                        CompletableFuture.completedFuture(PartyResult.PLAYER_NOT_IN_PARTY);
+                                case KickPartyMemberOutcome.CannotKickSelf ignored ->
+                                        CompletableFuture.completedFuture(PartyResult.CANNOT_KICK_SELF);
+                                case KickPartyMemberOutcome.CannotKickLeader ignored ->
+                                        CompletableFuture.completedFuture(PartyResult.CANNOT_KICK_LEADER);
+                                case KickPartyMemberOutcome.CannotKickModerator ignored ->
+                                        CompletableFuture.completedFuture(PartyResult.CANNOT_KICK_MODERATOR);
+                            });
+                });
+    }
+
+    public @NonNull CompletableFuture<PartyResults.ChangeModeratorRole> promoteModerator(
+            @NonNull Player sender,
+            @Nullable Player target
+    ) {
+        return changeModeratorRole(sender, target, true);
+    }
+
+    public @NonNull CompletableFuture<PartyResults.ChangeModeratorRole> demoteModerator(
+            @NonNull Player sender,
+            @Nullable Player target
+    ) {
+        return changeModeratorRole(sender, target, false);
+    }
+
+    private @NonNull CompletableFuture<PartyResults.ChangeModeratorRole> changeModeratorRole(
+            @NonNull Player sender,
+            @Nullable Player target,
+            boolean moderator
+    ) {
+        if (target == null) {
+            return CompletableFuture.completedFuture(
+                    new PartyResults.ChangeModeratorRole.PlayerNotFound());
+        }
+
+        UUID senderId = sender.getUniqueId();
+        UUID targetId = target.getUniqueId();
+        return storage.getPlayerParty(senderId)
+                .thenCompose(partyOptional -> {
+                    if (partyOptional.isEmpty()) {
+                        return CompletableFuture.completedFuture(
+                                new PartyResults.ChangeModeratorRole.NotInParty());
+                    }
+
+                    Party party = partyOptional.get();
+                    if (!party.isLeader(senderId)) {
+                        return CompletableFuture.completedFuture(
+                                new PartyResults.ChangeModeratorRole.NotLeader());
+                    }
+                    if (!party.isMember(targetId)) {
+                        return CompletableFuture.completedFuture(
+                                new PartyResults.ChangeModeratorRole.MemberNotFound());
+                    }
+
+                    return storage.updateModeratorStatus(
+                                    party.partyId(),
+                                    senderId,
+                                    targetId,
+                                    moderator
+                            )
+                            .thenApply(outcome -> switch (outcome) {
+                                case PartyModeratorChangeOutcome.Changed ignored -> {
+                                    notificationService.notifyModeratorStatusChanged(
+                                            party,
+                                            target.getUsername(),
+                                            moderator
+                                    );
+                                    yield new PartyResults.ChangeModeratorRole.Changed(
+                                            target.getUsername());
+                                }
+                                case PartyModeratorChangeOutcome.PartyNotFound ignored ->
+                                        new PartyResults.ChangeModeratorRole.PartyNotFound();
+                                case PartyModeratorChangeOutcome.NotLeader ignored ->
+                                        new PartyResults.ChangeModeratorRole.NotLeader();
+                                case PartyModeratorChangeOutcome.MemberNotFound ignored ->
+                                        new PartyResults.ChangeModeratorRole.MemberNotFound();
+                                case PartyModeratorChangeOutcome.CannotChangeLeader ignored ->
+                                        new PartyResults.ChangeModeratorRole.CannotChangeLeader();
+                                case PartyModeratorChangeOutcome.AlreadyModerator ignored ->
+                                        new PartyResults.ChangeModeratorRole.AlreadyModerator();
+                                case PartyModeratorChangeOutcome.NotModerator ignored ->
+                                        new PartyResults.ChangeModeratorRole.NotModerator();
                             });
                 });
     }
@@ -484,10 +661,12 @@ public final class PartyService implements AutoCloseable {
                     }
                     Party party = partyOptional.get();
                     List<UUID> members = new ArrayList<>(party.getMemberIds());
-                    // Sort: leader first, then UUID natural ordering
+                    // Sort: leader first, moderators second, then stable UUID ordering.
                     members.sort((a, b) -> {
                         if (party.isLeader(a)) return -1;
                         if (party.isLeader(b)) return 1;
+                        if (party.isModerator(a) && !party.isModerator(b)) return -1;
+                        if (!party.isModerator(a) && party.isModerator(b)) return 1;
                         return a.compareTo(b);
                     });
 
@@ -549,7 +728,7 @@ public final class PartyService implements AutoCloseable {
                     }
                     Party party = partyOptional.get();
                     boolean wasLeader = party.isLeader(playerId);
-                    return removePlayerFromParty(playerId, username, party, true)
+                    return removePlayerFromParty(playerId, party)
                             .thenCompose(result -> {
                                 if (result == PartyResult.LEADER_TRANSFERRED) {
                                     return storage.fetchParty(party.partyId())
@@ -557,27 +736,33 @@ public final class PartyService implements AutoCloseable {
                                                 updatedPartyOptional.ifPresent(updatedParty ->
                                                         notificationService.notifyLeaderDisconnected(updatedParty, playerId, username));
                                             });
-                                } else if (result == PartyResult.LEFT_PARTY || result == PartyResult.LEFT_PARTY_DISBANDED) {
-                                    if (result == PartyResult.LEFT_PARTY && !wasLeader) {
+                                } else if (result == PartyResult.LEFT_PARTY && !wasLeader) {
                                         return storage.fetchParty(party.partyId())
                                                 .thenAccept(updatedPartyOptional -> {
                                                     updatedPartyOptional.ifPresent(updatedParty ->
                                                             notificationService.notifyMemberDisconnected(updatedParty, playerId, username));
                                                 });
-                                    }
+                                } else if (result == PartyResult.LEFT_PARTY_DISBANDED) {
+                                    notificationService.notifyMemberDisconnected(
+                                            party,
+                                            playerId,
+                                            username
+                                    );
                                 }
                                 return CompletableFuture.<Void>completedFuture(null);
                             });
                 });
     }
 
-    private @NonNull CompletableFuture<PartyResult> removePlayerFromParty(@NonNull UUID memberId, @NonNull String memberName, @NonNull Party party, boolean isLeaving) {
+    private @NonNull CompletableFuture<PartyResult> removePlayerFromParty(
+            @NonNull UUID memberId,
+            @NonNull Party party
+    ) {
         return storage.removeMember(party.partyId(), memberId)
                 .thenApply(outcome -> switch (outcome) {
                     case RemoveMemberOutcome.MemberRemoved memberRemoved -> PartyResult.LEFT_PARTY;
                     case RemoveMemberOutcome.LeaderTransferred leaderTransferred -> PartyResult.LEADER_TRANSFERRED;
-                    case RemoveMemberOutcome.PartyDisbanded partyDisbanded ->
-                            isLeaving ? PartyResult.LEFT_PARTY_DISBANDED : PartyResult.LEFT_PARTY;
+                    case RemoveMemberOutcome.PartyDisbanded partyDisbanded -> PartyResult.LEFT_PARTY_DISBANDED;
                     case RemoveMemberOutcome.MemberNotFound memberNotFound -> PartyResult.PLAYER_NOT_IN_PARTY;
                     case RemoveMemberOutcome.PartyNotFound partyNotFound -> PartyResult.PARTY_NOT_FOUND;
                 });
@@ -647,6 +832,7 @@ public final class PartyService implements AutoCloseable {
                         yield PartyResult.LEADERSHIP_TRANSFERRED;
                     }
                     case TransferLeadershipOutcome.PartyNotFound partyNotFound -> PartyResult.PARTY_NOT_FOUND;
+                    case TransferLeadershipOutcome.NotLeader notLeader -> PartyResult.NOT_LEADER;
                     case TransferLeadershipOutcome.TargetNotMember targetNotMember -> PartyResult.PLAYER_NOT_IN_PARTY;
                 });
     }
@@ -673,11 +859,18 @@ public final class PartyService implements AutoCloseable {
 
     private @NonNull CompletableFuture<PartyResult> checkAndExecuteWarp(@NonNull Party party, @NonNull Player sender) {
         Instant now = Instant.now();
-        return storage.checkAndUpdateLastWarpTime(party.partyId(), now, PartyProxyConstants.WARP_COOLDOWN)
+        return storage.checkAndUpdateLastWarpTime(
+                        party.partyId(),
+                        sender.getUniqueId(),
+                        now,
+                        PartyProxyConstants.WARP_COOLDOWN
+                )
                 .thenCompose(outcome -> switch (outcome) {
                     case WarpOutcome.Allowed allowed -> executePartyWarp(party, sender);
                     case WarpOutcome.OnCooldown onCooldown ->
                             CompletableFuture.<PartyResult>completedFuture(PartyResult.WARP_ON_COOLDOWN);
+                    case WarpOutcome.NotLeader notLeader ->
+                            CompletableFuture.<PartyResult>completedFuture(PartyResult.NOT_LEADER);
                     case WarpOutcome.PartyNotFound partyNotFound ->
                             CompletableFuture.<PartyResult>completedFuture(PartyResult.PARTY_NOT_FOUND);
                 });
@@ -786,13 +979,16 @@ public final class PartyService implements AutoCloseable {
             @NonNull String settingName,
             boolean value
     ) {
-        if (!settingName.equals("allow_chat") && !settingName.equals("allow_warp")) {
+        if (!settingName.equals("allow_chat")
+                && !settingName.equals("allow_warp")
+                && !settingName.equals("auto_warp")) {
             return CompletableFuture.completedFuture(PartyResult.INVALID_SETTING);
         }
 
         CompletableFuture<Void> updateFuture = switch (settingName) {
             case "allow_chat" -> storage.updateAllowChat(playerId, value);
             case "allow_warp" -> storage.updateAllowWarp(playerId, value);
+            case "auto_warp" -> storage.updateAutoWarp(playerId, value);
             default -> throw new IllegalArgumentException("Unknown setting: " + settingName);
         };
 
@@ -812,11 +1008,14 @@ public final class PartyService implements AutoCloseable {
             @NonNull UUID playerId,
             @NonNull String value
     ) {
-        if (!value.equals("all") && !value.equals("friend") && !value.equals("none")) {
+        String normalizedValue = value.toLowerCase(Locale.ROOT);
+        if (!normalizedValue.equals("all")
+                && !normalizedValue.equals("friend")
+                && !normalizedValue.equals("none")) {
             return CompletableFuture.completedFuture(PartyResult.INVALID_SETTING);
         }
 
-        return storage.updateInvitePrivacy(playerId, value)
+        return storage.updateInvitePrivacy(playerId, normalizedValue)
                 .thenApply(ignored -> PartyResult.SETTING_UPDATED)
                 .exceptionally(throwable -> PartyResult.INVALID_SETTING);
     }
@@ -824,6 +1023,75 @@ public final class PartyService implements AutoCloseable {
     public @NonNull CompletableFuture<PartySettings> getSettings(@NonNull UUID playerId) {
         return storage.fetchSettings(playerId)
                 .thenApply(settingsOptional -> settingsOptional.orElse(new PartySettings(playerId)));
+    }
+
+    public @NonNull CompletableFuture<Optional<PartyGroupSettings>> getGroupSettingsForPlayer(
+            @NonNull UUID playerId
+    ) {
+        return storage.getPlayerParty(playerId)
+                .thenCompose(partyOptional -> partyOptional
+                        .map(party -> storage.fetchGroupSettings(party.partyId()))
+                        .orElseGet(() -> CompletableFuture.completedFuture(Optional.empty())));
+    }
+
+    public @NonNull CompletableFuture<PartyResults.UpdateSetting> updateGroupPrivacy(
+            @NonNull UUID playerId,
+            @NonNull String value
+    ) {
+        Optional<GroupJoinPolicy> joinPolicy = GroupJoinPolicy.fromInput(value);
+        if (joinPolicy.isEmpty()) {
+            return CompletableFuture.completedFuture(
+                    new PartyResults.UpdateSetting.InvalidSetting());
+        }
+
+        return storage.getPlayerParty(playerId)
+                .thenCompose(partyOptional -> {
+                    if (partyOptional.isEmpty()) {
+                        return CompletableFuture.completedFuture(
+                                new PartyResults.UpdateSetting.NotInParty());
+                    }
+                    return storage.updateJoinPolicy(
+                                    partyOptional.get().partyId(),
+                                    playerId,
+                                    joinPolicy.get()
+                            )
+                            .thenApply(outcome -> switch (outcome) {
+                                case UpdatePartyJoinPolicyOutcome.Updated ignored ->
+                                        new PartyResults.UpdateSetting.Updated();
+                                case UpdatePartyJoinPolicyOutcome.NotLeader ignored ->
+                                        new PartyResults.UpdateSetting.NotLeader();
+                                case UpdatePartyJoinPolicyOutcome.PartyNotFound ignored ->
+                                        new PartyResults.UpdateSetting.PartyNotFound();
+                            });
+                });
+    }
+
+    public @NonNull CompletableFuture<Void> handleServerSwitch(
+            @NonNull Player player,
+            @NonNull RegisteredServer destinationServer
+    ) {
+        UUID playerId = player.getUniqueId();
+        return getSettings(playerId)
+                .thenCompose(settings -> settings.autoWarp()
+                        ? storage.getPlayerParty(playerId)
+                        : CompletableFuture.completedFuture(Optional.empty()))
+                .thenCompose(partyOptional -> {
+                    if (partyOptional.isEmpty() || !partyOptional.get().isLeader(playerId)) {
+                        return CompletableFuture.completedFuture(null);
+                    }
+
+                    boolean stillOnDestination = player.getCurrentServer()
+                            .map(ServerConnection::getServer)
+                            .filter(destinationServer::equals)
+                            .isPresent();
+                    if (!stillOnDestination) {
+                        return CompletableFuture.completedFuture(null);
+                    }
+
+                    return checkAndExecuteWarp(partyOptional.get(), player)
+                            .thenAccept(ignored -> {
+                            });
+                });
     }
 
     public @NonNull CompletableFuture<Boolean> isInParty(@NonNull UUID playerId) {

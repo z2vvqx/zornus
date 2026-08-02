@@ -14,29 +14,6 @@ public final class PartyResults {
         return new IllegalStateException("Unexpected result for " + operation + ": " + result);
     }
 
-    public sealed interface Create {
-        static @NonNull Create from(@NonNull PartyResult result) {
-            return switch (result) {
-                case PARTY_CREATED -> new Created();
-                case ALREADY_IN_PARTY -> new AlreadyInParty();
-                default -> throw unexpected("create party", result);
-            };
-        }
-
-        default @NonNull PartyResult legacy() {
-            return switch (this) {
-                case Created ignored -> PartyResult.PARTY_CREATED;
-                case AlreadyInParty ignored -> PartyResult.ALREADY_IN_PARTY;
-            };
-        }
-
-        record Created() implements Create {
-        }
-
-        record AlreadyInParty() implements Create {
-        }
-    }
-
     public sealed interface Disband {
         static @NonNull Disband from(@NonNull PartyResult result) {
             return switch (result) {
@@ -86,8 +63,8 @@ public final class PartyResults {
                 case INVITATION_SENT -> new Sent();
                 case PLAYER_NOT_FOUND -> new PlayerNotFound();
                 case CANNOT_INVITE_SELF -> new CannotInviteSelf();
-                case NOT_IN_PARTY -> new NotInParty();
                 case NOT_LEADER -> new NotLeader();
+                case INSUFFICIENT_ROLE -> new InsufficientRole();
                 case TARGET_ALREADY_IN_PARTY -> new TargetAlreadyInParty();
                 case PARTY_FULL -> new PartyFull();
                 case INVITATION_COOLDOWN_ACTIVE -> new CooldownActive();
@@ -106,8 +83,8 @@ public final class PartyResults {
                 case Sent ignored -> PartyResult.INVITATION_SENT;
                 case PlayerNotFound ignored -> PartyResult.PLAYER_NOT_FOUND;
                 case CannotInviteSelf ignored -> PartyResult.CANNOT_INVITE_SELF;
-                case NotInParty ignored -> PartyResult.NOT_IN_PARTY;
                 case NotLeader ignored -> PartyResult.NOT_LEADER;
+                case InsufficientRole ignored -> PartyResult.INSUFFICIENT_ROLE;
                 case TargetAlreadyInParty ignored -> PartyResult.TARGET_ALREADY_IN_PARTY;
                 case PartyFull ignored -> PartyResult.PARTY_FULL;
                 case CooldownActive ignored -> PartyResult.INVITATION_COOLDOWN_ACTIVE;
@@ -129,10 +106,10 @@ public final class PartyResults {
         record CannotInviteSelf() implements SendInvitation {
         }
 
-        record NotInParty() implements SendInvitation {
+        record NotLeader() implements SendInvitation {
         }
 
-        record NotLeader() implements SendInvitation {
+        record InsufficientRole() implements SendInvitation {
         }
 
         record TargetAlreadyInParty() implements SendInvitation {
@@ -234,8 +211,8 @@ public final class PartyResults {
             return switch (result) {
                 case INVITATION_REVOKED -> new Revoked();
                 case PLAYER_NOT_FOUND -> new PlayerNotFound();
-                case NOT_IN_PARTY -> new NotInParty();
                 case NOT_LEADER -> new NotLeader();
+                case INSUFFICIENT_ROLE -> new InsufficientRole();
                 case NO_INVITATION_FOUND -> new NoInvitationFound();
                 default -> throw unexpected("revoke party invitation", result);
             };
@@ -245,8 +222,8 @@ public final class PartyResults {
             return switch (this) {
                 case Revoked ignored -> PartyResult.INVITATION_REVOKED;
                 case PlayerNotFound ignored -> PartyResult.PLAYER_NOT_FOUND;
-                case NotInParty ignored -> PartyResult.NOT_IN_PARTY;
                 case NotLeader ignored -> PartyResult.NOT_LEADER;
+                case InsufficientRole ignored -> PartyResult.INSUFFICIENT_ROLE;
                 case NoInvitationFound ignored -> PartyResult.NO_INVITATION_FOUND;
             };
         }
@@ -257,10 +234,10 @@ public final class PartyResults {
         record PlayerNotFound() implements RevokeInvitation {
         }
 
-        record NotInParty() implements RevokeInvitation {
+        record NotLeader() implements RevokeInvitation {
         }
 
-        record NotLeader() implements RevokeInvitation {
+        record InsufficientRole() implements RevokeInvitation {
         }
 
         record NoInvitationFound() implements RevokeInvitation {
@@ -311,8 +288,11 @@ public final class PartyResults {
                 case MEMBER_KICKED -> new Kicked();
                 case PLAYER_NOT_FOUND -> new PlayerNotFound();
                 case CANNOT_KICK_SELF -> new CannotKickSelf();
+                case CANNOT_KICK_LEADER -> new CannotKickLeader();
+                case CANNOT_KICK_MODERATOR -> new CannotKickModerator();
                 case NOT_IN_PARTY -> new NotInParty();
                 case NOT_LEADER -> new NotLeader();
+                case INSUFFICIENT_ROLE -> new InsufficientRole();
                 case PLAYER_NOT_IN_PARTY -> new PlayerNotInParty();
                 case PARTY_NOT_FOUND -> new PartyNotFound();
                 default -> throw unexpected("kick party member", result);
@@ -324,8 +304,11 @@ public final class PartyResults {
                 case Kicked ignored -> PartyResult.MEMBER_KICKED;
                 case PlayerNotFound ignored -> PartyResult.PLAYER_NOT_FOUND;
                 case CannotKickSelf ignored -> PartyResult.CANNOT_KICK_SELF;
+                case CannotKickLeader ignored -> PartyResult.CANNOT_KICK_LEADER;
+                case CannotKickModerator ignored -> PartyResult.CANNOT_KICK_MODERATOR;
                 case NotInParty ignored -> PartyResult.NOT_IN_PARTY;
                 case NotLeader ignored -> PartyResult.NOT_LEADER;
+                case InsufficientRole ignored -> PartyResult.INSUFFICIENT_ROLE;
                 case PlayerNotInParty ignored -> PartyResult.PLAYER_NOT_IN_PARTY;
                 case PartyNotFound ignored -> PartyResult.PARTY_NOT_FOUND;
             };
@@ -340,10 +323,19 @@ public final class PartyResults {
         record CannotKickSelf() implements KickMember {
         }
 
+        record CannotKickLeader() implements KickMember {
+        }
+
+        record CannotKickModerator() implements KickMember {
+        }
+
         record NotInParty() implements KickMember {
         }
 
         record NotLeader() implements KickMember {
+        }
+
+        record InsufficientRole() implements KickMember {
         }
 
         record PlayerNotInParty() implements KickMember {
@@ -540,6 +532,9 @@ public final class PartyResults {
             return switch (result) {
                 case SETTING_UPDATED -> new Updated();
                 case INVALID_SETTING -> new InvalidSetting();
+                case NOT_IN_PARTY -> new NotInParty();
+                case NOT_LEADER -> new NotLeader();
+                case PARTY_NOT_FOUND -> new PartyNotFound();
                 default -> throw unexpected("update party setting", result);
             };
         }
@@ -548,6 +543,9 @@ public final class PartyResults {
             return switch (this) {
                 case Updated ignored -> PartyResult.SETTING_UPDATED;
                 case InvalidSetting ignored -> PartyResult.INVALID_SETTING;
+                case NotInParty ignored -> PartyResult.NOT_IN_PARTY;
+                case NotLeader ignored -> PartyResult.NOT_LEADER;
+                case PartyNotFound ignored -> PartyResult.PARTY_NOT_FOUND;
             };
         }
 
@@ -555,6 +553,67 @@ public final class PartyResults {
         }
 
         record InvalidSetting() implements UpdateSetting {
+        }
+
+        record NotInParty() implements UpdateSetting {
+        }
+
+        record NotLeader() implements UpdateSetting {
+        }
+
+        record PartyNotFound() implements UpdateSetting {
+        }
+    }
+
+    public sealed interface JoinPublic {
+        record Joined(@NonNull String leaderName) implements JoinPublic {
+        }
+
+        record PlayerNotFound() implements JoinPublic {
+        }
+
+        record TargetNotLeader() implements JoinPublic {
+        }
+
+        record AlreadyInParty() implements JoinPublic {
+        }
+
+        record PartyPrivate() implements JoinPublic {
+        }
+
+        record PartyFull() implements JoinPublic {
+        }
+
+        record PartyNotFound() implements JoinPublic {
+        }
+    }
+
+    public sealed interface ChangeModeratorRole {
+        record Changed(@NonNull String memberName) implements ChangeModeratorRole {
+        }
+
+        record PlayerNotFound() implements ChangeModeratorRole {
+        }
+
+        record NotInParty() implements ChangeModeratorRole {
+        }
+
+        record NotLeader() implements ChangeModeratorRole {
+        }
+
+        record MemberNotFound() implements ChangeModeratorRole {
+        }
+
+        record CannotChangeLeader() implements ChangeModeratorRole {
+        }
+
+        record AlreadyModerator() implements ChangeModeratorRole {
+        }
+
+        record NotModerator() implements ChangeModeratorRole {
+        }
+
+        record PartyNotFound() implements ChangeModeratorRole {
         }
     }
 }

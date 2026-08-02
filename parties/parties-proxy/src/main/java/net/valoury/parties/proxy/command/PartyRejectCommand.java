@@ -51,7 +51,7 @@ public final class PartyRejectCommand {
                     return Command.SINGLE_SUCCESS;
                 })
                 .then(BrigadierCommand
-                        .requiredArgumentBuilder("leader_name", StringArgumentType.word())
+                        .requiredArgumentBuilder("sender_name", StringArgumentType.word())
                         .suggests(onlinePlayerSuggestions(proxyServer))
                         .executes(context -> handleRejectInvitation(context, partyService, proxyServer))
                 );
@@ -65,7 +65,7 @@ public final class PartyRejectCommand {
             return Command.SINGLE_SUCCESS;
         }
 
-        String targetName = StringArgumentType.getString(context, "leader_name");
+        String targetName = StringArgumentType.getString(context, "sender_name");
 
         Optional<Player> targetOptional = proxyServer.getPlayer(targetName);
         if (targetOptional.isEmpty()) {
