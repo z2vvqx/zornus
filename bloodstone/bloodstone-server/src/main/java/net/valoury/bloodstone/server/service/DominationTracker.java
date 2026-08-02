@@ -18,7 +18,7 @@ public final class DominationTracker {
         }
 
         Integer reverseCount = killChains.remove(new DominationPair(victimId, killerId));
-        boolean revenge = reverseCount != null && reverseCount >= 3;
+        boolean revenge = reverseCount != null && reverseCount >= 4;
         int killCount = killChains.merge(
                 new DominationPair(killerId, victimId),
                 1,
@@ -26,7 +26,7 @@ public final class DominationTracker {
         );
         return new Outcome(
                 killCount,
-                killCount == 3,
+                killCount == 4,
                 revenge,
                 CombatAnnouncementProgression.isDominationMilestone(killCount)
         );
@@ -38,7 +38,7 @@ public final class DominationTracker {
 
     public List<ActiveDomination> activeDominations() {
         return killChains.entrySet().stream()
-                .filter(entry -> entry.getValue() >= 3)
+                .filter(entry -> entry.getValue() >= 4)
                 .map(entry -> new ActiveDomination(
                         entry.getKey().killerId(),
                         entry.getKey().victimId()

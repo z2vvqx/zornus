@@ -231,7 +231,7 @@ public final class BloodstoneCombatService {
         }
 
         UUID killerId = Objects.requireNonNull(attribution.killerId());
-        UUID carryId = Objects.requireNonNull(attribution.carryId());
+        @Nullable UUID carryId = attribution.carryId();
         Set<UUID> assistIds = new HashSet<>(attribution.assistIds());
 
         Player killer = Bukkit.getPlayer(killerId);
@@ -645,7 +645,7 @@ public final class BloodstoneCombatService {
             UUID eventId,
             UUID killerId,
             UUID victimId,
-            UUID carryId,
+            @Nullable UUID carryId,
             Set<UUID> assistIds,
             DominationOutcome dominationOutcome,
             int attempt
@@ -698,7 +698,7 @@ public final class BloodstoneCombatService {
             UUID killerId,
             UUID victimId,
             Set<UUID> assistIds,
-            UUID carryId,
+            @Nullable UUID carryId,
             CombatResolutionOutcome outcome
     ) {
         Set<UUID> affectedPlayers = new HashSet<>(assistIds);

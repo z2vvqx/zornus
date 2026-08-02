@@ -112,7 +112,7 @@ final class BloodstonePostgresStorageIntegrationTest {
                 eventId,
                 KILLER_ID,
                 VICTIM_ID,
-                KILLER_ID,
+                ASSIST_ID,
                 Set.of(ASSIST_ID),
                 GUILD_ID,
                 GUILD_ID,
@@ -133,11 +133,12 @@ final class BloodstonePostgresStorageIntegrationTest {
         PlayerProfile victim = storage.loadPlayer(VICTIM_ID, "Victim").join().profile();
         PlayerProfile assistant = storage.loadPlayer(ASSIST_ID, "Assistant").join().profile();
         assertEquals(1, killer.kills());
-        assertEquals(1, killer.carries());
+        assertEquals(0, killer.carries());
         assertEquals(1, killer.dominations());
         assertEquals(1, killer.revenges());
         assertEquals(1, victim.deaths());
         assertEquals(1, assistant.assists());
+        assertEquals(1, assistant.carries());
 
         UUID uncreditedEventId = UUID.randomUUID();
         assertTrue(storage.recordDeath(

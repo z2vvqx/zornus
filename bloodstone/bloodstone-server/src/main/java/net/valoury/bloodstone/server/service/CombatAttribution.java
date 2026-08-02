@@ -31,10 +31,13 @@ public final class CombatAttribution {
                 .comparingLong(Contribution::lastContributionAt)
                 .thenComparing(Contribution::attackerId, Comparator.reverseOrder());
         Contribution killer = eligible.stream().max(stableNewest).orElseThrow();
-        Contribution carry = eligible.stream()
+        Contribution highestDamager = eligible.stream()
                 .max(Comparator.comparingDouble(Contribution::damage)
                         .thenComparing(stableNewest))
                 .orElseThrow();
+        UUID carryPlayerId = highestDamager.attackerId().equals(killer.attackerId())
+                ? null
+                : highestDamager.attackerId();
         List<UUID> assists = eligible.stream()
                 .map(Contribution::attackerId)
                 .filter(attackerId -> !attackerId.equals(killer.attackerId()))
@@ -43,7 +46,7 @@ public final class CombatAttribution {
         double totalDamage = eligible.stream().mapToDouble(Contribution::damage).sum();
         return new Attribution(
                 killer.attackerId(),
-                carry.attackerId(),
+                carryPlayerId,
                 assists,
                 eligible,
                 totalDamage

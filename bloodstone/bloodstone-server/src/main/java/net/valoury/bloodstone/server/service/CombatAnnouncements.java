@@ -30,9 +30,9 @@ final class CombatAnnouncements {
 
     static @NonNull String domination(int count) {
         return switch (count) {
-            case 3 -> "<killer> <green>is now <red><bold>dominating</bold></red> <white><victim></white>!</green>";
-            case 6 -> "<killer> <green>is still dominating <white><victim></white>!</green>";
-            case 9 -> "<killer> <green>won't let <white><victim></white> breathe!</green>";
+            case 4 -> "<killer> <green>is now <red><bold>dominating</bold></red> <white><victim></white>!</green>";
+            case 8 -> "<killer> <green>is still dominating <white><victim></white>!</green>";
+            case 12 -> "<killer> <green>won't let <white><victim></white> breathe!</green>";
             default -> randomEntry(DOMINATION_CONTINUATIONS);
         };
     }
@@ -46,7 +46,6 @@ final class CombatAnnouncements {
             case 5 -> new RampageAnnouncement("There's no escape from", NamedTextColor.WHITE);
             case 10 -> new RampageAnnouncement("Don't underestimate", NamedTextColor.DARK_AQUA);
             case 15 -> new RampageAnnouncement("No one stands against", NamedTextColor.BLUE);
-            case 20 -> new RampageAnnouncement("Nothing will survive", NamedTextColor.DARK_PURPLE);
             case 25 -> new RampageAnnouncement("Expect no mercy from", NamedTextColor.DARK_RED);
             case 50, 75, 100 -> new RampageAnnouncement(randomEntry(EXTENDED_RAMPAGE_TEXTS), NamedTextColor.DARK_RED);
             default -> new RampageAnnouncement("Beware", NamedTextColor.DARK_RED);

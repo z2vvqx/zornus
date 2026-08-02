@@ -7,6 +7,7 @@ import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
 import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertNull;
 import static org.junit.jupiter.api.Assertions.assertTrue;
 
 final class CombatAttributionTest {
@@ -34,6 +35,30 @@ final class CombatAttributionTest {
         assertEquals(LOWER_UUID, attribution.carryId());
         assertEquals(List.of(LOWER_UUID, HIGHER_UUID), attribution.assistIds());
         assertEquals(24.0D, attribution.totalDamage());
+    }
+
+    @Test
+    void doesNotAwardCarryWhenKillerDealtTheMostDamage() {
+        CombatAttribution.Attribution attribution = CombatAttribution.resolve(List.of(
+                contribution(MIDDLE_UUID, 10.0D, 19_500L),
+                contribution(LOWER_UUID, 4.0D, 19_000L),
+                contribution(HIGHER_UUID, 3.0D, 19_000L)
+        ), 20_000L);
+
+        assertEquals(MIDDLE_UUID, attribution.killerId());
+        assertNull(attribution.carryId());
+        assertEquals(List.of(LOWER_UUID, HIGHER_UUID), attribution.assistIds());
+    }
+
+    @Test
+    void doesNotAwardCarryForSoloKill() {
+        CombatAttribution.Attribution attribution = CombatAttribution.resolve(List.of(
+                contribution(MIDDLE_UUID, 10.0D, 19_500L)
+        ), 20_000L);
+
+        assertEquals(MIDDLE_UUID, attribution.killerId());
+        assertNull(attribution.carryId());
+        assertTrue(attribution.assistIds().isEmpty());
     }
 
     @Test

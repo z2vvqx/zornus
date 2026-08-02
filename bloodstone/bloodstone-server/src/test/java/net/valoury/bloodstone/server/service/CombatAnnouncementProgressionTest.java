@@ -11,16 +11,16 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 final class CombatAnnouncementProgressionTest {
 
     @Test
-    void usesTheSameEightTiersWithDominationStartingAtThreeKills() {
+    void usesTheSameSevenTiersWithDominationStartingAtFourKills() {
         assertEquals(
-                List.of(5, 10, 15, 20, 25, 50, 75, 100),
+                List.of(5, 10, 15, 25, 50, 75, 100),
                 announcedKillCounts(
                         120,
                         CombatAnnouncementProgression::isRampageMilestone
                 )
         );
         assertEquals(
-                List.of(3, 6, 9, 12, 15, 30, 45, 60),
+                List.of(4, 8, 12, 20, 40, 60, 80),
                 announcedKillCounts(
                         120,
                         CombatAnnouncementProgression::isDominationMilestone

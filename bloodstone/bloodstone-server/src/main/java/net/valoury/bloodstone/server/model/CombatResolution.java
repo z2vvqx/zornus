@@ -32,8 +32,12 @@ public record CombatResolution(
         if (assistPlayerIds.contains(killerId) || assistPlayerIds.contains(victimId)) {
             throw new IllegalArgumentException("Killer and victim cannot receive assists");
         }
-        if (carryPlayerId != null && carryPlayerId.equals(victimId)) {
-            throw new IllegalArgumentException("Victim cannot receive the carry");
+        if (carryPlayerId != null
+                && (carryPlayerId.equals(killerId) || carryPlayerId.equals(victimId))) {
+            throw new IllegalArgumentException("Killer and victim cannot receive the carry");
+        }
+        if (carryPlayerId != null && !assistPlayerIds.contains(carryPlayerId)) {
+            throw new IllegalArgumentException("Carry player must also receive an assist");
         }
     }
 }
