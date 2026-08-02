@@ -242,7 +242,7 @@ public final class BloodstoneServerConstants {
             List.of("", "<gray>This feature is not available yet.</gray>")
     );
     // General
-    private static final String MESSAGE_PREFIX = "<dark_aqua>Bloodstone</dark_aqua> <dark_gray>─</dark_gray> ";
+    private static final String MESSAGE_PREFIX = "<dark_gray>❘</dark_gray> <dark_red>Blood<red>stone</red></dark_red> <dark_gray>»</dark_gray> ";
     public static final String ERROR_FORMAT = MESSAGE_PREFIX + "<red><error></red>";
     public static final String RANDOM_BOX_WHOOSH = MESSAGE_PREFIX + "<light_purple>Whoosh!</light_purple>";
     public static final String POTIONS_STACKED = MESSAGE_PREFIX + "<green>Stacked all potions of the held type.</green>";
