@@ -50,7 +50,7 @@ public final class FriendProxyConstants {
 
     public static final String REQUEST_ADD_SUCCESS = "<green>Friend request sent to <yellow><target></yellow>!</green>";
     public static final String REQUEST_ACCEPT_SUCCESS = "<green>You are now friends with <yellow><target></yellow>!</green>";
-    public static final String REQUEST_INCOMING_EXISTS = "<yellow><target></yellow> has already sent you a friend request. Use <click:run_command:'/friend accept <target>'><green>/friend accept <target></green></click> to accept it.";
+    public static final String REQUEST_INCOMING_EXISTS = "<yellow><target></yellow> has already sent you a friend request. <checkmark_action> <crossmark_action>";
     public static final String REQUEST_REJECT_SUCCESS = "<green>Friend request from <yellow><target></yellow> has been rejected.</green>";
     public static final String REQUEST_REVOKE_SUCCESS = "<green>Friend request to <yellow><target></yellow> has been revoked.</green>";
     public static final String REQUEST_ERROR_ALREADY_SENT = "<red>You have already sent a friend request to <yellow><target></yellow>.</red>";
@@ -87,11 +87,11 @@ public final class FriendProxyConstants {
     public static final String UI_REQUESTS_INCOMING_EMPTY = "<yellow>You don't have any incoming friend requests.</yellow>";
     public static final String UI_REQUESTS_OUTGOING_EMPTY = "<yellow>You don't have any outgoing friend requests.</yellow>";
     public static final String UI_REQUESTS_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /friend requests <type> <page></gray>";
-    public static final String UI_REQUESTS_INCOMING_ENTRY = "<click:run_command:'/friend accept <player>'><green>✔</green></click> <click:run_command:'/friend reject <player>'><red>✘</red></click> <#2DA0ED><player></#2DA0ED> <dark_gray>─</dark_gray> <white><timestamp></white>";
-    public static final String UI_REQUESTS_OUTGOING_ENTRY = "<click:run_command:'/friend revoke <player>'><red>✘</red></click> <#2DA0ED><player></#2DA0ED> <dark_gray>─</dark_gray> <white><timestamp></white>";
+    public static final String UI_REQUESTS_INCOMING_ENTRY = "<checkmark_action> <crossmark_action> <#2DA0ED><player></#2DA0ED> <dark_gray>─</dark_gray> <white><timestamp></white>";
+    public static final String UI_REQUESTS_OUTGOING_ENTRY = "<crossmark_action> <#2DA0ED><player></#2DA0ED> <dark_gray>─</dark_gray> <white><timestamp></white>";
     public static final String UI_REQUESTS_ENTRY = "<#2DA0ED><player></#2DA0ED> <dark_gray>─</dark_gray> <white><timestamp></white>";
 
-    public static final String NOTIFICATION_REQUEST_RECEIVED = "<green>You received a friend request from <yellow><sender></yellow>! <click:run_command:'/friend accept <sender>'><green>✔</green></click> <click:run_command:'/friend reject <sender>'><red>✘</red></click></green>";
+    public static final String NOTIFICATION_REQUEST_RECEIVED = "<green>You received a friend request from <yellow><sender></yellow>! <checkmark_action> <crossmark_action></green>";
     public static final String NOTIFICATION_REQUEST_ACCEPTED = "<green><yellow><sender></yellow> accepted your friend request! You are now friends.</green>";
     public static final String NOTIFICATION_INCOMING_REQUESTS = "<yellow>You have <green><request_count></green> incoming friend <request_noun>. Use <click:run_command:'/friend requests incoming'><green>/friend requests incoming</green></click> to see all incoming requests.</yellow>";
     public static final String NOTIFICATION_FRIEND_JOINED = "<green><yellow><friend></yellow> is now online!</green>";

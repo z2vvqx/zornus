@@ -18,6 +18,7 @@ import net.valoury.friends.proxy.model.result.FriendRequestListResult;
 import net.valoury.friends.proxy.service.FriendService;
 import net.valoury.shared.SharedConstants;
 import net.valoury.shared.utilities.PaginationResult;
+import net.valoury.shared.utilities.SocialRequestActions;
 import net.valoury.shared.utilities.StringUtils;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
@@ -112,13 +113,31 @@ public final class FriendRequestsCommand {
             String playerName = isIncoming ? request.senderUsername() : request.receiverUsername();
             Component timestampComponent = StringUtils.formatRelativeTime(request.timestamp());
 
-            requestEntries.add(StringUtils.deserialize(
-                    SharedConstants.BULLET_POINT + entryFormat,
-                    TagResolver.resolver(
-                            Placeholder.parsed("player", StringUtils.escapeTags(playerName)),
-                            Placeholder.component("timestamp", timestampComponent)
-                    )
-            ));
+            TagResolver resolver;
+            if (isIncoming) {
+                resolver = TagResolver.resolver(
+                        Placeholder.unparsed("player", playerName),
+                        Placeholder.component("timestamp", timestampComponent),
+                        Placeholder.component(
+                                "checkmark_action",
+                                SocialRequestActions.checkmarkAction("/friend accept " + playerName)
+                        ),
+                        Placeholder.component(
+                                "crossmark_action",
+                                SocialRequestActions.crossmarkAction("/friend reject " + playerName)
+                        )
+                );
+            } else {
+                resolver = TagResolver.resolver(
+                        Placeholder.unparsed("player", playerName),
+                        Placeholder.component("timestamp", timestampComponent),
+                        Placeholder.component(
+                                "crossmark_action",
+                                SocialRequestActions.crossmarkAction("/friend revoke " + playerName)
+                        )
+                );
+            }
+            requestEntries.add(StringUtils.deserialize(SharedConstants.BULLET_POINT + entryFormat, resolver));
         }
 
         messageBuilder.append(Component.join(JoinConfiguration.newlines(), requestEntries));

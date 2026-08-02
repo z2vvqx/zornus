@@ -7,6 +7,7 @@ import net.valoury.friends.proxy.model.FriendRelation;
 import net.valoury.friends.proxy.model.FriendSettings;
 import net.valoury.friends.proxy.model.PresenceState;
 import net.valoury.friends.proxy.storage.FriendStorage;
+import net.valoury.shared.utilities.SocialRequestActions;
 import net.valoury.shared.utilities.StringUtils;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -104,7 +105,17 @@ public final class FriendNotificationService {
                 .map(Player::getUsername)
                 .orElse("Unknown");
 
-        TagResolver resolver = TagResolver.resolver(Placeholder.parsed("sender", StringUtils.escapeTags(senderUsername)));
+        TagResolver resolver = TagResolver.resolver(
+                Placeholder.unparsed("sender", senderUsername),
+                Placeholder.component(
+                        "checkmark_action",
+                        SocialRequestActions.checkmarkAction("/friend accept " + senderUsername)
+                ),
+                Placeholder.component(
+                        "crossmark_action",
+                        SocialRequestActions.crossmarkAction("/friend reject " + senderUsername)
+                )
+        );
         Component message = StringUtils.deserialize(FriendProxyConstants.NOTIFICATION_REQUEST_RECEIVED, resolver);
         receiver.get().sendMessage(message);
     }

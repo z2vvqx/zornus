@@ -14,6 +14,7 @@ import net.valoury.friends.proxy.model.result.SendFriendRequestResult;
 import net.valoury.friends.proxy.service.FriendService;
 import net.valoury.shared.SharedConstants;
 import net.valoury.shared.model.PlayerRecord;
+import net.valoury.shared.utilities.SocialRequestActions;
 import net.valoury.shared.utilities.StringUtils;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
@@ -115,8 +116,24 @@ public final class FriendAddCommand {
                                     case SendFriendRequestResult.Sent ignored ->
                                             sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_ADD_SUCCESS, Placeholder.unparsed("target", targetUsername)));
                                     case SendFriendRequestResult.IncomingRequestExists ignored ->
-                                            sender.sendMessage(StringUtils.deserialize(FriendProxyConstants.REQUEST_INCOMING_EXISTS,
-                                                    Placeholder.unparsed("target", targetUsername)));
+                                            sender.sendMessage(StringUtils.deserialize(
+                                                    FriendProxyConstants.REQUEST_INCOMING_EXISTS,
+                                                    TagResolver.resolver(
+                                                            Placeholder.unparsed("target", targetUsername),
+                                                            Placeholder.component(
+                                                                    "checkmark_action",
+                                                                    SocialRequestActions.checkmarkAction(
+                                                                            "/friend accept " + targetUsername
+                                                                    )
+                                                            ),
+                                                            Placeholder.component(
+                                                                    "crossmark_action",
+                                                                    SocialRequestActions.crossmarkAction(
+                                                                            "/friend reject " + targetUsername
+                                                                    )
+                                                            )
+                                                    )
+                                            ));
                                 }
                             })
                             .exceptionally(throwable -> {
