@@ -6,6 +6,7 @@ import net.valoury.guilds.proxy.GuildProxyConstants;
 import net.valoury.guilds.proxy.model.*;
 import net.valoury.shared.database.DatabaseDefaults;
 import net.valoury.shared.database.DatabaseExecutor;
+import net.valoury.shared.model.GroupJoinPolicy;
 import net.valoury.shared.model.PlayerRecord;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
@@ -157,6 +158,10 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     throw new IllegalStateException(
                             "Existing guild schema is missing required column guild_members.guild_rank");
                 }
+                if (!schemaExists(connection, "guild_group_settings")) {
+                    throw new IllegalStateException(
+                            "Existing guild schema is missing required table guild_group_settings");
+                }
                 return;
             }
             // STEP 1: Create guild_players table
@@ -235,6 +240,14 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         player_id UUID PRIMARY KEY,
                         invite_privacy VARCHAR(8) NOT NULL DEFAULT 'all' CHECK (invite_privacy IN ('all', 'friend', 'none')),
                         show_chat BOOLEAN NOT NULL DEFAULT TRUE
+                    )
+                    """);
+
+            statement.execute("""
+                    CREATE TABLE IF NOT EXISTS guild_group_settings (
+                        guild_id UUID PRIMARY KEY REFERENCES guilds(guild_id) ON DELETE CASCADE,
+                        join_policy VARCHAR(8) NOT NULL DEFAULT 'private'
+                            CHECK (join_policy IN ('private', 'public'))
                     )
                     """);
 
@@ -337,6 +350,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         statement.setObject(1, guildId);
                         statement.setObject(2, leaderId);
                         statement.setString(3, GuildRank.LEADER.displayName());
+                        statement.executeUpdate();
+                    }
+
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            "INSERT INTO guild_group_settings (guild_id) VALUES (?)")) {
+                        statement.setObject(1, guildId);
                         statement.executeUpdate();
                     }
 
@@ -969,6 +988,18 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
     }
 
     @Override
+    public CompletableFuture<JoinPublicGuildOutcome> tryJoinPublicGuild(
+            @NonNull UUID guildId,
+            @NonNull UUID playerId
+    ) {
+        return databaseExecutor.supply(() -> GuildGroupPostgresOperations.joinPublicGuild(
+                dataSource,
+                guildId,
+                playerId
+        ));
+    }
+
+    @Override
     public CompletableFuture<TransferLeadershipOutcome> tryTransferLeadership(@NonNull UUID guildId, @NonNull UUID newLeaderId, @NonNull UUID oldLeaderId) {
         return databaseExecutor.supply(() -> {
             try (Connection connection = dataSource.getConnection()) {
@@ -1330,6 +1361,14 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
     }
 
     @Override
+    public CompletableFuture<Optional<GuildGroupSettings>> fetchGroupSettings(
+            @NonNull UUID guildId
+    ) {
+        return databaseExecutor.supply(() ->
+                GuildGroupPostgresOperations.fetchSettings(dataSource, guildId));
+    }
+
+    @Override
     public CompletableFuture<Map<UUID, GuildSettings>> fetchSettingsForMembers(@NonNull Collection<UUID> memberIds) {
         return databaseExecutor.supply(() -> {
             if (memberIds.isEmpty()) {
@@ -1386,6 +1425,20 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 statement.setBoolean(2, value);
             }, "update show chat");
         });
+    }
+
+    @Override
+    public CompletableFuture<UpdateGuildJoinPolicyOutcome> updateJoinPolicy(
+            @NonNull UUID guildId,
+            @NonNull UUID requesterId,
+            @NonNull GroupJoinPolicy joinPolicy
+    ) {
+        return databaseExecutor.supply(() -> GuildGroupPostgresOperations.updateJoinPolicy(
+                dataSource,
+                guildId,
+                requesterId,
+                joinPolicy
+        ));
     }
 
     @Override

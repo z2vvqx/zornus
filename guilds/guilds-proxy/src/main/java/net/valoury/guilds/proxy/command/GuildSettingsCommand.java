@@ -10,6 +10,7 @@ import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
 import net.valoury.guilds.proxy.GuildProxyConstants;
+import net.valoury.guilds.proxy.model.GuildGroupSettings;
 import net.valoury.guilds.proxy.model.GuildSettings;
 import net.valoury.guilds.proxy.service.GuildService;
 import net.valoury.shared.SharedConstants;
@@ -23,13 +24,17 @@ import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.ArrayList;
 import java.util.List;
+import java.util.Optional;
 
 public final class GuildSettingsCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GuildSettingsCommand.class);
     private static final SuggestionProvider<CommandSource> INVITE_PRIVACY_SUGGESTIONS = (context, builder) ->
             builder.suggest("all").suggest("friend").suggest("none").buildFuture();
+    private static final SuggestionProvider<CommandSource> PRIVACY_SUGGESTIONS = (context, builder) ->
+            builder.suggest("private").suggest("public").buildFuture();
 
     public static LiteralArgumentBuilder<CommandSource> create(GuildService guildService) {
         return BrigadierCommand
@@ -55,6 +60,17 @@ public final class GuildSettingsCommand {
                                         context, guildService, "invites",
                                         StringArgumentType.getString(context, "value")))
                         )
+                )
+                .then(BrigadierCommand
+                        .literalArgumentBuilder("privacy")
+                        .executes(GuildSettingsCommand::sendUsage)
+                        .then(BrigadierCommand
+                                .requiredArgumentBuilder("value", StringArgumentType.word())
+                                .suggests(PRIVACY_SUGGESTIONS)
+                                .executes(context -> handleUpdateSetting(
+                                        context, guildService, "privacy",
+                                        StringArgumentType.getString(context, "value")))
+                        )
                 );
     }
 
@@ -73,29 +89,39 @@ public final class GuildSettingsCommand {
         }
 
         guildService.getSettings(sender.getUniqueId())
+                .thenCombine(
+                        guildService.getGroupSettingsForPlayer(sender.getUniqueId()),
+                        SettingsView::new
+                )
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to get guild settings for player {}", sender.getUniqueId(), throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     return null;
                 })
-                .thenAccept(settings -> {
-                    if (settings != null) {
-                        displaySettings(sender, settings);
+                .thenAccept(settingsView -> {
+                    if (settingsView != null) {
+                        displaySettings(sender, settingsView);
                     }
                 });
 
         return Command.SINGLE_SUCCESS;
     }
 
-    private static void displaySettings(@NonNull Player sender, @NonNull GuildSettings settings) {
-        List<Component> entries = List.of(
-                StringUtils.deserialize(
-                        SharedConstants.BULLET_POINT + GuildProxyConstants.SETTINGS_DISPLAY_INVITES,
-                        Placeholder.unparsed("value", settings.invitePrivacy())),
-                StringUtils.deserialize(
-                        SharedConstants.BULLET_POINT + GuildProxyConstants.SETTINGS_DISPLAY_CHAT,
-                        Placeholder.unparsed("value", String.valueOf(settings.showChat())))
-        );
+    private static void displaySettings(@NonNull Player sender, @NonNull SettingsView settingsView) {
+        GuildSettings settings = settingsView.personalSettings();
+        List<Component> entries = new ArrayList<>();
+        String privacyDisplayValue = settingsView.groupSettings()
+                .map(groupSettings -> groupSettings.joinPolicy().storedValue())
+                .orElse("not in a guild");
+        entries.add(StringUtils.deserialize(
+                SharedConstants.BULLET_POINT + GuildProxyConstants.SETTINGS_DISPLAY_PRIVACY,
+                Placeholder.unparsed("value", privacyDisplayValue)));
+        entries.add(StringUtils.deserialize(
+                SharedConstants.BULLET_POINT + GuildProxyConstants.SETTINGS_DISPLAY_INVITES,
+                Placeholder.unparsed("value", settings.invitePrivacy())));
+        entries.add(StringUtils.deserialize(
+                SharedConstants.BULLET_POINT + GuildProxyConstants.SETTINGS_DISPLAY_CHAT,
+                Placeholder.unparsed("value", String.valueOf(settings.showChat()))));
 
         TextComponent.Builder messageBuilder = Component.text().appendNewline();
         messageBuilder.append(Component.join(JoinConfiguration.newlines(), entries));
@@ -125,6 +151,12 @@ public final class GuildSettingsCommand {
                         }
                         case INVALID_SETTING ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.USAGE_SETTINGS));
+                        case NOT_IN_GUILD ->
+                                sender.sendMessage(StringUtils.deserialize(
+                                        GuildProxyConstants.ERROR_NOT_IN_GUILD));
+                        case INSUFFICIENT_RANK ->
+                                sender.sendMessage(StringUtils.deserialize(
+                                        GuildProxyConstants.ERROR_INSUFFICIENT_RANK));
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 })
@@ -136,5 +168,11 @@ public final class GuildSettingsCommand {
                 });
 
         return Command.SINGLE_SUCCESS;
+    }
+
+    private record SettingsView(
+            @NonNull GuildSettings personalSettings,
+            @NonNull Optional<GuildGroupSettings> groupSettings
+    ) {
     }
 }

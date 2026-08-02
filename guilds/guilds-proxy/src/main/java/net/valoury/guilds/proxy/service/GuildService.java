@@ -14,6 +14,7 @@ import net.valoury.guilds.proxy.model.result.GuildRequestsResult;
 import net.valoury.guilds.proxy.model.result.GuildResults;
 import net.valoury.guilds.proxy.storage.*;
 import net.valoury.shared.SharedConstants;
+import net.valoury.shared.model.GroupJoinPolicy;
 import net.valoury.shared.utilities.PaginationResult;
 import org.jspecify.annotations.NonNull;
 import org.jspecify.annotations.Nullable;
@@ -271,6 +272,59 @@ public final class GuildService implements AutoCloseable {
                     case AcceptInvitationOutcome.InvitationNoLongerValid invitationNoLongerValid ->
                             CompletableFuture.completedFuture(
                                     new GuildResults.AcceptInvitation.NoInvitationFound());
+                });
+    }
+
+    public @NonNull CompletableFuture<GuildResults.JoinPublic> joinPublicGuild(
+            @NonNull Player sender,
+            @Nullable String guildName
+    ) {
+        if (guildName == null) {
+            return CompletableFuture.completedFuture(new GuildResults.JoinPublic.GuildNotFound());
+        }
+
+        UUID senderId = sender.getUniqueId();
+        return storage.fetchGuildByName(guildName)
+                .thenCompose(guildOptional -> {
+                    if (guildOptional.isEmpty()) {
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.JoinPublic.GuildNotFound());
+                    }
+
+                    Guild guild = guildOptional.get();
+                    return storage.tryJoinPublicGuild(guild.guildId(), senderId)
+                            .thenCompose(outcome -> switch (outcome) {
+                                case JoinPublicGuildOutcome.Joined ignored ->
+                                        completePublicGuildJoin(guild.guildId(), sender);
+                                case JoinPublicGuildOutcome.AlreadyInGuild ignored ->
+                                        CompletableFuture.completedFuture(
+                                                new GuildResults.JoinPublic.AlreadyInGuild());
+                                case JoinPublicGuildOutcome.GuildFull ignored ->
+                                        CompletableFuture.completedFuture(
+                                                new GuildResults.JoinPublic.GuildFull());
+                                case JoinPublicGuildOutcome.GuildPrivate ignored ->
+                                        CompletableFuture.completedFuture(
+                                                new GuildResults.JoinPublic.GuildPrivate());
+                                case JoinPublicGuildOutcome.GuildNotFound ignored ->
+                                        CompletableFuture.completedFuture(
+                                                new GuildResults.JoinPublic.GuildNotFound());
+                            });
+                });
+    }
+
+    private @NonNull CompletableFuture<GuildResults.JoinPublic> completePublicGuildJoin(
+            @NonNull UUID guildId,
+            @NonNull Player joiningPlayer
+    ) {
+        return storage.fetchGuild(guildId)
+                .thenApply(guildOptional -> {
+                    if (guildOptional.isEmpty()) {
+                        return new GuildResults.JoinPublic.GuildNotFound();
+                    }
+
+                    Guild updatedGuild = guildOptional.get();
+                    notificationService.notifyMemberJoined(updatedGuild, joiningPlayer);
+                    return new GuildResults.JoinPublic.Joined(updatedGuild.guildName());
                 });
     }
 
@@ -901,6 +955,7 @@ public final class GuildService implements AutoCloseable {
         return switch (setting.toLowerCase()) {
             case "invites" -> updateInvitePrivacy(senderId, value);
             case "chat" -> updateShowChat(senderId, value);
+            case "privacy" -> updateGroupPrivacy(senderId, value);
             default -> CompletableFuture.completedFuture(GuildResult.INVALID_SETTING);
         };
     }
@@ -908,6 +963,15 @@ public final class GuildService implements AutoCloseable {
     public @NonNull CompletableFuture<GuildSettings> getSettings(@NonNull UUID playerId) {
         return storage.fetchSettings(playerId)
                 .thenApply(settings -> settings.orElseGet(() -> new GuildSettings(playerId)));
+    }
+
+    public @NonNull CompletableFuture<Optional<GuildGroupSettings>> getGroupSettingsForPlayer(
+            @NonNull UUID playerId
+    ) {
+        return storage.getPlayerGuild(playerId)
+                .thenCompose(guildOptional -> guildOptional
+                        .map(guild -> storage.fetchGroupSettings(guild.guildId()))
+                        .orElseGet(() -> CompletableFuture.completedFuture(Optional.empty())));
     }
 
     public @NonNull CompletableFuture<GuildResults.UpdateTag> updateGuildTag(@NonNull Player sender, @Nullable String guildTag) {
@@ -987,6 +1051,36 @@ public final class GuildService implements AutoCloseable {
         boolean showChat = Boolean.parseBoolean(value) || "true".equalsIgnoreCase(value) || "yes".equalsIgnoreCase(value);
         return storage.updateShowChat(playerId, showChat)
                 .thenApply(ignored -> GuildResult.SETTING_UPDATED);
+    }
+
+    private @NonNull CompletableFuture<GuildResult> updateGroupPrivacy(
+            @NonNull UUID playerId,
+            @NonNull String value
+    ) {
+        Optional<GroupJoinPolicy> joinPolicy = GroupJoinPolicy.fromInput(value);
+        if (joinPolicy.isEmpty()) {
+            return CompletableFuture.completedFuture(GuildResult.INVALID_SETTING);
+        }
+
+        return storage.getPlayerGuild(playerId)
+                .thenCompose(guildOptional -> {
+                    if (guildOptional.isEmpty()) {
+                        return CompletableFuture.completedFuture(GuildResult.NOT_IN_GUILD);
+                    }
+                    return storage.updateJoinPolicy(
+                                    guildOptional.get().guildId(),
+                                    playerId,
+                                    joinPolicy.get()
+                            )
+                            .thenApply(outcome -> switch (outcome) {
+                                case UpdateGuildJoinPolicyOutcome.Updated ignored ->
+                                        GuildResult.SETTING_UPDATED;
+                                case UpdateGuildJoinPolicyOutcome.InsufficientRank ignored ->
+                                        GuildResult.INSUFFICIENT_RANK;
+                                case UpdateGuildJoinPolicyOutcome.GuildNotFound ignored ->
+                                        GuildResult.GUILD_NOT_FOUND;
+                            });
+                });
     }
 
     public @NonNull CompletableFuture<GuildInfoResult> getGuildInfo(@NonNull Player sender) {

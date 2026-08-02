@@ -550,6 +550,9 @@ public final class GuildResults {
             return switch (result) {
                 case SETTING_UPDATED -> new Updated();
                 case INVALID_SETTING -> new InvalidSetting();
+                case NOT_IN_GUILD -> new NotInGuild();
+                case INSUFFICIENT_RANK -> new InsufficientRank();
+                case GUILD_NOT_FOUND -> new GuildNotFound();
                 default -> throw unexpected("update guild setting", result);
             };
         }
@@ -558,6 +561,9 @@ public final class GuildResults {
             return switch (this) {
                 case Updated ignored -> GuildResult.SETTING_UPDATED;
                 case InvalidSetting ignored -> GuildResult.INVALID_SETTING;
+                case NotInGuild ignored -> GuildResult.NOT_IN_GUILD;
+                case InsufficientRank ignored -> GuildResult.INSUFFICIENT_RANK;
+                case GuildNotFound ignored -> GuildResult.GUILD_NOT_FOUND;
             };
         }
 
@@ -565,6 +571,32 @@ public final class GuildResults {
         }
 
         record InvalidSetting() implements UpdateSetting {
+        }
+
+        record NotInGuild() implements UpdateSetting {
+        }
+
+        record InsufficientRank() implements UpdateSetting {
+        }
+
+        record GuildNotFound() implements UpdateSetting {
+        }
+    }
+
+    public sealed interface JoinPublic {
+        record Joined(@NonNull String guildName) implements JoinPublic {
+        }
+
+        record GuildNotFound() implements JoinPublic {
+        }
+
+        record GuildPrivate() implements JoinPublic {
+        }
+
+        record GuildFull() implements JoinPublic {
+        }
+
+        record AlreadyInGuild() implements JoinPublic {
         }
     }
 

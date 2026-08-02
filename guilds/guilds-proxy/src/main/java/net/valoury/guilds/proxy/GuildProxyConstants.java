@@ -26,6 +26,7 @@ public final class GuildProxyConstants {
     public static final int MAX_MESSAGE_LENGTH = 256;
 
     public static final String USAGE_ACCEPT = "<red><click:suggest_command:'/guild accept '>/guild accept <guild_name></click></red>";
+    public static final String USAGE_JOIN = "<red><click:suggest_command:'/guild join '>/guild join <guild_name></click></red>";
     public static final String USAGE_CHAT = "<red><click:suggest_command:'/guild chat '>/guild chat <message_array></click></red>";
     public static final String USAGE_INVITE = "<red><click:suggest_command:'/guild invite '>/guild invite <player_name></click></red>";
     public static final String USAGE_KICK = "<red><click:suggest_command:'/guild kick '>/guild kick <member_name></click></red>";
@@ -76,6 +77,9 @@ public final class GuildProxyConstants {
     public static final String ACCEPT_SUCCESS = "<green>You joined the guild <yellow><guild_name></yellow>!</green>";
     public static final String ACCEPT_ERROR_NO_INVITATION = "<red>No guild invitation found from <yellow><guild_name></yellow>.</red>";
     public static final String ACCEPT_ERROR_GUILD_FULL = "<red>The guild is now full and you cannot join.</red>";
+    public static final String JOIN_SUCCESS = "<green>You joined the guild <yellow><guild_name></yellow>!</green>";
+    public static final String JOIN_ERROR_NOT_FOUND = "<red>Unable to find that guild.</red>";
+    public static final String JOIN_ERROR_PRIVATE = "<red>That guild is private and requires an invitation.</red>";
 
     public static final String REJECT_SUCCESS = "<green>Rejected guild invitation from <yellow><guild_name></yellow>.</green>";
     public static final String REJECT_ERROR_NO_INVITATION = "<red>No guild invitation found from <yellow><guild_name></yellow>.</red>";
@@ -113,8 +117,9 @@ public final class GuildProxyConstants {
     public static final String COLOR_SUCCESS = "<green>Guild color updated to <colored_value>.</green>";
 
     public static final String SETTINGS_UPDATE_SUCCESS = "<green>Setting <yellow><setting></yellow> has been updated to <yellow><value></yellow>.</green>";
-    public static final String SETTINGS_DISPLAY_INVITES = "<click:suggest_command:'/guild settings invites '><#2DA0ED>invites</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Who can invite you to guild: <value></white>";
-    public static final String SETTINGS_DISPLAY_CHAT = "<click:suggest_command:'/guild settings chat '><#2DA0ED>chat</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Show guild chat messages: <value></white>";
+    public static final String SETTINGS_DISPLAY_INVITES = "<click:suggest_command:'/guild settings invites '><#2DA0ED>invites</#2DA0ED></click> <dark_gray>[Personal]</dark_gray> <dark_gray>─</dark_gray> <white>Who can invite you to guild: <value></white>";
+    public static final String SETTINGS_DISPLAY_CHAT = "<click:suggest_command:'/guild settings chat '><#2DA0ED>chat</#2DA0ED></click> <dark_gray>[Personal]</dark_gray> <dark_gray>─</dark_gray> <white>Show guild chat messages: <value></white>";
+    public static final String SETTINGS_DISPLAY_PRIVACY = "<click:suggest_command:'/guild settings privacy '><#2DA0ED>privacy</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Guild privacy: <value></white>";
     public static final String SETTINGS_ERROR_INVITES_DISABLED = "<red><yellow><target></yellow> is not accepting guild invites.</red>";
     public static final String SETTINGS_ERROR_INVITES_FRIENDS_ONLY = "<red><yellow><target></yellow> only accepts invites from friends.</red>";
 

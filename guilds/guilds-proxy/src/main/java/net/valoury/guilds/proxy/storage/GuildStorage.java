@@ -2,10 +2,12 @@ package net.valoury.guilds.proxy.storage;
 
 import net.valoury.shared.model.PlayerRecord;
 import net.valoury.guilds.proxy.model.Guild;
+import net.valoury.guilds.proxy.model.GuildGroupSettings;
 import net.valoury.guilds.proxy.model.GuildInvitation;
 import net.valoury.guilds.proxy.model.GuildRankChangeDirection;
 import net.valoury.guilds.proxy.model.GuildSettings;
 import net.valoury.guilds.proxy.model.PendingConfirmation;
+import net.valoury.shared.model.GroupJoinPolicy;
 import org.jspecify.annotations.NonNull;
 
 import java.time.Duration;
@@ -36,6 +38,11 @@ public interface GuildStorage {
     );
 
     CompletableFuture<AcceptInvitationOutcome> tryAcceptInvitation(@NonNull UUID guildId, @NonNull UUID senderId, @NonNull UUID targetId);
+
+    CompletableFuture<JoinPublicGuildOutcome> tryJoinPublicGuild(
+            @NonNull UUID guildId,
+            @NonNull UUID playerId
+    );
 
     CompletableFuture<TransferLeadershipOutcome> tryTransferLeadership(@NonNull UUID guildId, @NonNull UUID newLeaderId, @NonNull UUID oldLeaderId);
 
@@ -69,11 +76,19 @@ public interface GuildStorage {
 
     CompletableFuture<Optional<GuildSettings>> fetchSettings(@NonNull UUID playerId);
 
+    CompletableFuture<Optional<GuildGroupSettings>> fetchGroupSettings(@NonNull UUID guildId);
+
     CompletableFuture<Map<UUID, GuildSettings>> fetchSettingsForMembers(@NonNull Collection<UUID> memberIds);
 
     CompletableFuture<Void> updateInvitePrivacy(@NonNull UUID playerId, @NonNull String value);
 
     CompletableFuture<Void> updateShowChat(@NonNull UUID playerId, boolean value);
+
+    CompletableFuture<UpdateGuildJoinPolicyOutcome> updateJoinPolicy(
+            @NonNull UUID guildId,
+            @NonNull UUID requesterId,
+            @NonNull GroupJoinPolicy joinPolicy
+    );
 
     CompletableFuture<UpdateGuildTagOutcome> tryUpdateGuildTag(
             @NonNull UUID guildId,
