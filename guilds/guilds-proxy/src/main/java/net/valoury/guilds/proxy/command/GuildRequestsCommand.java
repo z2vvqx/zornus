@@ -19,6 +19,7 @@ import net.valoury.guilds.proxy.model.result.GuildRequestsResult;
 import net.valoury.guilds.proxy.service.GuildService;
 import net.valoury.shared.SharedConstants;
 import net.valoury.shared.model.PlayerRecord;
+import net.valoury.shared.utilities.SocialRequestActions;
 import net.valoury.shared.utilities.StringUtils;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -155,15 +156,32 @@ public final class GuildRequestsCommand {
         List<Component> entries = result.pagination().items().stream()
                 .map(invitation -> {
                     String name = names.getOrDefault(invitation, "Unknown");
-                    TagResolver resolver = incoming
-                            ? TagResolver.resolver(
-                            Placeholder.parsed("guild_name", name),
-                            Placeholder.component("timestamp",
-                                    StringUtils.formatRelativeTime(invitation.timestamp())))
-                            : TagResolver.resolver(
-                            Placeholder.parsed("player", name),
-                            Placeholder.component("timestamp",
-                                    StringUtils.formatRelativeTime(invitation.timestamp())));
+                    TagResolver resolver;
+                    if (incoming) {
+                        resolver = TagResolver.resolver(
+                                Placeholder.unparsed("guild_name", name),
+                                Placeholder.component("timestamp",
+                                        StringUtils.formatRelativeTime(invitation.timestamp())),
+                                Placeholder.component(
+                                        "checkmark_action",
+                                        SocialRequestActions.checkmarkAction("/guild accept " + name)
+                                ),
+                                Placeholder.component(
+                                        "crossmark_action",
+                                        SocialRequestActions.crossmarkAction("/guild reject " + name)
+                                )
+                        );
+                    } else {
+                        resolver = TagResolver.resolver(
+                                Placeholder.unparsed("player", name),
+                                Placeholder.component("timestamp",
+                                        StringUtils.formatRelativeTime(invitation.timestamp())),
+                                Placeholder.component(
+                                        "crossmark_action",
+                                        SocialRequestActions.crossmarkAction("/guild revoke " + name)
+                                )
+                        );
+                    }
                     return StringUtils.deserialize(SharedConstants.BULLET_POINT + template, resolver);
                 })
                 .toList();

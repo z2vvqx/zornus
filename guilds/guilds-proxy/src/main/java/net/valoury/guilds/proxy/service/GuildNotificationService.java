@@ -11,6 +11,7 @@ import net.valoury.guilds.proxy.model.GuildSettings;
 import net.valoury.guilds.proxy.storage.GuildStorage;
 import net.valoury.guilds.proxy.utilities.GuildColorFormatter;
 import net.valoury.shared.utilities.StringUtils;
+import net.valoury.shared.utilities.SocialRequestActions;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
@@ -98,7 +99,15 @@ public final class GuildNotificationService {
             Component message = StringUtils.deserialize(GuildProxyConstants.NOTIFICATION_INVITE_RECEIVED,
                     TagResolver.resolver(
                             Placeholder.parsed("player", StringUtils.escapeTags(sender.getUsername())),
-                            Placeholder.unparsed("guild", guild.guildName())));
+                            Placeholder.unparsed("guild", guild.guildName()),
+                            Placeholder.component(
+                                    "checkmark_action",
+                                    SocialRequestActions.checkmarkAction("/guild accept " + guild.guildName())
+                            ),
+                            Placeholder.component(
+                                    "crossmark_action",
+                                    SocialRequestActions.crossmarkAction("/guild reject " + guild.guildName())
+                            )));
             target.sendMessage(message);
         });
     }

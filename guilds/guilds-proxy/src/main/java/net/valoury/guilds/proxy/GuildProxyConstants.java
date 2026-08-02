@@ -139,15 +139,15 @@ public final class GuildProxyConstants {
     public static final String UI_REQUESTS_INCOMING_EMPTY = "<yellow>You do not have any incoming guild invitations.</yellow>";
     public static final String UI_REQUESTS_OUTGOING_EMPTY = "<yellow>You do not have any outgoing guild invitations.</yellow>";
     public static final String UI_REQUESTS_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /guild requests <type> <page></gray>";
-    public static final String UI_REQUESTS_INCOMING_ENTRY = "<click:run_command:'/guild accept <guild_name>'><green>✔</green></click> <click:run_command:'/guild reject <guild_name>'><red>✘</red></click> <#2DA0ED><guild_name></#2DA0ED> <dark_gray>─</dark_gray> <white><timestamp></white>";
-    public static final String UI_REQUESTS_OUTGOING_ENTRY = "<click:run_command:'/guild revoke <player>'><red>✘</red></click> <#2DA0ED><player></#2DA0ED> <dark_gray>─</dark_gray> <white><timestamp></white>";
+    public static final String UI_REQUESTS_INCOMING_ENTRY = "<checkmark_action> <crossmark_action> <#2DA0ED><guild_name></#2DA0ED> <dark_gray>─</dark_gray> <white><timestamp></white>";
+    public static final String UI_REQUESTS_OUTGOING_ENTRY = "<crossmark_action> <#2DA0ED><player></#2DA0ED> <dark_gray>─</dark_gray> <white><timestamp></white>";
 
     public static final String NOTIFICATION_MEMBER_JOINED = "<green><sender> joined the guild.</green>";
     public static final String NOTIFICATION_MEMBER_LEFT = "<yellow><sender> left the guild.</yellow>";
     public static final String NOTIFICATION_MEMBER_KICKED = "<red><member> was kicked from the guild by <kicker>.</red>";
     public static final String NOTIFICATION_YOU_WERE_KICKED = "<red>You were kicked from the guild by <kicker>.</red>";
     public static final String NOTIFICATION_LEADERSHIP_TRANSFERRED = "<yellow><sender> transferred leadership to <member>.</yellow>";
-    public static final String NOTIFICATION_INVITE_RECEIVED = "<green><player> invited you to join their guild <guild>.</green>";
+    public static final String NOTIFICATION_INVITE_RECEIVED = "<green><player> invited you to join their guild <guild>. <checkmark_action> <crossmark_action></green>";
     public static final String NOTIFICATION_INVITE_SENT_ANNOUNCEMENT = "<green><sender> invited <target> to the guild.</green>";
     public static final String NOTIFICATION_GUILD_DISBANDED = "<red>The guild has been disbanded by <leader>.</red>";
     public static final String NOTIFICATION_GUILD_RENAMED = "<yellow>The guild has been renamed from <old_name> to <new_name>.</yellow>";
