@@ -1,8 +1,9 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
          xmlns="http://maven.apache.org/POM/4.0.0"
-         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 https://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
+
     <parent>
         <groupId>net.valoury</groupId>
         <artifactId>valoury</artifactId>
@@ -10,19 +11,13 @@
         <relativePath>../pom.xml</relativePath>
     </parent>
 
-    <artifactId>bootstrap</artifactId>
+    <artifactId>discord</artifactId>
     <packaging>pom</packaging>
+
     <modules>
-        <module>bootstrap-proxy</module>
-        <module>bootstrap-server</module>
-        <module>bootstrap-discord</module>
+        <module>discord-api</module>
+        <module>discord-internal</module>
+        <module>discord-proxy</module>
+        <module>discord-bot</module>
     </modules>
-
-    <dependencies>
-        <dependency>
-            <groupId>net.valoury</groupId>
-            <artifactId>shared</artifactId>
-        </dependency>
-    </dependencies>
-
 </project>
