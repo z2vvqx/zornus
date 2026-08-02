@@ -162,6 +162,7 @@ public final class GuildProxyConstants {
             "<click:suggest_command:'/guild invite '><#2DA0ED>invite <player></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Sends a guild invitation</white>",
             "<click:suggest_command:'/guild revoke '><#2DA0ED>revoke <player></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Cancels a pending invitation</white>",
             "<click:suggest_command:'/guild accept '><#2DA0ED>accept <guild></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Accepts a guild invitation</white>",
+            "<click:suggest_command:'/guild join '><#2DA0ED>join <guild></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Joins a public guild</white>",
             "<click:suggest_command:'/guild reject '><#2DA0ED>reject <guild></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Rejects a guild invitation</white>",
             "<click:suggest_command:'/guild leave'><#2DA0ED>leave</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Leaves your current guild</white>",
             "<click:suggest_command:'/guild kick '><#2DA0ED>kick <member></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Kicks a member</white>",
