@@ -1,5 +1,8 @@
 package net.valoury.bloodstone.server;
 
+import com.github.retrooper.packetevents.protocol.player.ClientVersion;
+import com.github.retrooper.packetevents.util.adventure.AdventureSerializer;
+import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.junit.jupiter.api.Test;
@@ -123,6 +126,26 @@ final class BloodstoneMiniMessageTest {
                     BloodstoneText.legacyComponent(BloodstoneText.legacy(title))
             );
         }
+    }
+
+    @Test
+    void legacyActionBarPayloadEmbedsFormattingCodes() {
+        TextComponent actionBarPayload =
+                BloodstoneText.embedLegacyActionBarFormatting(
+                        BloodstoneText.deserialize(
+                                "<red><italic>-8 blood</italic></red>"
+                        )
+                );
+
+        assertEquals("\u00A7c\u00A7o-8 blood", actionBarPayload.content());
+        String actionBarJson = AdventureSerializer
+                .serializer(ClientVersion.V_1_8)
+                .asJson(actionBarPayload);
+        assertEquals(
+                actionBarPayload,
+                AdventureSerializer.serializer(ClientVersion.V_1_8)
+                        .fromJson(actionBarJson)
+        );
     }
 
     private void assertTemplate(String name, String template) {

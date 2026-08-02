@@ -12,6 +12,7 @@ import net.valoury.bloodstone.server.storage.CombatResolutionOutcome;
 import net.valoury.guilds.api.GuildMembershipService;
 import net.valoury.guilds.api.GuildProfile;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.format.NamedTextColor;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;
@@ -53,9 +54,9 @@ public final class BloodstoneCombatService {
             "<dark_aqua>Bloodstone</dark_aqua> <dark_gray>─</dark_gray> <white><message></white>";
     private static final String RAMPAGE_MESSAGE_FORMAT =
             "<green><text> <white><killer></white>'s rampage! <weapon></green>";
-    private static final String RAMPAGE_TITLE_FORMAT =
-            "<green><text> <white><killer></white>'s rampage!</green>";
-    private static final String RAMPAGE_WEAPON_FORMAT = "<bold>⚔ <rampage></bold>";
+    private static final String RAMPAGE_TITLE =
+            "<aqua><bold>RAMPAGE</bold></aqua>";
+    private static final String RAMPAGE_INDICATOR_FORMAT = "<bold>ᐃ <rampage></bold>";
     private static final double BLOOD_DROP_CHANCE = 0.5D;
     private static final long COMBAT_DURATION_MILLISECONDS = 15_000L;
     private static final long COMBAT_DURATION_NANOSECONDS =
@@ -777,26 +778,23 @@ public final class BloodstoneCombatService {
     private void broadcastRampage(Player killer, int rampage) {
         CombatAnnouncements.RampageAnnouncement message =
                 CombatAnnouncements.rampage(rampage);
-        Component weapon = BloodstoneText.deserialize(
-                RAMPAGE_WEAPON_FORMAT,
+        Component rampageIndicator = BloodstoneText.deserialize(
+                RAMPAGE_INDICATOR_FORMAT,
                 Placeholder.unparsed("rampage", Integer.toString(rampage))
-        ).color(message.weaponColor());
+        );
+        Component broadcastWeapon = rampageIndicator.color(message.weaponColor());
         Component killerName =
                 killer.displayName();
         broadcastBloodstone(BloodstoneText.deserialize(
                 RAMPAGE_MESSAGE_FORMAT,
                 Placeholder.unparsed("text", message.text()),
                 Placeholder.component("killer", killerName),
-                Placeholder.component("weapon", weapon)
+                Placeholder.component("weapon", broadcastWeapon)
         ));
         presentationService.playRampageAnnouncement(
                 killer,
-                BloodstoneText.deserialize(
-                        RAMPAGE_TITLE_FORMAT,
-                        Placeholder.unparsed("text", message.text()),
-                        Placeholder.component("killer", killerName)
-                ),
-                weapon
+                BloodstoneText.deserialize(RAMPAGE_TITLE),
+                rampageIndicator.color(NamedTextColor.GRAY)
         );
     }
 

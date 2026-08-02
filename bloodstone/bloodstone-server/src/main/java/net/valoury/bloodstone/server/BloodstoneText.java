@@ -1,9 +1,14 @@
 package net.valoury.bloodstone.server;
 
+import com.github.retrooper.packetevents.PacketEvents;
+import com.github.retrooper.packetevents.protocol.chat.ChatTypes;
+import com.github.retrooper.packetevents.protocol.chat.message.ChatMessageLegacy;
+import com.github.retrooper.packetevents.wrapper.play.server.WrapperPlayServerChatMessage;
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.TextComponent;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.kyori.adventure.text.serializer.legacy.LegacyComponentSerializer;
-import net.kyori.adventure.title.Title;
+import net.md_5.bungee.api.chat.BaseComponent;
 import net.valoury.shared.utilities.StringUtils;
 import org.bukkit.command.CommandSender;
 import org.bukkit.entity.Player;
@@ -17,9 +22,9 @@ public final class BloodstoneText {
             LegacyComponentSerializer.legacySection();
     private static final LegacyComponentSerializer LEGACY_AMPERSAND =
             LegacyComponentSerializer.legacyAmpersand();
-    private static final int DEFAULT_TITLE_FADE_IN_TICKS = 10;
-    private static final int DEFAULT_TITLE_STAY_TICKS = 70;
-    private static final int DEFAULT_TITLE_FADE_OUT_TICKS = 20;
+    private static final int DEFAULT_TITLE_FADE_IN_TICKS = 5;
+    private static final int DEFAULT_TITLE_STAY_TICKS = 10;
+    private static final int DEFAULT_TITLE_FADE_OUT_TICKS = 5;
 
     private BloodstoneText() {
         throw new UnsupportedOperationException("Utility class cannot be instantiated");
@@ -88,7 +93,27 @@ public final class BloodstoneText {
             @NonNull String template,
             @NonNull TagResolver... resolvers
     ) {
-        player.sendActionBar(deserialize(template, resolvers));
+        PacketEvents.getAPI().getPlayerManager().sendPacket(
+                player,
+                createLegacyActionBarPacket(deserialize(template, resolvers))
+        );
+    }
+
+    @SuppressWarnings("deprecation")
+    private static WrapperPlayServerChatMessage createLegacyActionBarPacket(
+            @NonNull Component actionBar
+    ) {
+        ChatMessageLegacy actionBarMessage = new ChatMessageLegacy(
+                embedLegacyActionBarFormatting(actionBar),
+                ChatTypes.GAME_INFO
+        );
+        return new WrapperPlayServerChatMessage(actionBarMessage);
+    }
+
+    static @NonNull TextComponent embedLegacyActionBarFormatting(
+            @NonNull Component actionBar
+    ) {
+        return Component.text(legacy(actionBar));
     }
 
     public static void showTitle(
@@ -96,12 +121,20 @@ public final class BloodstoneText {
             @NonNull Component title,
             @NonNull Component subtitle
     ) {
-        player.showTitle(Title.title(
-                title,
-                subtitle,
+        player.showTitle(
+                toLegacyBungeeComponents(title),
+                toLegacyBungeeComponents(subtitle),
                 DEFAULT_TITLE_FADE_IN_TICKS,
                 DEFAULT_TITLE_STAY_TICKS,
                 DEFAULT_TITLE_FADE_OUT_TICKS
-        ));
+        );
+    }
+
+    private static BaseComponent[] toLegacyBungeeComponents(
+            @NonNull Component component
+    ) {
+        return net.md_5.bungee.api.chat.TextComponent.fromLegacyText(
+                legacy(component)
+        );
     }
 }
