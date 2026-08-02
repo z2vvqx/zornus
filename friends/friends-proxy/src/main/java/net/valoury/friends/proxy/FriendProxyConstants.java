@@ -80,7 +80,7 @@ public final class FriendProxyConstants {
     public static final String UI_LIST_EMPTY = "<yellow>You don't have any friends yet. Use <green>/friend add <player></green> to send a friend request!</yellow>";
     public static final String UI_LIST_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /friend list <page></gray>";
     public static final String UI_STATUS_ONLINE = "<green>▲</green> <#2DA0ED><friend></#2DA0ED> <gray>(Online)</gray>";
-    public static final String UI_STATUS_ONLINE_WITH_LOCATION = "<green>▲</green> <#2DA0ED><friend></#2DA0ED> <dark_gray>─</dark_gray> <gray>Playing on <click:suggest_command:'/friend jump <friend>'><yellow><server></yellow></click></gray>";
+    public static final String UI_STATUS_ONLINE_WITH_LOCATION = "<green>▲</green> <#2DA0ED><friend></#2DA0ED> <dark_gray>─</dark_gray> <gray>Playing on <server></gray>";
     public static final String UI_STATUS_OFFLINE = "<red>▼</red> <#2DA0ED><friend></#2DA0ED> <dark_gray>─</dark_gray> <gray>Last seen <timestamp></gray>";
     public static final String UI_STATUS_OFFLINE_NO_DATA = "<red>▼</red> <dark_gray><friend></dark_gray> <gray>(Offline)</gray>";
     public static final String UI_HELP_PAGINATION = "<gray>Page <current_page>/<maximum_pages> - /friend help <page></gray>";

@@ -11,7 +11,6 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import net.valoury.friends.proxy.FriendProxyConstants;
 import net.valoury.friends.proxy.model.FriendRelation;
 import net.valoury.friends.proxy.model.FriendSettings;
-import net.valoury.friends.proxy.model.PresenceState;
 import net.valoury.friends.proxy.model.result.FriendListResult;
 import net.valoury.friends.proxy.service.FriendService;
 import net.valoury.shared.SharedConstants;
@@ -116,8 +115,6 @@ public final class FriendListCommand {
             UUID friendId = relation.getOtherPlayerUuid(sender.getUniqueId());
             String friendName = relation.getOtherPlayerUsername(sender.getUniqueId());
 
-            boolean isActuallyOnline = proxyServer.getPlayer(friendId).isPresent();
-
             CompletableFuture<FriendSettings> settingsFuture = friendService.getSettings(friendId);
             CompletableFuture<Optional<Instant>> lastSeenFuture = friendService.fetchLastSeen(friendId);
 
@@ -130,39 +127,17 @@ public final class FriendListCommand {
                         LOGGER.error("Failed to fetch last seen for friend {}", friendId, throwable);
                         return Optional.empty();
                     }), (settings, lastSeenOptional) -> {
-                        boolean friendAppearsOffline = settings.presenceState() == PresenceState.OFFLINE;
-                        boolean friendShowsLastSeen = settings.showLastSeen();
-                        boolean friendShowsLocation = settings.showLocation();
-
-                        Component entryComponent;
-                        if (isActuallyOnline && !friendAppearsOffline) {
-                            Optional<Player> friendPlayer = proxyServer.getPlayer(friendId);
-                            Optional<String> serverName = friendPlayer.flatMap(player -> player.getCurrentServer().map(server -> server.getServerInfo().getName()));
-
-                            if (friendShowsLocation && serverName.isPresent()) {
-                                entryComponent = StringUtils.deserialize(SharedConstants.BULLET_POINT + FriendProxyConstants.UI_STATUS_ONLINE_WITH_LOCATION,
-                                        TagResolver.resolver(
-                                                Placeholder.parsed("friend", friendName),
-                                                Placeholder.unparsed("server", serverName.get())
-                                        ));
-                            } else {
-                                entryComponent = StringUtils.deserialize(SharedConstants.BULLET_POINT + FriendProxyConstants.UI_STATUS_ONLINE,
-                                        Placeholder.unparsed("friend", friendName));
-                            }
-                        } else {
-                            if (lastSeenOptional.isPresent() && friendShowsLastSeen) {
-                                Component timestampComponent = StringUtils.formatRelativeTime(lastSeenOptional.get());
-                                entryComponent = StringUtils.deserialize(SharedConstants.BULLET_POINT + FriendProxyConstants.UI_STATUS_OFFLINE,
-                                        TagResolver.resolver(
-                                                Placeholder.unparsed("friend", friendName),
-                                                Placeholder.component("timestamp", timestampComponent)
-                                        ));
-                            } else {
-                                entryComponent = StringUtils.deserialize(SharedConstants.BULLET_POINT + FriendProxyConstants.UI_STATUS_OFFLINE_NO_DATA,
-                                        Placeholder.unparsed("friend", friendName));
-                            }
-                        }
-                        friendEntries[currentIndex] = entryComponent;
+                        Optional<Player> currentFriend = proxyServer.getPlayer(friendId);
+                        Optional<String> currentServerName = currentFriend.flatMap(player -> player
+                                .getCurrentServer()
+                                .map(server -> server.getServerInfo().getName()));
+                        friendEntries[currentIndex] = FriendListEntryRenderer.render(
+                                friendName,
+                                settings,
+                                lastSeenOptional,
+                                currentFriend.isPresent(),
+                                currentServerName
+                        );
                         return null;
                     });
 
