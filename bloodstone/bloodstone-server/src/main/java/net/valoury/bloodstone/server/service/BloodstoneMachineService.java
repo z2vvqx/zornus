@@ -22,7 +22,7 @@ import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
 import org.bukkit.event.entity.ItemSpawnEvent;
-import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
@@ -47,6 +47,7 @@ import java.util.logging.Logger;
 public final class BloodstoneMachineService {
 
     private static final int DEFAULT_REPAIR_BLOOD_COST = 20;
+    private static final short NORMAL_GOLDEN_APPLE_DATA = 0;
     private static final Sound RANDOM_BOX_REWARD_SOUND = Sound.ORB_PICKUP;
 
     private static final Set<Material> REPAIRABLE_ITEMS = Set.of(
@@ -57,6 +58,16 @@ public final class BloodstoneMachineService {
             Material.DIAMOND_LEGGINGS,
             Material.DIAMOND_BOOTS,
             Material.BOW
+    );
+    private static final Set<Material> ITEM_FRAME_REWARD_MATERIALS = Set.of(
+            Material.DIAMOND_SWORD,
+            Material.DIAMOND_AXE,
+            Material.DIAMOND_HELMET,
+            Material.DIAMOND_CHESTPLATE,
+            Material.DIAMOND_LEGGINGS,
+            Material.DIAMOND_BOOTS,
+            Material.BOW,
+            Material.ARROW
     );
     private final Plugin plugin;
     private final BloodstoneStorage storage;
@@ -132,6 +143,12 @@ public final class BloodstoneMachineService {
             return;
         }
         Material material = block.getType();
+        if (isCombatRestrictedMachineInteraction(material, event.getAction())
+                && combatService.isTagged(player.getUniqueId())) {
+            event.setCancelled(true);
+            reject(player, BloodstoneServerConstants.ERROR_IN_BATTLE);
+            return;
+        }
         if (material == Material.ENDER_CHEST && event.getAction() == Action.RIGHT_CLICK_BLOCK) {
             event.setCancelled(true);
             storageService.openStorageMenu(player);
@@ -168,25 +185,34 @@ public final class BloodstoneMachineService {
         }
     }
 
-    public void handleItemFrame(PlayerInteractAtEntityEvent event) {
+    public void handleItemFrame(PlayerInteractEntityEvent event) {
         if (!(event.getRightClicked() instanceof ItemFrame itemFrame)
                 || !isBloodstone(event.getPlayer())
                 || event.getPlayer().getGameMode() == GameMode.ADVENTURE) {
             return;
         }
         event.setCancelled(true);
+        Player player = event.getPlayer();
+        if (combatService.isTagged(player.getUniqueId())) {
+            reject(player, BloodstoneServerConstants.ERROR_IN_BATTLE);
+            return;
+        }
         ItemStack displayed = itemFrame.getItem();
-        if (displayed == null || displayed.getType() == Material.AIR) {
+        if (displayed == null
+                || !isEligibleItemFrameReward(displayed.getType(), displayed.getDurability())) {
             return;
         }
-        ItemStack reward = displayed.clone();
+        ItemStack reward = itemService.classify(
+                displayed,
+                BloodstoneItemService.Classification.INCLUSIVE
+        );
         reward.setAmount(reward.getMaxStackSize());
-        if (!canFit(event.getPlayer(), reward)) {
-            reject(event.getPlayer(), BloodstoneServerConstants.ERROR_INVENTORY_SPACE);
+        if (!canFit(player, reward)) {
+            reject(player, BloodstoneServerConstants.ERROR_INVENTORY_SPACE);
             return;
         }
-        event.getPlayer().getInventory().addItem(reward);
-        event.getPlayer().playSound(event.getPlayer().getLocation(), Sound.ITEM_PICKUP, 1.0F,
+        player.getInventory().addItem(reward);
+        player.playSound(player.getLocation(), Sound.ITEM_PICKUP, 1.0F,
                 presentationService.randomPitch(0.9F, 1.1F));
     }
 
@@ -543,12 +569,15 @@ public final class BloodstoneMachineService {
             reject(player, BloodstoneServerConstants.ERROR_UNRECOGNIZED_ITEM);
             return;
         }
-        if (heldItem.getDurability() < 1) {
-            reject(player, BloodstoneServerConstants.REPAIR_FULL_DURABILITY);
+        if (itemService.isRestrictedFromModification(heldItem)) {
+            reject(
+                    player,
+                    BloodstoneServerConstants.EFFECT_AXE_MODIFICATION_REJECTED
+            );
             return;
         }
-        if (itemService.isSoulbound(heldItem) || itemService.isExclusive(heldItem)) {
-            reject(player, BloodstoneServerConstants.REPAIR_PROTECTED_ITEM);
+        if (heldItem.getDurability() < 1) {
+            reject(player, BloodstoneServerConstants.REPAIR_FULL_DURABILITY);
             return;
         }
         boolean free = BloodstoneRank.resolve(player).isPaid();
@@ -876,7 +905,30 @@ public final class BloodstoneMachineService {
         );
     }
 
-    private boolean isPistonHead(Material material) {
+    static boolean isCombatRestrictedMachineInteraction(
+            Material material,
+            Action action
+    ) {
+        if (action == Action.RIGHT_CLICK_BLOCK) {
+            return material == Material.ENDER_CHEST
+                    || material == Material.ENDER_PORTAL_FRAME
+                    || material == Material.ANVIL
+                    || material == Material.FURNACE
+                    || material == Material.REDSTONE_BLOCK
+                    || isPistonHead(material);
+        }
+        return action == Action.LEFT_CLICK_BLOCK
+                && (material == Material.ENDER_PORTAL_FRAME
+                || material == Material.REDSTONE_BLOCK);
+    }
+
+    static boolean isEligibleItemFrameReward(Material material, short durability) {
+        return ITEM_FRAME_REWARD_MATERIALS.contains(material)
+                || material == Material.GOLDEN_APPLE
+                && durability == NORMAL_GOLDEN_APPLE_DATA;
+    }
+
+    private static boolean isPistonHead(Material material) {
         return material == Material.PISTON_EXTENSION || material.name().equals("PISTON_HEAD");
     }
 

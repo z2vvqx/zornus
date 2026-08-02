@@ -18,6 +18,7 @@ import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
 import org.bukkit.event.inventory.InventoryClickEvent;
+import org.bukkit.event.inventory.InventoryDragEvent;
 import org.bukkit.inventory.Inventory;
 import org.bukkit.inventory.InventoryHolder;
 import org.bukkit.inventory.ItemStack;
@@ -50,6 +51,7 @@ public final class BloodstoneStorageService {
             BloodstoneText.deserialize(BloodstoneServerConstants.STORAGE_MENU_TITLE);
     private final BloodstoneStorage storage;
     private final BloodstoneItemService itemService;
+    private final BloodstoneCombatService combatService;
     private final BloodstonePlayerService playerService;
     private final BloodstoneMainThreadExecutor mainThreadExecutor;
     private final BloodstonePresentationService presentationService;
@@ -67,6 +69,7 @@ public final class BloodstoneStorageService {
     public BloodstoneStorageService(
             BloodstoneStorage storage,
             BloodstoneItemService itemService,
+            BloodstoneCombatService combatService,
             BloodstonePlayerService playerService,
             BloodstoneMainThreadExecutor mainThreadExecutor,
             BloodstonePresentationService presentationService,
@@ -75,6 +78,7 @@ public final class BloodstoneStorageService {
     ) {
         this.storage = storage;
         this.itemService = itemService;
+        this.combatService = combatService;
         this.playerService = playerService;
         this.mainThreadExecutor = mainThreadExecutor;
         this.presentationService = presentationService;
@@ -85,6 +89,10 @@ public final class BloodstoneStorageService {
     public void openStorageMenu(Player player) {
         if (!acceptingOperations) {
             reject(player, BloodstoneServerConstants.STORAGE_SHUTTING_DOWN);
+            return;
+        }
+        if (combatService.isTagged(player.getUniqueId())) {
+            reject(player, BloodstoneServerConstants.ERROR_IN_BATTLE);
             return;
         }
         Inventory menu = Bukkit.createInventory(
@@ -153,6 +161,10 @@ public final class BloodstoneStorageService {
         }
         if (STORAGE_MENU_TITLE.equals(event.getView().title())) {
             event.setCancelled(true);
+            if (rejectStorageUseInCombat(player)) {
+                player.closeInventory();
+                return;
+            }
             if (event.getRawSlot() < 0 || event.getRawSlot() >= event.getView().getTopInventory().getSize()) {
                 return;
             }
@@ -177,6 +189,27 @@ public final class BloodstoneStorageService {
                 return;
             }
             beginOpen(player, type);
+            return;
+        }
+        ActiveStorage active = activeStorages.get(player.getUniqueId());
+        if (active != null
+                && isOwnedInventory(event.getView().getTopInventory(), active)
+                && rejectStorageUseInCombat(player)) {
+            event.setCancelled(true);
+            player.closeInventory();
+        }
+    }
+
+    public void handleInventoryDrag(InventoryDragEvent event) {
+        if (!(event.getWhoClicked() instanceof Player player)) {
+            return;
+        }
+        ActiveStorage active = activeStorages.get(player.getUniqueId());
+        if (active != null
+                && isOwnedInventory(event.getView().getTopInventory(), active)
+                && rejectStorageUseInCombat(player)) {
+            event.setCancelled(true);
+            player.closeInventory();
         }
     }
 
@@ -245,6 +278,9 @@ public final class BloodstoneStorageService {
             reject(player, BloodstoneServerConstants.STORAGE_SHUTTING_DOWN);
             return;
         }
+        if (rejectStorageUseInCombat(player)) {
+            return;
+        }
         UUID playerId = player.getUniqueId();
         if (activeStorages.containsKey(playerId) || pendingOpenTokens.containsKey(playerId)) {
             reject(player, BloodstoneServerConstants.STORAGE_OPERATION_IN_PROGRESS);
@@ -273,6 +309,10 @@ public final class BloodstoneStorageService {
                             );
                         }
                     }
+                    return;
+                }
+                if (rejectStorageUseInCombat(current)) {
+                    pendingOpenTokens.remove(playerId, sessionToken);
                     return;
                 }
                 openStorage(playerId, storageType, sessionToken);
@@ -316,6 +356,17 @@ public final class BloodstoneStorageService {
             if (outcome instanceof StorageOpenOutcome.Opened opened) {
                 storage.closeStorage(opened.session(), opened.session().contentsPayload(), Instant.now());
             }
+            return;
+        }
+        if (combatService.isTagged(playerId)) {
+            if (outcome instanceof StorageOpenOutcome.Opened opened) {
+                storage.closeStorage(
+                        opened.session(),
+                        opened.session().contentsPayload(),
+                        Instant.now()
+                );
+            }
+            reject(player, BloodstoneServerConstants.ERROR_IN_BATTLE);
             return;
         }
         if (outcome instanceof StorageOpenOutcome.InUse inUse) {
@@ -605,6 +656,14 @@ public final class BloodstoneStorageService {
                             exception);
                     return null;
                 });
+    }
+
+    private boolean rejectStorageUseInCombat(Player player) {
+        if (!combatService.isTagged(player.getUniqueId())) {
+            return false;
+        }
+        reject(player, BloodstoneServerConstants.ERROR_IN_BATTLE);
+        return true;
     }
 
     private CompletableFuture<ExtraStorageUnlockOutcome> unlockExtraStorageWithRetry(

@@ -62,6 +62,7 @@ public final class BloodstoneInventoryListener implements Listener {
 
     @EventHandler
     public void onInventoryDrag(@NonNull InventoryDragEvent event) {
+        storageService.handleInventoryDrag(event);
         axeFuserService.handleInventoryDrag(event);
     }
 
@@ -90,7 +91,7 @@ public final class BloodstoneInventoryListener implements Listener {
         if (!menuService.isInBloodstone(event.getPlayer())) {
             return;
         }
-        if (itemService.isSoulbound(event.getItemDrop().getItemStack())) {
+        if (itemService.classification(event.getItemDrop().getItemStack()).isPresent()) {
             event.setCancelled(true);
             return;
         }

@@ -270,14 +270,13 @@ public final class BloodstoneServerConstants {
     public static final String DISENCHANTER_ACCESS_REQUIRED = UNABLE_TO_PROCEED_PREFIX + "no disenchanter access.";
     public static final String ENCHANTER_ITEM_REJECTED = UNABLE_TO_PROCEED_PREFIX + "item doesn't accept enchantments.";
     public static final String DISENCHANTER_ITEM_REJECTED = UNABLE_TO_PROCEED_PREFIX + "item doesn't accept disenchanting.";
-    public static final String ENCHANTER_ITEM_TOO_POWERFUL = UNABLE_TO_PROCEED_PREFIX + "item is too powerful.";
+    public static final String EFFECT_AXE_MODIFICATION_REJECTED = UNABLE_TO_PROCEED_PREFIX + "item is too powerful.";
     public static final String ENCHANTER_ALREADY_PRESENT = UNABLE_TO_PROCEED_PREFIX + "enchantment already exists.";
     public static final String DISENCHANTER_ENCHANTMENT_MISSING = UNABLE_TO_PROCEED_PREFIX + "item doesn't have this enchantment.";
     public static final String MACHINE_ALREADY_ACTIVATED = UNABLE_TO_PROCEED_PREFIX + "already activated.";
     // Random Box and Repair
     public static final String RANDOM_BOX_PAYMENT_REJECTED = UNABLE_TO_PROCEED_PREFIX + "the Random Box payment was not accepted.";
     public static final String REPAIR_FULL_DURABILITY = UNABLE_TO_PROCEED_PREFIX + "item already at full durability.";
-    public static final String REPAIR_PROTECTED_ITEM = UNABLE_TO_PROCEED_PREFIX + "item is protected (Soulbound/Exclusive).";
     // Axe Fuser
     public static final String AXE_FUSER_SELECTION_REQUIRED = UNABLE_TO_PROCEED_PREFIX + "select two different effect axes.";
     public static final String AXE_FUSER_SELECTION_FULL = UNABLE_TO_PROCEED_PREFIX + "deselect an axe before choosing another.";

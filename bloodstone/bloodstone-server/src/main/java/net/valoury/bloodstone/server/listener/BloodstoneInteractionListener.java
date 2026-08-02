@@ -4,7 +4,7 @@ import net.valoury.bloodstone.server.service.BloodstoneMachineService;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.Listener;
 import org.bukkit.event.entity.ItemSpawnEvent;
-import org.bukkit.event.player.PlayerInteractAtEntityEvent;
+import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
 import org.bukkit.event.player.PlayerPickupItemEvent;
@@ -23,7 +23,7 @@ public final class BloodstoneInteractionListener implements Listener {
     }
 
     @EventHandler(ignoreCancelled = true)
-    public void onPlayerInteractEntity(PlayerInteractAtEntityEvent event) {
+    public void onPlayerInteractEntity(PlayerInteractEntityEvent event) {
         machineService.handleItemFrame(event);
     }
 

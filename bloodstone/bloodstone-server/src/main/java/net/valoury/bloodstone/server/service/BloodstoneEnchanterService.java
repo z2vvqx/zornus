@@ -126,12 +126,11 @@ public final class BloodstoneEnchanterService {
             reject(player, BloodstoneServerConstants.ERROR_UNRECOGNIZED_ITEM);
             return;
         }
-        if (itemService.isExclusive(heldItem)) {
-            reject(player, action.itemRejectedMessage());
-            return;
-        }
-        if (itemService.isSoulbound(heldItem)) {
-            reject(player, BloodstoneServerConstants.ENCHANTER_ITEM_TOO_POWERFUL);
+        if (itemService.isRestrictedFromModification(heldItem)) {
+            reject(
+                    player,
+                    BloodstoneServerConstants.EFFECT_AXE_MODIFICATION_REJECTED
+            );
             return;
         }
 
@@ -200,7 +199,9 @@ public final class BloodstoneEnchanterService {
             return;
         }
         ItemStack item = event.getItem();
-        boolean removeClassification = itemService.isInclusive(item) || itemService.isExclusive(item);
+        boolean removeClassification = itemService.classification(item)
+                .filter(BloodstoneItemService.Classification::isRemovedByNormalEnchanting)
+                .isPresent();
         player.playSound(player.getLocation(), Sound.ZOMBIE_UNFECT, 1.0F, 1.55F);
         plugin.getServer().getScheduler().runTask(plugin, () -> {
             if (event.getInventory() instanceof EnchantingInventory enchantingInventory) {
@@ -248,6 +249,11 @@ public final class BloodstoneEnchanterService {
             EnchanterContext context,
             EnchantmentToolCatalog.Option option
     ) {
+        if (combatService.isTagged(player.getUniqueId())) {
+            player.closeInventory();
+            reject(player, BloodstoneServerConstants.ERROR_IN_BATTLE);
+            return;
+        }
         ItemStack current = player.getInventory().getItem(context.heldSlot());
         if (current == null || !current.equals(context.originalItem())) {
             player.closeInventory();
@@ -283,10 +289,13 @@ public final class BloodstoneEnchanterService {
             reject(player, context.action().heldItemChangedMessage());
             return;
         }
-        ItemStack resultItem = context.action().transform(
-                current,
-                option.enchantment(),
-                option.level()
+        ItemStack resultItem = itemService.classify(
+                context.action().transform(
+                        current,
+                        option.enchantment(),
+                        option.level()
+                ),
+                BloodstoneItemService.Classification.EXCLUSIVE
         );
         UUID operationId = UUID.randomUUID();
         byte[] originalPayload;

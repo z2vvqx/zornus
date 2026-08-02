@@ -122,6 +122,7 @@ public final class BloodstoneServerModule {
             this.storageService = new BloodstoneStorageService(
                 storage,
                 itemService,
+                combatService,
                 playerService,
                 mainThreadExecutor,
                 presentationService,

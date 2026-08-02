@@ -126,6 +126,12 @@ public final class BloodstoneAxeFuserService {
             player.closeInventory();
             return;
         }
+        if (combatService.isTagged(player.getUniqueId())) {
+            contexts.remove(player.getUniqueId(), context);
+            player.closeInventory();
+            reject(player, BloodstoneServerConstants.ERROR_IN_BATTLE);
+            return;
+        }
         if (!hasAxeFuserAccess(BloodstoneRank.resolve(player))) {
             contexts.remove(player.getUniqueId());
             player.closeInventory();

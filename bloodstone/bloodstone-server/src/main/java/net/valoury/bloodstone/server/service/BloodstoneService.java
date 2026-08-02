@@ -76,13 +76,15 @@ public final class BloodstoneService {
         Iterator<ItemStack> dropIterator = drops.iterator();
         while (dropIterator.hasNext()) {
             ItemStack item = dropIterator.next();
-            if (itemService.isSoulbound(item)) {
+            BloodstoneItemService.Classification classification =
+                    itemService.classification(item).orElse(null);
+            if (classification == BloodstoneItemService.Classification.SOULBOUND) {
                 if (reserveSoulboundItem(player.getUniqueId(), item)) {
                     dropIterator.remove();
                 }
                 continue;
             }
-            if (itemService.isInclusive(item) || itemService.isExclusive(item)) {
+            if (classification != null) {
                 dropIterator.remove();
             }
         }

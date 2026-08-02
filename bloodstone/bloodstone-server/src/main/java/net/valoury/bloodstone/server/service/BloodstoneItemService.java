@@ -83,8 +83,16 @@ public final class BloodstoneItemService {
         }
 
         ItemStack inclusive = createInclusiveItem(Material.DIAMOND_SWORD, 1);
-        if (!isInclusive(inclusive) || isInclusive(removeClassification(inclusive))) {
-            throw new IllegalStateException("Item classification ids could not be written and removed");
+        ItemStack exclusive = classify(inclusive, Classification.EXCLUSIVE);
+        if (!isInclusive(inclusive)
+                || isInclusive(removeClassification(inclusive))
+                || !isExclusive(exclusive)
+                || !exclusive.getItemMeta().hasLore()
+                || exclusive.getItemMeta().lore().contains(Classification.INCLUSIVE.lore())
+                || !exclusive.getItemMeta().lore().contains(Classification.EXCLUSIVE.lore())) {
+            throw new IllegalStateException(
+                    "Item classification ids or lore could not be replaced"
+            );
         }
 
         EffectAxeDefinition speedAxeDefinition = EffectAxeDefinitions.SPEED;
@@ -219,19 +227,28 @@ public final class BloodstoneItemService {
         requireUsableItem(item);
         ItemStack classified = item.clone();
         ItemMeta itemMeta = classified.getItemMeta();
-        List<Component> lore = itemMeta.hasLore()
+        List<Component> existingLore = itemMeta.hasLore()
                 ? new ArrayList<>(itemMeta.lore())
                 : new ArrayList<>();
-        if (!lore.contains(classification.lore())) {
-            lore.add(classification.lore());
-        }
-        itemMeta.lore(lore);
+        itemMeta.lore(replaceClassificationLore(existingLore, classification));
         classified.setItemMeta(itemMeta);
         return itemTags.withString(classified, INTERNAL_ITEM_ID_KEY, classification.internalId());
     }
 
+    static @NonNull List<Component> replaceClassificationLore(
+            @NonNull List<Component> existingLore,
+            @NonNull Classification classification
+    ) {
+        List<Component> updatedLore = new ArrayList<>(existingLore);
+        for (Classification existingClassification : Classification.values()) {
+            updatedLore.removeIf(existingClassification.lore()::equals);
+        }
+        updatedLore.add(classification.lore());
+        return List.copyOf(updatedLore);
+    }
+
     /**
-     * Removes an Inclusive or Exclusive classification before normal enchanting.
+     * Removes an Inclusive or Exclusive classification when explicitly requested.
      * Soulbound and non-classification item ids are deliberately preserved.
      */
     public @NonNull ItemStack removeClassification(@NonNull ItemStack item) {
@@ -282,6 +299,12 @@ public final class BloodstoneItemService {
                     ? Optional.of(Classification.SOULBOUND)
                     : Optional.empty();
         });
+    }
+
+    public boolean isRestrictedFromModification(ItemStack item) {
+        return classification(item)
+                .filter(Classification::isRestrictedFromModification)
+                .isPresent();
     }
 
     public @NonNull ItemStack createResistancePotion() {
@@ -800,6 +823,14 @@ public final class BloodstoneItemService {
 
         public Component lore() {
             return lore;
+        }
+
+        boolean isRemovedByNormalEnchanting() {
+            return this == INCLUSIVE;
+        }
+
+        boolean isRestrictedFromModification() {
+            return this == SOULBOUND;
         }
     }
 
