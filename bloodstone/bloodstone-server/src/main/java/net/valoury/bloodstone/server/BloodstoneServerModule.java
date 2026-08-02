@@ -201,6 +201,7 @@ public final class BloodstoneServerModule {
                     menuService,
                     machineService,
                     duelService,
+                    playerService,
                     messageService
             );
             this.listenerRegistrar = new BloodstoneListenerRegistrar(

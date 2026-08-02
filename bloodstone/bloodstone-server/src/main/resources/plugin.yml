@@ -23,3 +23,6 @@ commands:
   duel:
     description: Challenges another player to a duel
     usage: /duel <player|accept|reject>
+  statistics:
+    description: Displays your Bloodstone statistics
+    aliases: [stats]

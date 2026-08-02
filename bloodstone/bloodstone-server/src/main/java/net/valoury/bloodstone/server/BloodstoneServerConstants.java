@@ -101,6 +101,7 @@ public final class BloodstoneServerConstants {
     public static final String SOULBOUND_RETURN_ACTION_BAR = "<dark_purple>Your Soulbound items returned.</dark_purple>";
     public static final String PLAYER_DATA_LOAD_FAILED_KICK = "<red>Your Bloodstone data could not be loaded safely.</red>";
     public static final String BASELINE_RESTORED_ACTION_BAR = "<green>Your baseline kit has been restored.</green>";
+    public static final String STATISTICS_ENTRY_FORMAT = "<white><name>: </white><dark_aqua><value></dark_aqua>";
     public static final String CHAT_FORMAT = "<dark_gray>❘</dark_gray> <gray><ratio>➹</gray> <dark_gray>❘</dark_gray> <playername> <dark_gray>»</dark_gray> <white><message></white>";
     public static final String PLAYER_LEADERBOARD_ENTRY_FORMAT = "<playername><guild> <bold><icon></bold> <gray><value></gray>";
     public static final String GUILD_LEADERBOARD_ENTRY_FORMAT = "<guild> <bold><icon></bold> <gray><value></gray>";
