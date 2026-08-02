@@ -30,6 +30,11 @@ public final class GuildCreateCommand {
                 })
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("name", StringArgumentType.word())
+                        .executes(context -> {
+                            context.getSource().sendMessage(StringUtils.deserialize(
+                                    GuildProxyConstants.USAGE_CREATE));
+                            return Command.SINGLE_SUCCESS;
+                        })
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("tag", StringArgumentType.word())
                                 .executes(context -> handleCreateGuild(context, guildService))

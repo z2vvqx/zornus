@@ -43,21 +43,25 @@ public final class PunishmentImposeWarnCommand {
     public static LiteralArgumentBuilder<CommandSource> create(PunishmentService punishmentService, ProxyServer proxyServer) {
         return BrigadierCommand
                 .literalArgumentBuilder("warn")
-                .executes(context -> {
-                    context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_IMPOSE_WARN));
-                    return Command.SINGLE_SUCCESS;
-                })
+                .executes(PunishmentImposeWarnCommand::sendUsage)
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("player_name", StringArgumentType.word())
                         .suggests(onlinePlayerSuggestions(proxyServer))
+                        .executes(PunishmentImposeWarnCommand::sendUsage)
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("duration_timestamp", StringArgumentType.word())
+                                .executes(PunishmentImposeWarnCommand::sendUsage)
                                 .then(BrigadierCommand
                                         .requiredArgumentBuilder("reason_array", StringArgumentType.greedyString())
                                         .executes(context -> handleImposeWarn(context, punishmentService))
                                 )
                         )
                 );
+    }
+
+    private static int sendUsage(@NonNull CommandContext<CommandSource> context) {
+        context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_IMPOSE_WARN));
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int handleImposeWarn(@NonNull CommandContext<CommandSource> context, PunishmentService punishmentService) {

@@ -46,10 +46,16 @@ public final class FriendSettingsCommand {
     private static LiteralArgumentBuilder<CommandSource> createSettingBranch(String setting, FriendService friendService) {
         return BrigadierCommand
                 .literalArgumentBuilder(setting)
+                .executes(FriendSettingsCommand::sendUsage)
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("value", BoolArgumentType.bool())
                         .executes(context -> handleUpdateSetting(context, friendService, setting))
                 );
+    }
+
+    private static int sendUsage(@NonNull CommandContext<CommandSource> context) {
+        context.getSource().sendMessage(StringUtils.deserialize(FriendProxyConstants.USAGE_SETTINGS));
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int handleUpdateSetting(@NonNull CommandContext<CommandSource> context, FriendService friendService, String setting) {

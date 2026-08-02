@@ -13,6 +13,7 @@ import net.valoury.shared.SharedConstants;
 import net.valoury.shared.utilities.StringUtils;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
+import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
@@ -23,17 +24,20 @@ public final class PunishmentRevokeIdCommand {
     public static LiteralArgumentBuilder<CommandSource> create(PunishmentService punishmentService) {
         return BrigadierCommand
                 .literalArgumentBuilder("id")
-                .executes(context -> {
-                    context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_REVOKE_ID));
-                    return Command.SINGLE_SUCCESS;
-                })
+                .executes(PunishmentRevokeIdCommand::sendUsage)
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("identifier_code", StringArgumentType.word())
+                        .executes(PunishmentRevokeIdCommand::sendUsage)
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("reason_array", StringArgumentType.greedyString())
                                 .executes(context -> handleRevokeByIdentifier(context, punishmentService))
                         )
                 );
+    }
+
+    private static int sendUsage(@NonNull CommandContext<CommandSource> context) {
+        context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_REVOKE_ID));
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int handleRevokeByIdentifier(CommandContext<CommandSource> context, PunishmentService punishmentService) {

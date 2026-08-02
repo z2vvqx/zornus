@@ -43,21 +43,25 @@ public final class PunishmentImposeMuteCommand {
     public static LiteralArgumentBuilder<CommandSource> create(PunishmentService punishmentService, ProxyServer proxyServer) {
         return BrigadierCommand
                 .literalArgumentBuilder("mute")
-                .executes(context -> {
-                    context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_IMPOSE_MUTE));
-                    return Command.SINGLE_SUCCESS;
-                })
+                .executes(PunishmentImposeMuteCommand::sendUsage)
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("player_name", StringArgumentType.word())
                         .suggests(onlinePlayerSuggestions(proxyServer))
+                        .executes(PunishmentImposeMuteCommand::sendUsage)
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("duration_timestamp", StringArgumentType.word())
+                                .executes(PunishmentImposeMuteCommand::sendUsage)
                                 .then(BrigadierCommand
                                         .requiredArgumentBuilder("reason_array", StringArgumentType.greedyString())
                                         .executes(context -> handleImposeMute(context, punishmentService))
                                 )
                         )
                 );
+    }
+
+    private static int sendUsage(@NonNull CommandContext<CommandSource> context) {
+        context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_IMPOSE_MUTE));
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int handleImposeMute(@NonNull CommandContext<CommandSource> context, PunishmentService punishmentService) {

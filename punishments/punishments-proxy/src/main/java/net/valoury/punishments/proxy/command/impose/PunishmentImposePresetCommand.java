@@ -56,20 +56,22 @@ public final class PunishmentImposePresetCommand {
     ) {
         return BrigadierCommand
                 .literalArgumentBuilder("preset")
-                .executes(context -> {
-                    context.getSource().sendMessage(
-                            StringUtils.deserialize(PunishmentProxyConstants.USAGE_IMPOSE_PRESET));
-                    return Command.SINGLE_SUCCESS;
-                })
+                .executes(PunishmentImposePresetCommand::sendUsage)
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("player_name", StringArgumentType.word())
                         .suggests(onlinePlayerSuggestions(proxyServer))
+                        .executes(PunishmentImposePresetCommand::sendUsage)
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("preset_name", StringArgumentType.word())
                                 .suggests(PRESET_SUGGESTIONS)
                                 .executes(context -> handleImposePreset(context, punishmentService))
                         )
                 );
+    }
+
+    private static int sendUsage(@NonNull CommandContext<CommandSource> context) {
+        context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_IMPOSE_PRESET));
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int handleImposePreset(

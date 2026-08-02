@@ -37,6 +37,7 @@ public final class GuildSettingsCommand {
                 .executes(context -> handleDisplaySettings(context, guildService))
                 .then(BrigadierCommand
                         .literalArgumentBuilder("chat")
+                        .executes(GuildSettingsCommand::sendUsage)
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("value", BoolArgumentType.bool())
                                 .executes(context -> handleUpdateSetting(
@@ -46,6 +47,7 @@ public final class GuildSettingsCommand {
                 )
                 .then(BrigadierCommand
                         .literalArgumentBuilder("invites")
+                        .executes(GuildSettingsCommand::sendUsage)
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("value", StringArgumentType.word())
                                 .suggests(INVITE_PRIVACY_SUGGESTIONS)
@@ -54,6 +56,12 @@ public final class GuildSettingsCommand {
                                         StringArgumentType.getString(context, "value")))
                         )
                 );
+    }
+
+    private static int sendUsage(@NonNull CommandContext<CommandSource> context) {
+        context.getSource().sendMessage(StringUtils.deserialize(
+                GuildProxyConstants.USAGE_SETTINGS));
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int handleDisplaySettings(@NonNull CommandContext<CommandSource> context,

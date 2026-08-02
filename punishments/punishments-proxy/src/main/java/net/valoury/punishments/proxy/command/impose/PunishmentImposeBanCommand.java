@@ -43,21 +43,25 @@ public final class PunishmentImposeBanCommand {
     public static LiteralArgumentBuilder<CommandSource> create(PunishmentService punishmentService, ProxyServer proxyServer) {
         return BrigadierCommand
                 .literalArgumentBuilder("ban")
-                .executes(context -> {
-                    context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_IMPOSE_BAN));
-                    return Command.SINGLE_SUCCESS;
-                })
+                .executes(PunishmentImposeBanCommand::sendUsage)
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("player_name", StringArgumentType.word())
                         .suggests(onlinePlayerSuggestions(proxyServer))
+                        .executes(PunishmentImposeBanCommand::sendUsage)
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("duration_timestamp", StringArgumentType.word())
+                                .executes(PunishmentImposeBanCommand::sendUsage)
                                 .then(BrigadierCommand
                                         .requiredArgumentBuilder("reason_array", StringArgumentType.greedyString())
                                         .executes(context -> handleImposeBan(context, punishmentService))
                                 )
                         )
                 );
+    }
+
+    private static int sendUsage(@NonNull CommandContext<CommandSource> context) {
+        context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_IMPOSE_BAN));
+        return Command.SINGLE_SUCCESS;
     }
 
     private static int handleImposeBan(@NonNull CommandContext<CommandSource> context, PunishmentService punishmentService) {
