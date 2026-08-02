@@ -580,6 +580,8 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         return new RemoveMemberOutcome.MemberNotFound();
                     }
 
+                    deleteOutgoingInvitations(connection, guildId, memberId);
+
                     // 5. Clean up any pending confirmation for the removed member
                     String deleteConfirmationSql = "DELETE FROM guild_confirmations WHERE player_id = ?";
                     try (PreparedStatement statement = connection.prepareStatement(deleteConfirmationSql)) {
@@ -906,6 +908,25 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                 }
 
                 try {
+                    String checkSenderMembershipSql = """
+                            SELECT 1
+                            FROM guild_members
+                            WHERE guild_id = ? AND player_id = ?
+                            FOR UPDATE
+                            """;
+                    try (PreparedStatement statement = connection.prepareStatement(
+                            checkSenderMembershipSql)) {
+                        statement.setObject(1, guildId);
+                        statement.setObject(2, senderId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (!resultSet.next()) {
+                                deleteOutgoingInvitations(connection, guildId, senderId);
+                                connection.commit();
+                                return new AcceptInvitationOutcome.InvitationNoLongerValid();
+                            }
+                        }
+                    }
+
                     // 1. Check invitation exists and is valid
                     String checkInviteSql = "SELECT created_at FROM guild_invitations WHERE guild_id = ? AND sender_id = ? AND target_id = ?";
                     Timestamp invitationCreated;
@@ -1752,7 +1773,16 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
     @Override
     public CompletableFuture<Void> cleanupExpiredInvitations(@NonNull Instant now, @NonNull Duration expiry) {
         return databaseExecutor.run(() -> {
-            String sql = "DELETE FROM guild_invitations WHERE created_at < ?";
+            String sql = """
+                    DELETE FROM guild_invitations AS invitation
+                    WHERE invitation.created_at < ?
+                       OR NOT EXISTS (
+                           SELECT 1
+                           FROM guild_members AS member
+                           WHERE member.guild_id = invitation.guild_id
+                             AND member.player_id = invitation.sender_id
+                       )
+                    """;
             executeUpdate(sql, statement -> statement.setTimestamp(1, Timestamp.from(now.minus(expiry))), "cleanup expired invitations");
         });
     }
@@ -1843,6 +1873,21 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             lockStatement.setString(1, smaller.toString());
             lockStatement.setString(2, larger.toString());
             lockStatement.executeQuery();
+        }
+    }
+
+    private static void deleteOutgoingInvitations(
+            @NonNull Connection connection,
+            @NonNull UUID guildId,
+            @NonNull UUID memberId
+    ) throws SQLException {
+        try (PreparedStatement statement = connection.prepareStatement("""
+                DELETE FROM guild_invitations
+                WHERE guild_id = ? AND sender_id = ?
+                """)) {
+            statement.setObject(1, guildId);
+            statement.setObject(2, memberId);
+            statement.executeUpdate();
         }
     }
 
