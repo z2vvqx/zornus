@@ -10,6 +10,7 @@ import net.valoury.bloodstone.server.listener.player.BloodstoneDuelListener;
 import net.valoury.bloodstone.server.service.BloodstoneCombatService;
 import net.valoury.bloodstone.server.service.BloodstoneAxeFuserService;
 import net.valoury.bloodstone.server.service.BloodstoneDuelService;
+import net.valoury.bloodstone.server.service.BloodstoneEffectAxeService;
 import net.valoury.bloodstone.server.service.BloodstoneEnchanterService;
 import net.valoury.bloodstone.server.service.BloodstoneGuildProfileCache;
 import net.valoury.bloodstone.server.service.BloodstoneItemService;
@@ -31,6 +32,7 @@ public final class BloodstoneListenerRegistrar {
     private final BloodstoneCombatService combatService;
     private final BloodstoneDuelService duelService;
     private final BloodstoneItemService itemService;
+    private final BloodstoneEffectAxeService effectAxeService;
     private final BloodstonePlayerService playerService;
     private final BloodstoneStorageService storageService;
     private final BloodstoneMenuService menuService;
@@ -49,6 +51,7 @@ public final class BloodstoneListenerRegistrar {
             BloodstoneCombatService combatService,
             BloodstoneDuelService duelService,
             BloodstoneItemService itemService,
+            BloodstoneEffectAxeService effectAxeService,
             BloodstonePlayerService playerService,
             BloodstoneStorageService storageService,
             BloodstoneMenuService menuService,
@@ -66,6 +69,7 @@ public final class BloodstoneListenerRegistrar {
         this.combatService = combatService;
         this.duelService = duelService;
         this.itemService = itemService;
+        this.effectAxeService = effectAxeService;
         this.playerService = playerService;
         this.storageService = storageService;
         this.menuService = menuService;
@@ -91,7 +95,7 @@ public final class BloodstoneListenerRegistrar {
         );
         pluginManager.registerEvents(new BloodstoneDuelListener(duelService), plugin);
         pluginManager.registerEvents(
-                new BloodstoneCombatListener(combatService, itemService),
+                new BloodstoneCombatListener(combatService, effectAxeService),
                 plugin
         );
         pluginManager.registerEvents(

@@ -4,6 +4,7 @@ import net.valoury.bloodstone.server.BloodstoneServerConstants;
 import net.valoury.bloodstone.server.BloodstoneText;
 import net.valoury.bloodstone.server.EffectAxeDefinitions;
 import net.valoury.bloodstone.server.model.BloodstoneRank;
+import net.valoury.bloodstone.server.model.BloodstoneShopProduct;
 import net.kyori.adventure.text.Component;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
@@ -37,15 +38,24 @@ public final class BloodstoneMenuService {
     );
 
     private final BloodstoneItemService itemService;
+    private final BloodstoneItemDisplayService itemDisplayService;
+    private final BloodstoneCurrencyService currencyService;
+    private final BloodstoneEffectAxeService effectAxeService;
     private final BloodstonePresentationService presentationService;
     private final BloodstoneMessageService messageService;
 
     public BloodstoneMenuService(
             BloodstoneItemService itemService,
+            BloodstoneItemDisplayService itemDisplayService,
+            BloodstoneCurrencyService currencyService,
+            BloodstoneEffectAxeService effectAxeService,
             BloodstonePresentationService presentationService,
             BloodstoneMessageService messageService
     ) {
         this.itemService = itemService;
+        this.itemDisplayService = itemDisplayService;
+        this.currencyService = currencyService;
+        this.effectAxeService = effectAxeService;
         this.presentationService = presentationService;
         this.messageService = messageService;
     }
@@ -181,7 +191,8 @@ public final class BloodstoneMenuService {
     }
 
     public boolean exchangeBloodForAlloy(Player player) {
-        if (itemService.countBlood(player.getInventory()) < BLOOD_PER_ALLOY) {
+        if (currencyService.countBlood(player.getInventory())
+                < BLOOD_PER_ALLOY) {
             messageService.sendRequiredCurrency(
                     player,
                     BLOOD_PER_ALLOY,
@@ -189,12 +200,17 @@ public final class BloodstoneMenuService {
             );
             return false;
         }
-        ItemStack reward = itemService.createBloodAlloy(ALLOY_PER_EXCHANGE);
+        ItemStack reward = currencyService.createBloodAlloy(
+                ALLOY_PER_EXCHANGE
+        );
         if (!canFit(player.getInventory(), reward)) {
             reject(player, BloodstoneServerConstants.ERROR_INVENTORY_SPACE);
             return false;
         }
-        if (!itemService.removeBlood(player.getInventory(), BLOOD_PER_ALLOY)) {
+        if (!currencyService.removeBlood(
+                player.getInventory(),
+                BLOOD_PER_ALLOY
+        )) {
             messageService.sendRequiredCurrency(
                     player,
                     BLOOD_PER_ALLOY,
@@ -203,7 +219,10 @@ public final class BloodstoneMenuService {
             return false;
         }
         if (!player.getInventory().addItem(reward).isEmpty()) {
-            itemService.addBlood(player.getInventory(), BLOOD_PER_ALLOY);
+            currencyService.addBlood(
+                    player.getInventory(),
+                    BLOOD_PER_ALLOY
+            );
             reject(player, BloodstoneServerConstants.BLOOD_EXCHANGE_REFUNDED);
             return false;
         }
@@ -217,7 +236,8 @@ public final class BloodstoneMenuService {
     }
 
     public boolean exchangeAlloyForBlood(Player player) {
-        if (itemService.countBloodAlloy(player.getInventory()) < ALLOY_PER_EXCHANGE) {
+        if (currencyService.countBloodAlloy(player.getInventory())
+                < ALLOY_PER_EXCHANGE) {
             messageService.sendRequiredCurrency(
                     player,
                     ALLOY_PER_EXCHANGE,
@@ -225,12 +245,12 @@ public final class BloodstoneMenuService {
             );
             return false;
         }
-        ItemStack reward = itemService.createBlood(BLOOD_PER_ALLOY);
+        ItemStack reward = currencyService.createBlood(BLOOD_PER_ALLOY);
         if (!canFit(player.getInventory(), reward)) {
             reject(player, BloodstoneServerConstants.ERROR_INVENTORY_SPACE);
             return false;
         }
-        if (!itemService.removeBloodAlloy(
+        if (!currencyService.removeBloodAlloy(
                 player.getInventory(),
                 ALLOY_PER_EXCHANGE
         )) {
@@ -242,7 +262,7 @@ public final class BloodstoneMenuService {
             return false;
         }
         if (!player.getInventory().addItem(reward).isEmpty()) {
-            itemService.addBloodAlloy(
+            currencyService.addBloodAlloy(
                     player.getInventory(),
                     ALLOY_PER_EXCHANGE
             );
@@ -274,11 +294,11 @@ public final class BloodstoneMenuService {
         Inventory inventory = createNavigationInventory(
                 BloodstoneServerConstants.GEAR_MENU_TITLE
         );
-        setProduct(inventory, 10, BloodstoneItemService.ShopProduct.SHARPNESS_IV_SWORD);
-        setProduct(inventory, 11, BloodstoneItemService.ShopProduct.SHARPNESS_V_SWORD);
-        setProduct(inventory, 13, BloodstoneItemService.ShopProduct.POWER_V_BOW);
-        setProduct(inventory, 15, BloodstoneItemService.ShopProduct.SHARPNESS_IV_AXE);
-        setProduct(inventory, 16, BloodstoneItemService.ShopProduct.SHARPNESS_V_AXE);
+        setProduct(inventory, 10, BloodstoneShopProduct.SHARPNESS_IV_SWORD);
+        setProduct(inventory, 11, BloodstoneShopProduct.SHARPNESS_V_SWORD);
+        setProduct(inventory, 13, BloodstoneShopProduct.POWER_V_BOW);
+        setProduct(inventory, 15, BloodstoneShopProduct.SHARPNESS_IV_AXE);
+        setProduct(inventory, 16, BloodstoneShopProduct.SHARPNESS_V_AXE);
         open(player, inventory);
     }
 
@@ -286,10 +306,10 @@ public final class BloodstoneMenuService {
         Inventory inventory = createNavigationInventory(
                 BloodstoneServerConstants.ARMOR_MENU_TITLE
         );
-        setProduct(inventory, 11, BloodstoneItemService.ShopProduct.PROTECTION_IV_HELMET);
-        setProduct(inventory, 12, BloodstoneItemService.ShopProduct.PROTECTION_IV_CHESTPLATE);
-        setProduct(inventory, 14, BloodstoneItemService.ShopProduct.PROTECTION_IV_LEGGINGS);
-        setProduct(inventory, 15, BloodstoneItemService.ShopProduct.PROTECTION_IV_BOOTS);
+        setProduct(inventory, 11, BloodstoneShopProduct.PROTECTION_IV_HELMET);
+        setProduct(inventory, 12, BloodstoneShopProduct.PROTECTION_IV_CHESTPLATE);
+        setProduct(inventory, 14, BloodstoneShopProduct.PROTECTION_IV_LEGGINGS);
+        setProduct(inventory, 15, BloodstoneShopProduct.PROTECTION_IV_BOOTS);
         open(player, inventory);
     }
 
@@ -304,7 +324,7 @@ public final class BloodstoneMenuService {
         for (int index = 0; index < definitions.size(); index++) {
             EffectAxeDefinitions.EffectAxeDefinition definition =
                     definitions.get(index);
-            ItemStack display = itemService.createEffectAxeMenuDisplay(
+            ItemStack display = itemDisplayService.createEffectAxeMenuDisplay(
                     definition
             );
             appendPriceLore(
@@ -322,11 +342,11 @@ public final class BloodstoneMenuService {
         Inventory inventory = createNavigationInventory(
                 BloodstoneServerConstants.POTIONS_MENU_TITLE
         );
-        setProduct(inventory, 11, BloodstoneItemService.ShopProduct.GOLDEN_APPLE);
-        setProduct(inventory, 12, BloodstoneItemService.ShopProduct.STRENGTH_POTION);
-        setProduct(inventory, 13, BloodstoneItemService.ShopProduct.RESISTANCE_POTION);
-        setProduct(inventory, 14, BloodstoneItemService.ShopProduct.SPEED_POTION);
-        setProduct(inventory, 15, BloodstoneItemService.ShopProduct.FIRE_RESISTANCE_POTION);
+        setProduct(inventory, 11, BloodstoneShopProduct.GOLDEN_APPLE);
+        setProduct(inventory, 12, BloodstoneShopProduct.STRENGTH_POTION);
+        setProduct(inventory, 13, BloodstoneShopProduct.RESISTANCE_POTION);
+        setProduct(inventory, 14, BloodstoneShopProduct.SPEED_POTION);
+        setProduct(inventory, 15, BloodstoneShopProduct.FIRE_RESISTANCE_POTION);
         open(player, inventory);
     }
 
@@ -334,8 +354,8 @@ public final class BloodstoneMenuService {
         Inventory inventory = createNavigationInventory(
                 BloodstoneServerConstants.EXCHANGE_MENU_TITLE
         );
-        ItemStack alloy = itemService.prepareForMenuDisplay(
-                itemService.createBloodAlloy(ALLOY_PER_EXCHANGE)
+        ItemStack alloy = itemDisplayService.prepareForMenuDisplay(
+                currencyService.createBloodAlloy(ALLOY_PER_EXCHANGE)
         );
         appendPriceLore(
                 alloy,
@@ -343,8 +363,8 @@ public final class BloodstoneMenuService {
                 BloodstoneMessageService.Currency.BLOOD.displayName()
         );
         inventory.setItem(12, alloy);
-        ItemStack blood = itemService.prepareForMenuDisplay(
-                itemService.createBlood(BLOOD_PER_ALLOY)
+        ItemStack blood = itemDisplayService.prepareForMenuDisplay(
+                currencyService.createBlood(BLOOD_PER_ALLOY)
         );
         appendPriceLore(
                 blood,
@@ -357,11 +377,11 @@ public final class BloodstoneMenuService {
 
     private void handleGearClick(Player player, int slot) {
         switch (slot) {
-            case 10 -> purchase(player, BloodstoneItemService.ShopProduct.SHARPNESS_IV_SWORD);
-            case 11 -> purchase(player, BloodstoneItemService.ShopProduct.SHARPNESS_V_SWORD);
-            case 13 -> purchase(player, BloodstoneItemService.ShopProduct.POWER_V_BOW);
-            case 15 -> purchase(player, BloodstoneItemService.ShopProduct.SHARPNESS_IV_AXE);
-            case 16 -> purchase(player, BloodstoneItemService.ShopProduct.SHARPNESS_V_AXE);
+            case 10 -> purchase(player, BloodstoneShopProduct.SHARPNESS_IV_SWORD);
+            case 11 -> purchase(player, BloodstoneShopProduct.SHARPNESS_V_SWORD);
+            case 13 -> purchase(player, BloodstoneShopProduct.POWER_V_BOW);
+            case 15 -> purchase(player, BloodstoneShopProduct.SHARPNESS_IV_AXE);
+            case 16 -> purchase(player, BloodstoneShopProduct.SHARPNESS_V_AXE);
             default -> {
             }
         }
@@ -369,10 +389,10 @@ public final class BloodstoneMenuService {
 
     private void handleArmorClick(Player player, int slot) {
         switch (slot) {
-            case 11 -> purchase(player, BloodstoneItemService.ShopProduct.PROTECTION_IV_HELMET);
-            case 12 -> purchase(player, BloodstoneItemService.ShopProduct.PROTECTION_IV_CHESTPLATE);
-            case 14 -> purchase(player, BloodstoneItemService.ShopProduct.PROTECTION_IV_LEGGINGS);
-            case 15 -> purchase(player, BloodstoneItemService.ShopProduct.PROTECTION_IV_BOOTS);
+            case 11 -> purchase(player, BloodstoneShopProduct.PROTECTION_IV_HELMET);
+            case 12 -> purchase(player, BloodstoneShopProduct.PROTECTION_IV_CHESTPLATE);
+            case 14 -> purchase(player, BloodstoneShopProduct.PROTECTION_IV_LEGGINGS);
+            case 15 -> purchase(player, BloodstoneShopProduct.PROTECTION_IV_BOOTS);
             default -> {
             }
         }
@@ -396,7 +416,7 @@ public final class BloodstoneMenuService {
                 effectAxesByDescendingPrice(rank).get(index);
         purchaseForAlloy(
                 player,
-                itemService.createEffectAxe(definition),
+                effectAxeService.create(definition),
                 definition.bloodAlloyCost(rank)
         );
     }
@@ -415,11 +435,11 @@ public final class BloodstoneMenuService {
 
     private void handlePotionClick(Player player, int slot) {
         switch (slot) {
-            case 11 -> purchase(player, BloodstoneItemService.ShopProduct.GOLDEN_APPLE);
-            case 12 -> purchase(player, BloodstoneItemService.ShopProduct.STRENGTH_POTION);
-            case 13 -> purchase(player, BloodstoneItemService.ShopProduct.RESISTANCE_POTION);
-            case 14 -> purchase(player, BloodstoneItemService.ShopProduct.SPEED_POTION);
-            case 15 -> purchase(player, BloodstoneItemService.ShopProduct.FIRE_RESISTANCE_POTION);
+            case 11 -> purchase(player, BloodstoneShopProduct.GOLDEN_APPLE);
+            case 12 -> purchase(player, BloodstoneShopProduct.STRENGTH_POTION);
+            case 13 -> purchase(player, BloodstoneShopProduct.RESISTANCE_POTION);
+            case 14 -> purchase(player, BloodstoneShopProduct.SPEED_POTION);
+            case 15 -> purchase(player, BloodstoneShopProduct.FIRE_RESISTANCE_POTION);
             default -> {
             }
         }
@@ -433,12 +453,12 @@ public final class BloodstoneMenuService {
         }
     }
 
-    private void purchase(Player player, BloodstoneItemService.ShopProduct product) {
+    private void purchase(Player player, BloodstoneShopProduct product) {
         purchaseForAlloy(player, itemService.createShopItem(product), product.bloodAlloyCost());
     }
 
     private void purchaseForAlloy(Player player, ItemStack reward, int price) {
-        if (itemService.countBloodAlloy(player.getInventory()) < price) {
+        if (currencyService.countBloodAlloy(player.getInventory()) < price) {
             messageService.sendRequiredCurrency(
                     player,
                     price,
@@ -451,7 +471,7 @@ public final class BloodstoneMenuService {
             player.closeInventory();
             return;
         }
-        if (!itemService.removeBloodAlloy(player.getInventory(), price)) {
+        if (!currencyService.removeBloodAlloy(player.getInventory(), price)) {
             messageService.sendRequiredCurrency(
                     player,
                     price,
@@ -460,7 +480,7 @@ public final class BloodstoneMenuService {
             return;
         }
         if (!player.getInventory().addItem(reward).isEmpty()) {
-            itemService.addBloodAlloy(player.getInventory(), price);
+            currencyService.addBloodAlloy(player.getInventory(), price);
             reject(player, BloodstoneServerConstants.PURCHASE_REFUNDED);
             return;
         }
@@ -500,8 +520,12 @@ public final class BloodstoneMenuService {
         return inventory;
     }
 
-    private void setProduct(Inventory inventory, int slot, BloodstoneItemService.ShopProduct product) {
-        ItemStack display = itemService.createShopMenuDisplay(product);
+    private void setProduct(
+            Inventory inventory,
+            int slot,
+            BloodstoneShopProduct product
+    ) {
+        ItemStack display = itemDisplayService.createShopMenuDisplay(product);
         appendPriceLore(
                 display,
                 product.bloodAlloyCost(),

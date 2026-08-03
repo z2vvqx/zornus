@@ -23,13 +23,13 @@ final class AxeFuserMenuView {
     private static final int RESULT_PREVIEW_SLOT = 13;
     private static final int[] EFFECT_AXE_SLOTS = {10, 11, 12, 14, 15, 16};
 
-    private final BloodstoneItemService itemService;
+    private final BloodstoneItemDisplayService itemDisplayService;
     private final Component title = BloodstoneText.deserialize(
             BloodstoneServerConstants.AXE_FUSER_MENU_TITLE
     );
 
-    AxeFuserMenuView(BloodstoneItemService itemService) {
-        this.itemService = itemService;
+    AxeFuserMenuView(BloodstoneItemDisplayService itemDisplayService) {
+        this.itemDisplayService = itemDisplayService;
     }
 
     Inventory createInventory() {
@@ -49,7 +49,7 @@ final class AxeFuserMenuView {
             EffectAxeDefinition definition =
                     orderedEffects.get(definitionIndex);
             boolean selected = selectedEffects.contains(definition);
-            ItemStack display = itemService.createEffectAxeFuserDisplay(
+            ItemStack display = itemDisplayService.createEffectAxeFuserDisplay(
                     definition,
                     selected
             );

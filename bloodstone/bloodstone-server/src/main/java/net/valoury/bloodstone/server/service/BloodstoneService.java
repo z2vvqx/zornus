@@ -2,6 +2,7 @@ package net.valoury.bloodstone.server.service;
 
 import net.valoury.bloodstone.server.BloodstoneServerConstants;
 import net.valoury.bloodstone.server.BloodstoneText;
+import net.valoury.bloodstone.server.model.BloodstoneItemClassification;
 import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Material;
@@ -26,7 +27,7 @@ import java.util.concurrent.ThreadLocalRandom;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 
-import net.valoury.bloodstone.server.storage.BloodstoneStorage;
+import net.valoury.bloodstone.server.storage.BloodstoneOperationStorage;
 
 public final class BloodstoneService {
 
@@ -45,8 +46,8 @@ public final class BloodstoneService {
     private static final Sound BASELINE_SOUND = Sound.ITEM_PICKUP;
 
     private final BloodstoneItemService itemService;
-    private final BloodstoneStorage storage;
-    private final BloodstonePlayerService playerService;
+    private final BloodstoneOperationStorage storage;
+    private final BloodstoneReservedItemDeliveryService deliveryService;
     private final BloodstoneMainThreadExecutor mainThreadExecutor;
     private final Logger logger;
     private final Map<UUID, List<PendingSoulboundItem>> pendingSoulboundItems = new HashMap<>();
@@ -54,14 +55,14 @@ public final class BloodstoneService {
 
     public BloodstoneService(
             BloodstoneItemService itemService,
-            BloodstoneStorage storage,
-            BloodstonePlayerService playerService,
+            BloodstoneOperationStorage storage,
+            BloodstoneReservedItemDeliveryService deliveryService,
             BloodstoneMainThreadExecutor mainThreadExecutor,
             Logger logger
     ) {
         this.itemService = itemService;
         this.storage = storage;
-        this.playerService = playerService;
+        this.deliveryService = deliveryService;
         this.mainThreadExecutor = mainThreadExecutor;
         this.logger = logger;
     }
@@ -76,9 +77,9 @@ public final class BloodstoneService {
         Iterator<ItemStack> dropIterator = drops.iterator();
         while (dropIterator.hasNext()) {
             ItemStack item = dropIterator.next();
-            BloodstoneItemService.Classification classification =
+            BloodstoneItemClassification classification =
                     itemService.classification(item).orElse(null);
-            if (classification == BloodstoneItemService.Classification.SOULBOUND) {
+            if (classification == BloodstoneItemClassification.SOULBOUND) {
                 if (reserveSoulboundItem(player.getUniqueId(), item)) {
                     dropIterator.remove();
                 }
@@ -229,7 +230,7 @@ public final class BloodstoneService {
             return;
         }
         for (PendingSoulboundItem pendingItem : pending) {
-            playerService.deliverReservedItem(
+            deliveryService.deliver(
                     player,
                     pendingItem.operationId(),
                     pendingItem.item(),

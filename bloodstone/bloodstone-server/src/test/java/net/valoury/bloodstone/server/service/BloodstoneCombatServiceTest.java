@@ -14,12 +14,12 @@ final class BloodstoneCombatServiceTest {
 
     @Test
     void effectAxeCooldownExpiresAfterExactlyTwentyTicks() {
-        assertTrue(BloodstoneCombatService.isEffectAxeActivationReady(null, 1_000L));
-        assertFalse(BloodstoneCombatService.isEffectAxeActivationReady(
+        assertTrue(BloodstoneEffectAxeCombatService.isActivationReady(null, 1_000L));
+        assertFalse(BloodstoneEffectAxeCombatService.isActivationReady(
                 1_000L,
                 1_000_000_999L
         ));
-        assertTrue(BloodstoneCombatService.isEffectAxeActivationReady(
+        assertTrue(BloodstoneEffectAxeCombatService.isActivationReady(
                 1_000L,
                 1_000_001_000L
         ));
@@ -27,13 +27,13 @@ final class BloodstoneCombatServiceTest {
 
     @Test
     void thornsDamageProvidesAnEffectAxeActivationFallback() {
-        assertTrue(BloodstoneCombatService.shouldActivateEffectAxeFromDamageEvent(
+        assertTrue(BloodstoneEffectAxeCombatService.shouldActivateFromDamageEvent(
                 DamageCause.THORNS
         ));
-        assertFalse(BloodstoneCombatService.shouldActivateEffectAxeFromDamageEvent(
+        assertFalse(BloodstoneEffectAxeCombatService.shouldActivateFromDamageEvent(
                 DamageCause.ENTITY_ATTACK
         ));
-        assertFalse(BloodstoneCombatService.shouldActivateEffectAxeFromDamageEvent(null));
+        assertFalse(BloodstoneEffectAxeCombatService.shouldActivateFromDamageEvent(null));
     }
 
     @Test
@@ -75,28 +75,28 @@ final class BloodstoneCombatServiceTest {
 
         assertEquals(
                 15,
-                BloodstoneCombatService.remainingCombatSeconds(
+                BloodstoneCombatTagService.remainingCombatSeconds(
                         expiryNanoseconds,
                         0L
                 )
         );
         assertEquals(
                 12,
-                BloodstoneCombatService.remainingCombatSeconds(
+                BloodstoneCombatTagService.remainingCombatSeconds(
                         expiryNanoseconds,
                         3_000_000_000L
                 )
         );
         assertEquals(
                 1,
-                BloodstoneCombatService.remainingCombatSeconds(
+                BloodstoneCombatTagService.remainingCombatSeconds(
                         expiryNanoseconds,
                         14_999_999_999L
                 )
         );
         assertEquals(
                 0,
-                BloodstoneCombatService.remainingCombatSeconds(
+                BloodstoneCombatTagService.remainingCombatSeconds(
                         expiryNanoseconds,
                         expiryNanoseconds
                 )
@@ -105,9 +105,9 @@ final class BloodstoneCombatServiceTest {
 
     @Test
     void combatProgressUsesWholeDisplayedSecondsWithoutReachingTheNextLevel() {
-        assertEquals(0.99F, BloodstoneCombatService.combatProgress(15));
-        assertEquals(0.066F, BloodstoneCombatService.combatProgress(1), 0.0001F);
-        assertEquals(0.0F, BloodstoneCombatService.combatProgress(0));
+        assertEquals(0.99F, BloodstoneCombatTagService.combatProgress(15));
+        assertEquals(0.066F, BloodstoneCombatTagService.combatProgress(1), 0.0001F);
+        assertEquals(0.0F, BloodstoneCombatTagService.combatProgress(0));
     }
 
     @Test

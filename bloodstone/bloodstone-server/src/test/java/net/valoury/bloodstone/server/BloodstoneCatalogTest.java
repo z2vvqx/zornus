@@ -3,6 +3,9 @@ package net.valoury.bloodstone.server;
 import net.valoury.bloodstone.server.EffectAxeDefinitions.EffectTarget;
 import net.valoury.bloodstone.server.RandomBoxRewards.Rarity;
 import net.valoury.bloodstone.server.model.BloodstoneRank;
+import net.valoury.bloodstone.server.model.BloodstoneShopProduct;
+import net.valoury.bloodstone.server.service.BloodstoneEffectAxeService;
+import net.valoury.bloodstone.server.service.BloodstoneItemIdentityService;
 import net.valoury.bloodstone.server.service.BloodstoneItemService;
 import org.bukkit.Color;
 import org.bukkit.Material;
@@ -128,10 +131,13 @@ final class BloodstoneCatalogTest {
         org.bukkit.inventory.ItemStack axe =
                 new org.bukkit.inventory.ItemStack(org.bukkit.Material.DIAMOND_AXE);
         axe.setDurability((short) (axe.getType().getMaxDurability() - 3));
-        BloodstoneItemService itemService = new BloodstoneItemService();
-        assertFalse(itemService.consumeControlledUse(axe));
-        assertEquals(1, itemService.remainingDurability(axe));
-        assertTrue(itemService.consumeControlledUse(axe));
+        BloodstoneEffectAxeService effectAxeService =
+                new BloodstoneEffectAxeService(
+                        new BloodstoneItemIdentityService()
+                );
+        assertFalse(effectAxeService.consumeUse(axe));
+        assertEquals(1, effectAxeService.remainingDurability(axe));
+        assertTrue(effectAxeService.consumeUse(axe));
         assertEquals(0, axe.getAmount());
     }
 
@@ -192,27 +198,27 @@ final class BloodstoneCatalogTest {
         assertEquals(7, BloodstoneRank.ARCHON.bloodPerQualifyingHit());
         assertEquals(3_600, new BloodstoneItemService().createResistanceEffect().getDuration());
         assertEquals(Map.ofEntries(
-                        Map.entry(BloodstoneItemService.ShopProduct.SHARPNESS_IV_SWORD, 2),
-                        Map.entry(BloodstoneItemService.ShopProduct.SHARPNESS_V_SWORD, 4),
-                        Map.entry(BloodstoneItemService.ShopProduct.POWER_V_BOW, 4),
-                        Map.entry(BloodstoneItemService.ShopProduct.SHARPNESS_IV_AXE, 2),
-                        Map.entry(BloodstoneItemService.ShopProduct.SHARPNESS_V_AXE, 4),
-                        Map.entry(BloodstoneItemService.ShopProduct.PROTECTION_IV_HELMET, 1),
-                        Map.entry(BloodstoneItemService.ShopProduct.PROTECTION_IV_CHESTPLATE, 1),
-                        Map.entry(BloodstoneItemService.ShopProduct.PROTECTION_IV_LEGGINGS, 1),
-                        Map.entry(BloodstoneItemService.ShopProduct.PROTECTION_IV_BOOTS, 1),
-                        Map.entry(BloodstoneItemService.ShopProduct.GOLDEN_APPLE, 5),
-                        Map.entry(BloodstoneItemService.ShopProduct.STRENGTH_POTION, 3),
-                        Map.entry(BloodstoneItemService.ShopProduct.RESISTANCE_POTION, 2),
-                        Map.entry(BloodstoneItemService.ShopProduct.SPEED_POTION, 2),
-                        Map.entry(BloodstoneItemService.ShopProduct.FIRE_RESISTANCE_POTION, 1)
+                        Map.entry(BloodstoneShopProduct.SHARPNESS_IV_SWORD, 2),
+                        Map.entry(BloodstoneShopProduct.SHARPNESS_V_SWORD, 4),
+                        Map.entry(BloodstoneShopProduct.POWER_V_BOW, 4),
+                        Map.entry(BloodstoneShopProduct.SHARPNESS_IV_AXE, 2),
+                        Map.entry(BloodstoneShopProduct.SHARPNESS_V_AXE, 4),
+                        Map.entry(BloodstoneShopProduct.PROTECTION_IV_HELMET, 1),
+                        Map.entry(BloodstoneShopProduct.PROTECTION_IV_CHESTPLATE, 1),
+                        Map.entry(BloodstoneShopProduct.PROTECTION_IV_LEGGINGS, 1),
+                        Map.entry(BloodstoneShopProduct.PROTECTION_IV_BOOTS, 1),
+                        Map.entry(BloodstoneShopProduct.GOLDEN_APPLE, 5),
+                        Map.entry(BloodstoneShopProduct.STRENGTH_POTION, 3),
+                        Map.entry(BloodstoneShopProduct.RESISTANCE_POTION, 2),
+                        Map.entry(BloodstoneShopProduct.SPEED_POTION, 2),
+                        Map.entry(BloodstoneShopProduct.FIRE_RESISTANCE_POTION, 1)
                 ),
-                java.util.Arrays.stream(BloodstoneItemService.ShopProduct.values())
+                java.util.Arrays.stream(BloodstoneShopProduct.values())
                         .collect(Collectors.toMap(
                         product -> product,
-                        BloodstoneItemService.ShopProduct::bloodAlloyCost
+                        BloodstoneShopProduct::bloodAlloyCost
                         )));
-        assertFalse(java.util.Arrays.stream(BloodstoneItemService.ShopProduct.values())
+        assertFalse(java.util.Arrays.stream(BloodstoneShopProduct.values())
                 .anyMatch(product -> product.name().contains("BLESSED")
                         || product.name().contains("PRISMARINE")));
     }

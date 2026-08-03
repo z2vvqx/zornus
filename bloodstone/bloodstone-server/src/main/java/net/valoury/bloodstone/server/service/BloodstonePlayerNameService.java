@@ -2,6 +2,7 @@ package net.valoury.bloodstone.server.service;
 
 import net.kyori.adventure.text.Component;
 import net.luckperms.api.LuckPerms;
+import net.valoury.bloodstone.server.BloodstonePlayerIdentity;
 import net.valoury.bloodstone.server.BloodstoneText;
 import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
@@ -52,23 +53,25 @@ public final class BloodstonePlayerNameService {
         Objects.requireNonNull(playerId, "Player ID cannot be null");
         Objects.requireNonNull(username, "Username cannot be null");
         Component displayName = Component.text(username);
-        if (luckPerms == null) {
+        if (luckPerms == null
+                || !BloodstonePlayerIdentity.isValidUsername(username)) {
             return CompletableFuture.completedFuture(displayName);
         }
-        return luckPerms.getUserManager()
-                .loadUser(playerId, username)
-                .thenApply(user -> formatPlayerName(
-                        user.getCachedData().getMetaData().getSuffix(),
-                        displayName
-                ))
-                .exceptionally(exception -> {
-                    logger.warning(
-                            "Failed to resolve LuckPerms suffix for "
-                                    + playerId
-                                    + "; using stored username without a suffix"
-                    );
-                    return displayName;
-                });
+        try {
+            return luckPerms.getUserManager()
+                    .loadUser(playerId, username)
+                    .thenApply(user -> formatPlayerName(
+                            user.getCachedData().getMetaData().getSuffix(),
+                            displayName
+                    ))
+                    .exceptionally(exception -> {
+                        logStoredNameFallback(playerId);
+                        return displayName;
+                    });
+        } catch (RuntimeException exception) {
+            logStoredNameFallback(playerId);
+            return CompletableFuture.completedFuture(displayName);
+        }
     }
 
     static Component formatPlayerName(
@@ -81,5 +84,13 @@ public final class BloodstonePlayerNameService {
                 : BloodstoneText.ampersandComponent(
                         suffix + BloodstoneText.ampersand(displayName)
                 );
+    }
+
+    private void logStoredNameFallback(UUID playerId) {
+        logger.warning(
+                "Failed to resolve LuckPerms suffix for "
+                        + playerId
+                        + "; using stored username without a suffix"
+        );
     }
 }

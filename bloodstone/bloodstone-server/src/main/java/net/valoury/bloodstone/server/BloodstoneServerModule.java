@@ -7,10 +7,17 @@ import net.valoury.bloodstone.server.registrar.BloodstonePlaceholderRegistrar;
 import net.valoury.bloodstone.server.registrar.BloodstoneEffectAxePacketRegistrar;
 import net.valoury.bloodstone.server.registrar.BloodstoneWorldGuardRegistrar;
 import net.valoury.bloodstone.server.service.BloodstoneCombatService;
+import net.valoury.bloodstone.server.service.BloodstoneCombatResolutionService;
+import net.valoury.bloodstone.server.service.BloodstoneCombatTagService;
+import net.valoury.bloodstone.server.service.BloodstoneCurrencyService;
 import net.valoury.bloodstone.server.service.BloodstoneAxeFuserService;
 import net.valoury.bloodstone.server.service.BloodstoneDuelService;
+import net.valoury.bloodstone.server.service.BloodstoneEffectAxeService;
+import net.valoury.bloodstone.server.service.BloodstoneEffectAxeCombatService;
 import net.valoury.bloodstone.server.service.BloodstoneEnchanterService;
 import net.valoury.bloodstone.server.service.BloodstoneItemService;
+import net.valoury.bloodstone.server.service.BloodstoneItemIdentityService;
+import net.valoury.bloodstone.server.service.BloodstoneItemDisplayService;
 import net.valoury.bloodstone.server.service.BloodstoneGuildProfileCache;
 import net.valoury.bloodstone.server.service.BloodstoneLeaderboardService;
 import net.valoury.bloodstone.server.service.BloodstoneMachineService;
@@ -18,11 +25,18 @@ import net.valoury.bloodstone.server.service.BloodstoneMainThreadExecutor;
 import net.valoury.bloodstone.server.service.BloodstoneMessageService;
 import net.valoury.bloodstone.server.service.BloodstoneMenuService;
 import net.valoury.bloodstone.server.service.BloodstonePlayerNameService;
+import net.valoury.bloodstone.server.service.BloodstoneOperationRecoveryService;
 import net.valoury.bloodstone.server.service.BloodstonePlayerService;
+import net.valoury.bloodstone.server.service.BloodstonePlayerSessionRegistry;
 import net.valoury.bloodstone.server.service.BloodstonePresentationService;
+import net.valoury.bloodstone.server.service.BloodstoneReservedItemDeliveryService;
+import net.valoury.bloodstone.server.service.BloodstoneRandomBoxService;
+import net.valoury.bloodstone.server.service.BloodstoneRepairService;
 import net.valoury.bloodstone.server.service.BloodstoneService;
 import net.valoury.bloodstone.server.service.BloodstoneSpawnProtectionService;
 import net.valoury.bloodstone.server.service.BloodstoneStorageService;
+import net.valoury.bloodstone.server.service.BloodstoneUtilityStationService;
+import net.valoury.bloodstone.server.service.BloodstoneWorldItemService;
 import net.valoury.bloodstone.server.service.PlayerOperationCapacity;
 import net.valoury.bloodstone.server.storage.BloodstonePostgresStorage;
 import net.valoury.bloodstone.server.storage.BloodstoneStorage;
@@ -46,6 +60,9 @@ public final class BloodstoneServerModule {
     private final Plugin plugin;
     private final BloodstoneStorage storage;
     private final BloodstoneItemService itemService;
+    private final BloodstoneItemDisplayService itemDisplayService;
+    private final BloodstoneCurrencyService currencyService;
+    private final BloodstoneEffectAxeService effectAxeService;
     private final BloodstoneSpawnProtectionService spawnProtectionService;
     private final BloodstoneCombatService combatService;
     private final BloodstoneDuelService duelService;
@@ -85,33 +102,84 @@ public final class BloodstoneServerModule {
             this.playerToolOperationCapacity = new PlayerOperationCapacity(
                     MAXIMUM_CONCURRENT_TOOL_OPERATIONS_PER_PLAYER
             );
-            this.itemService = new BloodstoneItemService();
+            BloodstoneItemIdentityService itemIdentity =
+                    new BloodstoneItemIdentityService();
+            this.currencyService =
+                    new BloodstoneCurrencyService(itemIdentity);
+            this.effectAxeService =
+                    new BloodstoneEffectAxeService(itemIdentity);
+            this.itemService = new BloodstoneItemService(
+                    itemIdentity,
+                    effectAxeService
+            );
+            this.itemDisplayService =
+                    new BloodstoneItemDisplayService(
+                            itemIdentity,
+                            itemService,
+                            effectAxeService
+                    );
             BloodstonePresentationService presentationService =
                     new BloodstonePresentationService();
             this.spawnProtectionService = new BloodstoneSpawnProtectionService(plugin);
+            BloodstonePlayerSessionRegistry playerSessions =
+                    new BloodstonePlayerSessionRegistry();
+            BloodstoneReservedItemDeliveryService deliveryService =
+                    new BloodstoneReservedItemDeliveryService(
+                            itemIdentity,
+                            playerSessions,
+                            mainThreadExecutor,
+                            presentationService,
+                            messageService
+                    );
+            BloodstoneOperationRecoveryService operationRecoveryService =
+                    new BloodstoneOperationRecoveryService(
+                            storage,
+                            currencyService,
+                            playerSessions,
+                            deliveryService,
+                            mainThreadExecutor
+                    );
             this.playerService = new BloodstonePlayerService(
-                storage,
-                itemService,
-                mainThreadExecutor,
-                presentationService,
-                messageService,
-                plugin.getLogger()
+                    storage,
+                    playerSessions,
+                    operationRecoveryService,
+                    mainThreadExecutor,
+                    plugin.getLogger()
             );
             BloodstoneMenuService menuService = new BloodstoneMenuService(
                 itemService,
+                this.itemDisplayService,
+                currencyService,
+                effectAxeService,
                 presentationService,
                 messageService
             );
+            BloodstoneCombatTagService combatTagService =
+                    new BloodstoneCombatTagService();
+            BloodstoneEffectAxeCombatService effectAxeCombatService =
+                    new BloodstoneEffectAxeCombatService(
+                            effectAxeService,
+                            spawnProtectionService,
+                            presentationService,
+                            playerService
+                    );
+            BloodstoneCombatResolutionService combatResolutionService =
+                    new BloodstoneCombatResolutionService(
+                            plugin,
+                            storage,
+                            guildsApi.memberships(),
+                            presentationService,
+                            mainThreadExecutor,
+                            playerService,
+                            plugin.getLogger()
+                    );
             this.combatService = new BloodstoneCombatService(
-                plugin,
-                storage,
-                guildsApi.memberships(),
-                itemService,
-                this.spawnProtectionService,
+                currencyService,
+                combatTagService,
+                effectAxeCombatService,
+                combatResolutionService,
                 presentationService,
-                mainThreadExecutor,
-                playerService,
-                plugin.getLogger()
+                playerService
             );
             this.duelService = new BloodstoneDuelService(
                     plugin,
@@ -121,7 +189,7 @@ public final class BloodstoneServerModule {
             );
             this.storageService = new BloodstoneStorageService(
                 storage,
-                itemService,
+                currencyService,
                 combatService,
                 playerService,
                 mainThreadExecutor,
@@ -133,8 +201,10 @@ public final class BloodstoneServerModule {
                 plugin,
                 storage,
                 itemService,
+                itemIdentity,
                 combatService,
-                playerService,
+                operationRecoveryService,
+                deliveryService,
                 playerToolOperationCapacity,
                 mainThreadExecutor,
                 presentationService,
@@ -144,34 +214,79 @@ public final class BloodstoneServerModule {
             this.axeFuserService = new BloodstoneAxeFuserService(
                     plugin,
                     storage,
-                    itemService,
+                    this.itemDisplayService,
+                    itemIdentity,
+                    currencyService,
+                    effectAxeService,
                     combatService,
-                    playerService,
+                    operationRecoveryService,
+                    deliveryService,
                     mainThreadExecutor,
                     presentationService,
                     messageService,
                     plugin.getLogger()
             );
+            BloodstoneRandomBoxService randomBoxService =
+                    new BloodstoneRandomBoxService(
+                            plugin,
+                            storage,
+                            currencyService,
+                            operationRecoveryService,
+                            deliveryService,
+                            presentationService,
+                            mainThreadExecutor,
+                            messageService,
+                            plugin.getLogger()
+                    );
+            BloodstoneRepairService repairService =
+                    new BloodstoneRepairService(
+                            plugin,
+                            storage,
+                            itemService,
+                            itemIdentity,
+                            currencyService,
+                            operationRecoveryService,
+                            deliveryService,
+                            playerToolOperationCapacity,
+                            presentationService,
+                            mainThreadExecutor,
+                            messageService,
+                            plugin.getLogger()
+                    );
+            BloodstoneWorldItemService worldItemService =
+                    new BloodstoneWorldItemService(
+                            plugin,
+                            itemService,
+                            currencyService,
+                            combatService,
+                            presentationService,
+                            messageService
+                    );
+            BloodstoneUtilityStationService utilityStationService =
+                    new BloodstoneUtilityStationService(
+                            combatService,
+                            currencyService,
+                            menuService,
+                            presentationService,
+                            messageService
+                    );
             this.machineService = new BloodstoneMachineService(
-                plugin,
-                storage,
-                itemService,
                 combatService,
                 menuService,
                 storageService,
                 enchanterService,
                 axeFuserService,
                 playerService,
-                playerToolOperationCapacity,
-                presentationService,
-                mainThreadExecutor,
-                messageService,
-                plugin.getLogger()
+                randomBoxService,
+                repairService,
+                worldItemService,
+                utilityStationService,
+                messageService
             );
             this.bloodstoneService = new BloodstoneService(
                 itemService,
                 storage,
-                playerService,
+                deliveryService,
                 mainThreadExecutor,
                 plugin.getLogger()
             );
@@ -211,17 +326,18 @@ public final class BloodstoneServerModule {
                     combatService,
                     duelService,
                     itemService,
-                playerService,
-                storageService,
-                menuService,
-                enchanterService,
-                axeFuserService,
-                machineService,
-                mainThreadExecutor,
-                guildProfileCache,
-                effectAxePacketRegistrar,
-                messageService,
-                playerNameService
+                    effectAxeService,
+                    playerService,
+                    storageService,
+                    menuService,
+                    enchanterService,
+                    axeFuserService,
+                    machineService,
+                    mainThreadExecutor,
+                    guildProfileCache,
+                    effectAxePacketRegistrar,
+                    messageService,
+                    playerNameService
             );
             this.operationRegistrar = new BloodstoneOperationRegistrar(
                 plugin,
@@ -254,7 +370,10 @@ public final class BloodstoneServerModule {
     }
 
     public CompletableFuture<Void> register(PluginManager pluginManager) {
+        currencyService.validateRuntime();
+        effectAxeService.validateRuntime();
         itemService.validateRuntime();
+        itemDisplayService.validateRuntime();
         spawnProtectionService.validateRuntime();
         commandRegistrar.registerCommands();
         listenerRegistrar.registerListeners(pluginManager);

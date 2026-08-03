@@ -7,6 +7,7 @@ import net.valoury.bloodstone.server.service.BloodstoneMainThreadExecutor;
 import net.valoury.bloodstone.server.service.BloodstoneStorageService;
 import org.bukkit.plugin.Plugin;
 import org.bukkit.scheduler.BukkitTask;
+import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
 import java.util.List;
@@ -31,6 +32,7 @@ public final class BloodstoneOperationRegistrar {
     private final AtomicBoolean leaderboardRefreshRunning = new AtomicBoolean();
     private final AtomicBoolean shuttingDown = new AtomicBoolean();
     private final List<BukkitTask> tasks = new ArrayList<>();
+    private @Nullable BukkitTask leaderboardRetryTask;
 
     public BloodstoneOperationRegistrar(
             Plugin plugin,
@@ -84,6 +86,7 @@ public final class BloodstoneOperationRegistrar {
             task.cancel();
         }
         tasks.clear();
+        cancelLeaderboardRetry();
     }
 
     private void refreshGuildProfiles() {
@@ -110,18 +113,40 @@ public final class BloodstoneOperationRegistrar {
             }
             mainThreadExecutor.execute(() -> {
                     leaderboardRefreshRunning.set(false);
-                    if (exception == null || shuttingDown.get()) {
+                    if (exception == null) {
+                        cancelLeaderboardRetry();
+                        return;
+                    }
+                    if (shuttingDown.get()) {
                         return;
                     }
                     plugin.getLogger().log(Level.WARNING,
                             "Bloodstone leaderboard refresh failed; a later retry was scheduled", exception);
-                    BukkitTask retry = plugin.getServer().getScheduler().runTaskLater(
-                            plugin,
-                            this::refreshLeaderboards,
-                            LEADERBOARD_RETRY_DELAY
-                    );
-                    tasks.add(retry);
+                    scheduleLeaderboardRetry();
                 });
         });
+    }
+
+    private void scheduleLeaderboardRetry() {
+        if (leaderboardRetryTask != null
+                && !leaderboardRetryTask.isCancelled()) {
+            return;
+        }
+        leaderboardRetryTask = plugin.getServer().getScheduler().runTaskLater(
+                plugin,
+                () -> {
+                    leaderboardRetryTask = null;
+                    refreshLeaderboards();
+                },
+                LEADERBOARD_RETRY_DELAY
+        );
+    }
+
+    private void cancelLeaderboardRetry() {
+        if (leaderboardRetryTask == null) {
+            return;
+        }
+        leaderboardRetryTask.cancel();
+        leaderboardRetryTask = null;
     }
 }

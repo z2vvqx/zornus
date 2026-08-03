@@ -1,6 +1,6 @@
 package net.valoury.bloodstone.server.service;
 
-import net.valoury.bloodstone.server.storage.BloodstoneStorage;
+import net.valoury.bloodstone.server.storage.BloodstoneOperationStorage;
 import org.bukkit.Effect;
 import org.bukkit.Location;
 import org.bukkit.Sound;
@@ -21,8 +21,8 @@ final class AxeFuserAnimation {
     private static final long DURATION_TICKS = 50L;
 
     private final Plugin plugin;
-    private final BloodstoneStorage storage;
-    private final BloodstonePlayerService playerService;
+    private final BloodstoneOperationStorage storage;
+    private final BloodstoneReservedItemDeliveryService deliveryService;
     private final BloodstoneMainThreadExecutor mainThreadExecutor;
     private final BloodstonePresentationService presentationService;
     private final Logger logger;
@@ -30,15 +30,15 @@ final class AxeFuserAnimation {
 
     AxeFuserAnimation(
             Plugin plugin,
-            BloodstoneStorage storage,
-            BloodstonePlayerService playerService,
+            BloodstoneOperationStorage storage,
+            BloodstoneReservedItemDeliveryService deliveryService,
             BloodstoneMainThreadExecutor mainThreadExecutor,
             BloodstonePresentationService presentationService,
             Logger logger
     ) {
         this.plugin = plugin;
         this.storage = storage;
-        this.playerService = playerService;
+        this.deliveryService = deliveryService;
         this.mainThreadExecutor = mainThreadExecutor;
         this.presentationService = presentationService;
         this.logger = logger;
@@ -162,7 +162,7 @@ final class AxeFuserAnimation {
             finishOperation.run();
             return;
         }
-        playerService.deliverReservedItem(
+        deliveryService.deliver(
                         player,
                         operationId,
                         fusedAxe,

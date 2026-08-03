@@ -7,7 +7,7 @@ import net.valoury.bloodstone.server.model.BloodstoneRank;
 import net.valoury.bloodstone.server.model.PlayerProfile;
 import net.valoury.bloodstone.server.model.StorageSession;
 import net.valoury.bloodstone.server.model.StorageType;
-import net.valoury.bloodstone.server.storage.BloodstoneStorage;
+import net.valoury.bloodstone.server.storage.BloodstoneInventoryStorage;
 import net.valoury.bloodstone.server.storage.ExtraStorageUnlockOutcome;
 import net.valoury.bloodstone.server.storage.StorageOpenOutcome;
 import net.valoury.bloodstone.server.storage.StorageWriteOutcome;
@@ -49,8 +49,8 @@ public final class BloodstoneStorageService {
     private static final int EXTRA_STORAGE_PRICE = 8;
     private static final Component STORAGE_MENU_TITLE =
             BloodstoneText.deserialize(BloodstoneServerConstants.STORAGE_MENU_TITLE);
-    private final BloodstoneStorage storage;
-    private final BloodstoneItemService itemService;
+    private final BloodstoneInventoryStorage storage;
+    private final BloodstoneCurrencyService currencyService;
     private final BloodstoneCombatService combatService;
     private final BloodstonePlayerService playerService;
     private final BloodstoneMainThreadExecutor mainThreadExecutor;
@@ -67,8 +67,8 @@ public final class BloodstoneStorageService {
     private volatile boolean retryingFailedSaves = true;
 
     public BloodstoneStorageService(
-            BloodstoneStorage storage,
-            BloodstoneItemService itemService,
+            BloodstoneInventoryStorage storage,
+            BloodstoneCurrencyService currencyService,
             BloodstoneCombatService combatService,
             BloodstonePlayerService playerService,
             BloodstoneMainThreadExecutor mainThreadExecutor,
@@ -77,7 +77,7 @@ public final class BloodstoneStorageService {
             Logger logger
     ) {
         this.storage = storage;
-        this.itemService = itemService;
+        this.currencyService = currencyService;
         this.combatService = combatService;
         this.playerService = playerService;
         this.mainThreadExecutor = mainThreadExecutor;
@@ -578,7 +578,7 @@ public final class BloodstoneStorageService {
             reject(player, BloodstoneServerConstants.EXTRA_STORAGE_PURCHASE_PENDING);
             return;
         }
-        if (itemService.countBloodAlloy(player.getInventory())
+        if (currencyService.countBloodAlloy(player.getInventory())
                 < EXTRA_STORAGE_PRICE) {
             pendingExtraStoragePurchases.remove(playerId);
             messageService.sendRequiredCurrency(
@@ -588,7 +588,7 @@ public final class BloodstoneStorageService {
             );
             return;
         }
-        if (!itemService.removeBloodAlloy(
+        if (!currencyService.removeBloodAlloy(
                 player.getInventory(),
                 EXTRA_STORAGE_PRICE
         )) {
@@ -618,14 +618,14 @@ public final class BloodstoneStorageService {
                     if (outcome instanceof ExtraStorageUnlockOutcome.AlreadyUnlocked) {
                         refundExtraStorageCost(player);
                         locallyUnlockedExtraStorage.add(playerId);
-                        playerService.refreshProfiles(Set.of(playerId));
+                        playerService.refreshOnlineProfiles(Set.of(playerId));
                         if (player.isOnline()) {
                             openStorageMenu(player);
                         }
                         return;
                     }
                     locallyUnlockedExtraStorage.add(playerId);
-                    playerService.refreshProfiles(Set.of(playerId));
+                    playerService.refreshOnlineProfiles(Set.of(playerId));
                     if (!player.isOnline()) {
                         return;
                     }
@@ -689,14 +689,14 @@ public final class BloodstoneStorageService {
 
     private void refundExtraStorageCost(Player player) {
         if (player.isOnline()) {
-            int leftovers = itemService.addBloodAlloy(
+            int leftovers = currencyService.addBloodAlloy(
                     player.getInventory(),
                     EXTRA_STORAGE_PRICE
             );
             if (leftovers > 0) {
                 player.getWorld().dropItemNaturally(
                         player.getLocation(),
-                        itemService.createBloodAlloy(leftovers)
+                        currencyService.createBloodAlloy(leftovers)
                 );
             }
         }

@@ -16,8 +16,7 @@ import static org.junit.jupiter.api.Assertions.assertThrows;
 final class UnsafeItemTagsTest {
     private static final String ITEM_ID_KEY = "valoury_bloodstone_item";
 
-    private final BloodstoneItemService.UnsafeItemTags itemTags =
-            new BloodstoneItemService.UnsafeItemTags();
+    private final UnsafeItemTags itemTags = new UnsafeItemTags();
 
     @Test
     void readsRawGzipAndCarbonZlibNbt() throws IOException {
@@ -60,6 +59,10 @@ final class UnsafeItemTagsTest {
                 "0c8e7cd3-2a54-43bb-9c65-33b3ce1b82dc"
         );
 
+        assertEquals(Optional.empty(), itemTags.readNbtString(
+                serializedItem,
+                "valoury_bloodstone_operation"
+        ));
         assertEquals(0x78, withOperation[0] & 0xff);
         assertEquals(Optional.of("blood"),
                 itemTags.readNbtString(withOperation, ITEM_ID_KEY));

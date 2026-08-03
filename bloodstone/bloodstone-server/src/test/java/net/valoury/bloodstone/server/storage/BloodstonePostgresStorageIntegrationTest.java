@@ -99,9 +99,9 @@ final class BloodstonePostgresStorageIntegrationTest {
             }
         }
 
-        storage.loadPlayer(KILLER_ID, "Killer").join();
-        storage.loadPlayer(VICTIM_ID, "Victim").join();
-        storage.loadPlayer(ASSIST_ID, "Assistant").join();
+        storage.loadOrCreatePlayer(KILLER_ID, "Killer").join();
+        storage.loadOrCreatePlayer(VICTIM_ID, "Victim").join();
+        storage.loadOrCreatePlayer(ASSIST_ID, "Assistant").join();
     }
 
     @Test
@@ -129,9 +129,12 @@ final class BloodstonePostgresStorageIntegrationTest {
         assertEquals(1, first.killerCurrentRampage());
         assertEquals(1, first.killerGuildCurrentRampage());
 
-        PlayerProfile killer = storage.loadPlayer(KILLER_ID, "Killer").join().profile();
-        PlayerProfile victim = storage.loadPlayer(VICTIM_ID, "Victim").join().profile();
-        PlayerProfile assistant = storage.loadPlayer(ASSIST_ID, "Assistant").join().profile();
+        PlayerProfile killer = storage.fetchPlayer(KILLER_ID).join()
+                .orElseThrow().profile();
+        PlayerProfile victim = storage.fetchPlayer(VICTIM_ID).join()
+                .orElseThrow().profile();
+        PlayerProfile assistant = storage.fetchPlayer(ASSIST_ID).join()
+                .orElseThrow().profile();
         assertEquals(1, killer.kills());
         assertEquals(0, killer.carries());
         assertEquals(1, killer.dominations());

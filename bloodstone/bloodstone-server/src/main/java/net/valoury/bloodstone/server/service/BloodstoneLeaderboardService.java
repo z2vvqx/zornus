@@ -10,7 +10,7 @@ import net.valoury.bloodstone.server.model.LeaderboardBoard;
 import net.valoury.bloodstone.server.model.LeaderboardMetric;
 import net.valoury.bloodstone.server.model.LeaderboardSnapshot;
 import net.valoury.bloodstone.server.model.PlayerLeaderboardEntry;
-import net.valoury.bloodstone.server.storage.BloodstoneStorage;
+import net.valoury.bloodstone.server.storage.BloodstoneLeaderboardStorage;
 import net.valoury.guilds.api.GuildMembershipService;
 import net.valoury.guilds.api.GuildProfile;
 
@@ -27,14 +27,14 @@ import java.util.concurrent.atomic.AtomicReference;
 
 public final class BloodstoneLeaderboardService {
 
-    private final BloodstoneStorage storage;
+    private final BloodstoneLeaderboardStorage storage;
     private final GuildMembershipService guildMembershipService;
     private final BloodstonePlayerNameService playerNameService;
     private final AtomicReference<LeaderboardSnapshot> snapshot =
             new AtomicReference<>(LeaderboardSnapshot.empty());
 
     public BloodstoneLeaderboardService(
-            BloodstoneStorage storage,
+            BloodstoneLeaderboardStorage storage,
             GuildMembershipService guildMembershipService,
             BloodstonePlayerNameService playerNameService
     ) {

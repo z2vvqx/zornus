@@ -1,7 +1,7 @@
 package net.valoury.bloodstone.server.listener.player;
 
 import net.valoury.bloodstone.server.service.BloodstoneCombatService;
-import net.valoury.bloodstone.server.service.BloodstoneItemService;
+import net.valoury.bloodstone.server.service.BloodstoneEffectAxeService;
 import org.bukkit.event.EventHandler;
 import org.bukkit.event.EventPriority;
 import org.bukkit.event.Listener;
@@ -12,14 +12,14 @@ import org.jspecify.annotations.NonNull;
 public final class BloodstoneCombatListener implements Listener {
 
     private final BloodstoneCombatService combatService;
-    private final BloodstoneItemService itemService;
+    private final BloodstoneEffectAxeService effectAxeService;
 
     public BloodstoneCombatListener(
             BloodstoneCombatService combatService,
-            BloodstoneItemService itemService
+            BloodstoneEffectAxeService effectAxeService
     ) {
         this.combatService = combatService;
-        this.itemService = itemService;
+        this.effectAxeService = effectAxeService;
     }
 
     @EventHandler(priority = EventPriority.MONITOR, ignoreCancelled = true)
@@ -29,7 +29,7 @@ public final class BloodstoneCombatListener implements Listener {
 
     @EventHandler(ignoreCancelled = true)
     public void onItemDamage(@NonNull PlayerItemDamageEvent event) {
-        if (itemService.isEffectAxe(event.getItem())) {
+        if (effectAxeService.isEffectAxe(event.getItem())) {
             event.setCancelled(true);
         }
     }

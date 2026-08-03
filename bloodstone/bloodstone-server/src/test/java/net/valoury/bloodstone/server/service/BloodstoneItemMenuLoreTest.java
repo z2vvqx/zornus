@@ -5,6 +5,7 @@ import net.valoury.bloodstone.server.BloodstoneText;
 import net.valoury.bloodstone.server.CombinedEffectAxeDefinitions;
 import net.valoury.bloodstone.server.EffectAxeDefinitions;
 import net.valoury.bloodstone.server.model.BloodstoneRank;
+import net.valoury.bloodstone.server.model.BloodstoneShopProduct;
 import org.bukkit.potion.Potion;
 import org.bukkit.potion.PotionType;
 import org.junit.jupiter.api.Test;
@@ -26,7 +27,7 @@ final class BloodstoneItemMenuLoreTest {
                         "<gray>Knockback II</gray>",
                         "<gray>Fire Aspect II</gray>"
                 ),
-                BloodstoneItemService.ShopProduct.SHARPNESS_IV_SWORD
+                BloodstoneShopProduct.SHARPNESS_IV_SWORD
                         .menuLoreTemplates()
         );
         assertEquals(
@@ -37,7 +38,7 @@ final class BloodstoneItemMenuLoreTest {
                         "<gray>Infinity I</gray>",
                         "<gray>Unbreaking III</gray>"
                 ),
-                BloodstoneItemService.ShopProduct.POWER_V_BOW
+                BloodstoneShopProduct.POWER_V_BOW
                         .menuLoreTemplates()
         );
         assertEquals(
@@ -45,27 +46,27 @@ final class BloodstoneItemMenuLoreTest {
                         "<gray>Protection IV</gray>",
                         "<gray>Unbreaking III</gray>"
                 ),
-                BloodstoneItemService.ShopProduct.PROTECTION_IV_CHESTPLATE
+                BloodstoneShopProduct.PROTECTION_IV_CHESTPLATE
                         .menuLoreTemplates()
         );
         assertEquals(
                 List.of("<gray>Strength I (03:00)</gray>"),
-                BloodstoneItemService.ShopProduct.STRENGTH_POTION
+                BloodstoneShopProduct.STRENGTH_POTION
                         .menuLoreTemplates()
         );
         assertEquals(
                 List.of("<gray>Resistance (03:00)</gray>"),
-                BloodstoneItemService.ShopProduct.RESISTANCE_POTION
+                BloodstoneShopProduct.RESISTANCE_POTION
                         .menuLoreTemplates()
         );
         assertEquals(
                 List.of("<gray>Speed I (03:00)</gray>"),
-                BloodstoneItemService.ShopProduct.SPEED_POTION
+                BloodstoneShopProduct.SPEED_POTION
                         .menuLoreTemplates()
         );
         assertEquals(
                 List.of("<gray>Fire Resistance I (03:00)</gray>"),
-                BloodstoneItemService.ShopProduct.FIRE_RESISTANCE_POTION
+                BloodstoneShopProduct.FIRE_RESISTANCE_POTION
                         .menuLoreTemplates()
         );
     }
@@ -78,7 +79,7 @@ final class BloodstoneItemMenuLoreTest {
                         "<gray>Strength II (00:08)</gray>",
                         "<gray>Soulbound</gray>"
                 )),
-                BloodstoneItemService.mergeMenuLore(
+                BloodstoneItemDisplayService.mergeMenuLore(
                         List.of("<gray>Unbreaking III</gray>"),
                         BloodstoneText.deserializeLines(List.of(
                                 "<gray>Strength II (00:08)</gray>",
@@ -90,7 +91,7 @@ final class BloodstoneItemMenuLoreTest {
                 BloodstoneText.deserializeLines(List.of(
                         "<gray>Resistance (03:00)</gray>"
                 )),
-                BloodstoneItemService.mergeMenuLore(
+                BloodstoneItemDisplayService.mergeMenuLore(
                         List.of("<gray>Resistance (03:00)</gray>"),
                         BloodstoneText.deserializeLines(List.of(
                                 "<gray>Resistance (03:00)</gray>"
@@ -106,19 +107,19 @@ final class BloodstoneItemMenuLoreTest {
         assertStandardPotion(
                 PotionType.STRENGTH,
                 itemService.createShopItem(
-                        BloodstoneItemService.ShopProduct.STRENGTH_POTION
+                        BloodstoneShopProduct.STRENGTH_POTION
                 )
         );
         assertStandardPotion(
                 PotionType.SPEED,
                 itemService.createShopItem(
-                        BloodstoneItemService.ShopProduct.SPEED_POTION
+                        BloodstoneShopProduct.SPEED_POTION
                 )
         );
         assertStandardPotion(
                 PotionType.FIRE_RESISTANCE,
                 itemService.createShopItem(
-                        BloodstoneItemService.ShopProduct.FIRE_RESISTANCE_POTION
+                        BloodstoneShopProduct.FIRE_RESISTANCE_POTION
                 )
         );
     }
@@ -201,13 +202,13 @@ final class BloodstoneItemMenuLoreTest {
     void effectAxeSharpnessReflectsWhetherTheAxeIsFused() {
         assertEquals(
                 3,
-                BloodstoneItemService.effectAxeSharpnessLevel(
+                BloodstoneEffectAxeService.sharpnessLevel(
                         EffectAxeDefinitions.SPEED
                 )
         );
         assertEquals(
                 4,
-                BloodstoneItemService.effectAxeSharpnessLevel(
+                BloodstoneEffectAxeService.sharpnessLevel(
                         CombinedEffectAxeDefinitions.BERSERKER
                 )
         );

@@ -27,31 +27,10 @@ final class BloodstoneMachineCombatRestrictionTest {
         assertFalse(restricted(Material.FURNACE, Action.PHYSICAL));
     }
 
-    @Test
-    void recognizesOnlyRequestedItemFrameRewards() {
-        assertTrue(eligibleItemFrameReward(Material.DIAMOND_SWORD, (short) 0));
-        assertTrue(eligibleItemFrameReward(Material.DIAMOND_AXE, (short) 0));
-        assertTrue(eligibleItemFrameReward(Material.DIAMOND_HELMET, (short) 0));
-        assertTrue(eligibleItemFrameReward(Material.DIAMOND_CHESTPLATE, (short) 0));
-        assertTrue(eligibleItemFrameReward(Material.DIAMOND_LEGGINGS, (short) 0));
-        assertTrue(eligibleItemFrameReward(Material.DIAMOND_BOOTS, (short) 0));
-        assertTrue(eligibleItemFrameReward(Material.BOW, (short) 0));
-        assertTrue(eligibleItemFrameReward(Material.ARROW, (short) 0));
-        assertTrue(eligibleItemFrameReward(Material.GOLDEN_APPLE, (short) 0));
-
-        assertFalse(eligibleItemFrameReward(Material.GOLDEN_APPLE, (short) 1));
-        assertFalse(eligibleItemFrameReward(Material.IRON_SWORD, (short) 0));
-        assertFalse(eligibleItemFrameReward(Material.GOLDEN_CARROT, (short) 0));
-    }
-
     private static boolean restricted(Material material, Action action) {
         return BloodstoneMachineService.isCombatRestrictedMachineInteraction(
                 material,
                 action
         );
-    }
-
-    private static boolean eligibleItemFrameReward(Material material, short durability) {
-        return BloodstoneMachineService.isEligibleItemFrameReward(material, durability);
     }
 }

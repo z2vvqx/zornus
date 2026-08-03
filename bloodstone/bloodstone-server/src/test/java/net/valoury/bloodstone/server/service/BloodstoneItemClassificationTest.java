@@ -1,6 +1,7 @@
 package net.valoury.bloodstone.server.service;
 
 import net.kyori.adventure.text.Component;
+import net.valoury.bloodstone.server.model.BloodstoneItemClassification;
 import org.junit.jupiter.api.Test;
 
 import java.util.List;
@@ -18,15 +19,15 @@ final class BloodstoneItemClassificationTest {
         List<Component> updatedLore = BloodstoneItemService.replaceClassificationLore(
                 List.of(
                         existingLore,
-                        BloodstoneItemService.Classification.INCLUSIVE.lore()
+                        BloodstoneItemClassification.INCLUSIVE.lore()
                 ),
-                BloodstoneItemService.Classification.EXCLUSIVE
+                BloodstoneItemClassification.EXCLUSIVE
         );
 
         assertEquals(
                 List.of(
                         existingLore,
-                        BloodstoneItemService.Classification.EXCLUSIVE.lore()
+                        BloodstoneItemClassification.EXCLUSIVE.lore()
                 ),
                 updatedLore
         );
@@ -35,34 +36,34 @@ final class BloodstoneItemClassificationTest {
     @Test
     void replacingClassificationDoesNotDuplicateExclusiveLore() {
         assertEquals(
-                List.of(BloodstoneItemService.Classification.EXCLUSIVE.lore()),
+                List.of(BloodstoneItemClassification.EXCLUSIVE.lore()),
                 BloodstoneItemService.replaceClassificationLore(
                         List.of(
-                                BloodstoneItemService.Classification.INCLUSIVE.lore(),
-                                BloodstoneItemService.Classification.EXCLUSIVE.lore()
+                                BloodstoneItemClassification.INCLUSIVE.lore(),
+                                BloodstoneItemClassification.EXCLUSIVE.lore()
                         ),
-                        BloodstoneItemService.Classification.EXCLUSIVE
+                        BloodstoneItemClassification.EXCLUSIVE
                 )
         );
     }
 
     @Test
     void onlyInclusiveIsRemovedByNormalEnchanting() {
-        assertTrue(BloodstoneItemService.Classification.INCLUSIVE
+        assertTrue(BloodstoneItemClassification.INCLUSIVE
                 .isRemovedByNormalEnchanting());
-        assertFalse(BloodstoneItemService.Classification.EXCLUSIVE
+        assertFalse(BloodstoneItemClassification.EXCLUSIVE
                 .isRemovedByNormalEnchanting());
-        assertFalse(BloodstoneItemService.Classification.SOULBOUND
+        assertFalse(BloodstoneItemClassification.SOULBOUND
                 .isRemovedByNormalEnchanting());
     }
 
     @Test
     void onlySoulboundItemsAreRestrictedFromModification() {
-        assertFalse(BloodstoneItemService.Classification.INCLUSIVE
+        assertFalse(BloodstoneItemClassification.INCLUSIVE
                 .isRestrictedFromModification());
-        assertFalse(BloodstoneItemService.Classification.EXCLUSIVE
+        assertFalse(BloodstoneItemClassification.EXCLUSIVE
                 .isRestrictedFromModification());
-        assertTrue(BloodstoneItemService.Classification.SOULBOUND
+        assertTrue(BloodstoneItemClassification.SOULBOUND
                 .isRestrictedFromModification());
     }
 }

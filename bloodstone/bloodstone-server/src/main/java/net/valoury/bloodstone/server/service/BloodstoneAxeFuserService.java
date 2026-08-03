@@ -8,7 +8,7 @@ import net.valoury.bloodstone.server.EffectAxeDefinitions.EffectAxeDefinition;
 import net.valoury.bloodstone.server.model.AxeFuserOperation;
 import net.valoury.bloodstone.server.model.BloodstoneRank;
 import net.valoury.bloodstone.server.storage.AxeFuserReserveOutcome;
-import net.valoury.bloodstone.server.storage.BloodstoneStorage;
+import net.valoury.bloodstone.server.storage.BloodstoneOperationStorage;
 import org.bukkit.Location;
 import org.bukkit.Material;
 import org.bukkit.block.Block;
@@ -37,10 +37,14 @@ import java.util.logging.Logger;
 public final class BloodstoneAxeFuserService {
 
     static final int FUSION_BLOOD_ALLOY_COST = 16;
-    private final BloodstoneStorage storage;
-    private final BloodstoneItemService itemService;
+    private final BloodstoneOperationStorage storage;
+    private final BloodstoneItemDisplayService itemDisplayService;
+    private final BloodstoneItemIdentityService itemIdentity;
+    private final BloodstoneCurrencyService currencyService;
+    private final BloodstoneEffectAxeService effectAxeService;
     private final BloodstoneCombatService combatService;
-    private final BloodstonePlayerService playerService;
+    private final BloodstoneOperationRecoveryService operationRecoveryService;
+    private final BloodstoneReservedItemDeliveryService deliveryService;
     private final BloodstoneMainThreadExecutor mainThreadExecutor;
     private final BloodstonePresentationService presentationService;
     private final BloodstoneMessageService messageService;
@@ -57,28 +61,36 @@ public final class BloodstoneAxeFuserService {
 
     public BloodstoneAxeFuserService(
             Plugin plugin,
-            BloodstoneStorage storage,
-            BloodstoneItemService itemService,
+            BloodstoneOperationStorage storage,
+            BloodstoneItemDisplayService itemDisplayService,
+            BloodstoneItemIdentityService itemIdentity,
+            BloodstoneCurrencyService currencyService,
+            BloodstoneEffectAxeService effectAxeService,
             BloodstoneCombatService combatService,
-            BloodstonePlayerService playerService,
+            BloodstoneOperationRecoveryService operationRecoveryService,
+            BloodstoneReservedItemDeliveryService deliveryService,
             BloodstoneMainThreadExecutor mainThreadExecutor,
             BloodstonePresentationService presentationService,
             BloodstoneMessageService messageService,
             Logger logger
     ) {
         this.storage = storage;
-        this.itemService = itemService;
+        this.itemDisplayService = itemDisplayService;
+        this.itemIdentity = itemIdentity;
+        this.currencyService = currencyService;
+        this.effectAxeService = effectAxeService;
         this.combatService = combatService;
-        this.playerService = playerService;
+        this.operationRecoveryService = operationRecoveryService;
+        this.deliveryService = deliveryService;
         this.mainThreadExecutor = mainThreadExecutor;
         this.presentationService = presentationService;
         this.messageService = messageService;
         this.logger = logger;
-        this.menuView = new AxeFuserMenuView(itemService);
+        this.menuView = new AxeFuserMenuView(itemDisplayService);
         this.animation = new AxeFuserAnimation(
                 plugin,
                 storage,
-                playerService,
+                deliveryService,
                 mainThreadExecutor,
                 presentationService,
                 logger
@@ -251,7 +263,7 @@ public final class BloodstoneAxeFuserService {
                 inventory,
                 context.orderedEffects(),
                 context.selectedEffects(),
-                itemService.createCombinedEffectAxeMenuDisplay(
+                itemDisplayService.createCombinedEffectAxeMenuDisplay(
                         combinedDefinition,
                         remainingDurability
                 ),
@@ -275,7 +287,7 @@ public final class BloodstoneAxeFuserService {
             reject(player, BloodstoneServerConstants.ERROR_IN_BATTLE);
             return;
         }
-        if (itemService.countBloodAlloy(player.getInventory())
+        if (currencyService.countBloodAlloy(player.getInventory())
                 < FUSION_BLOOD_ALLOY_COST) {
             messageService.sendRequiredCurrency(
                     player,
@@ -306,8 +318,8 @@ public final class BloodstoneAxeFuserService {
         CombinedEffectAxeDefinition combinedDefinition =
                 CombinedEffectAxeDefinitions.find(firstEffect, secondEffect)
                         .orElseThrow();
-        ItemStack fusedAxe = itemService.createEffectAxe(combinedDefinition);
-        itemService.setRemainingDurability(
+        ItemStack fusedAxe = effectAxeService.create(combinedDefinition);
+        effectAxeService.setRemainingDurability(
                 fusedAxe,
                 mergedRemainingDurability(
                         fusedAxe.getType().getMaxDurability(),
@@ -363,7 +375,7 @@ public final class BloodstoneAxeFuserService {
             );
             return;
         }
-        if (!itemService.removeBloodAlloy(
+        if (!currencyService.removeBloodAlloy(
                 player.getInventory(),
                 FUSION_BLOOD_ALLOY_COST
         )) {
@@ -384,11 +396,11 @@ public final class BloodstoneAxeFuserService {
                 AxeFuserOperation.reservedItemMarker(operationId, 1);
         player.getInventory().setItem(
                 firstOwned.slot(),
-                itemService.withOperationId(firstOwned.item(), firstMarker)
+                itemIdentity.withOperationId(firstOwned.item(), firstMarker)
         );
         player.getInventory().setItem(
                 secondOwned.slot(),
-                itemService.withOperationId(secondOwned.item(), secondMarker)
+                itemIdentity.withOperationId(secondOwned.item(), secondMarker)
         );
 
         reserveWithRetry(
@@ -503,7 +515,10 @@ public final class BloodstoneAxeFuserService {
                     player,
                     BloodstoneServerConstants.AXE_FUSER_INPUT_RECOVERY
             );
-            playerService.recoverAxeFuserOperation(player, operationId);
+            operationRecoveryService.recoverAxeFuserOperation(
+                    player,
+                    operationId
+            );
             return;
         }
         player.getInventory().clear(firstSlot);
@@ -530,7 +545,7 @@ public final class BloodstoneAxeFuserService {
                             playerId,
                             operationId
                     ),
-                    () -> playerService.recoverAxeFuserOperation(
+                    () -> operationRecoveryService.recoverAxeFuserOperation(
                             player,
                             operationId
                     )
@@ -544,7 +559,7 @@ public final class BloodstoneAxeFuserService {
             mainThreadExecutor.execute(() -> {
                 finishOperation(blockPosition, playerId, operationId);
                 if (player.isOnline()) {
-                    playerService.recoverAxeFuserOperation(
+                    operationRecoveryService.recoverAxeFuserOperation(
                             player,
                             operationId
                     );
@@ -563,16 +578,16 @@ public final class BloodstoneAxeFuserService {
             ItemStack item = player.getInventory().getItem(slot);
             if (item == null
                     || item.getType() == Material.AIR
-                    || itemService.operationId(item).isPresent()) {
+                    || itemIdentity.operationId(item).isPresent()) {
                 continue;
             }
             Optional<EffectAxeDefinition> ownedDefinition =
-                    itemService.baseEffectAxeDefinition(item);
+                    effectAxeService.baseDefinition(item);
             if (ownedDefinition.filter(definition::equals).isPresent()) {
                 matches.add(new OwnedEffectAxe(
                         slot,
                         item,
-                        itemService.remainingDurability(item)
+                        effectAxeService.remainingDurability(item)
                 ));
             }
         }
@@ -610,7 +625,8 @@ public final class BloodstoneAxeFuserService {
     private boolean hasMarker(Player player, int slot, UUID marker) {
         ItemStack item = player.getInventory().getItem(slot);
         return item != null
-                && itemService.operationId(item).filter(marker::equals).isPresent();
+                && itemIdentity.operationId(item)
+                .filter(marker::equals).isPresent();
     }
 
     private void restoreTaggedInput(
@@ -624,7 +640,7 @@ public final class BloodstoneAxeFuserService {
         for (int slot = 0; slot < player.getInventory().getSize(); slot++) {
             ItemStack item = player.getInventory().getItem(slot);
             if (item != null
-                    && itemService.operationId(item)
+                    && itemIdentity.operationId(item)
                     .filter(marker::equals)
                     .isPresent()) {
                 player.getInventory().setItem(slot, original.clone());
@@ -637,8 +653,8 @@ public final class BloodstoneAxeFuserService {
         if (!player.isOnline()) {
             return;
         }
-        ItemStack refund = itemService.withOperationId(
-                itemService.createBloodAlloy(FUSION_BLOOD_ALLOY_COST),
+        ItemStack refund = itemIdentity.withOperationId(
+                currencyService.createBloodAlloy(FUSION_BLOOD_ALLOY_COST),
                 AxeFuserOperation.reservedItemMarker(operationId, 2)
         );
         Map<Integer, ItemStack> leftovers =
