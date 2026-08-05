@@ -29,6 +29,13 @@ import java.util.Optional;
 public final class PartyTransferCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PartyTransferCommand.class);
+    private static final SuggestionProvider<CommandSource> CONFIRMATION_SUGGESTIONS =
+            (context, builder) -> {
+                if ("confirm".startsWith(builder.getRemainingLowerCase())) {
+                    builder.suggest("confirm");
+                }
+                return builder.buildFuture();
+            };
 
     private static SuggestionProvider<CommandSource> onlinePlayerSuggestions(ProxyServer proxyServer) {
         return (context, builder) -> {
@@ -58,6 +65,7 @@ public final class PartyTransferCommand {
                         .executes(context -> handleTransferLeadership(context, partyService, proxyServer, false))
                         .then(BrigadierCommand
                                 .requiredArgumentBuilder("confirmation", StringArgumentType.word())
+                                .suggests(CONFIRMATION_SUGGESTIONS)
                                 .executes(context -> {
                                     String confirmation = StringArgumentType.getString(context, "confirmation");
                                     return handleTransferLeadership(context, partyService, proxyServer, "confirm".equalsIgnoreCase(confirmation));

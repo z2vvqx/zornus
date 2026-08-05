@@ -1,4 +1,4 @@
-package net.valoury.guilds.proxy.command;
+﻿package net.valoury.guilds.proxy.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.BoolArgumentType;
@@ -31,10 +31,22 @@ import java.util.Optional;
 public final class GuildSettingsCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GuildSettingsCommand.class);
-    private static final SuggestionProvider<CommandSource> INVITE_PRIVACY_SUGGESTIONS = (context, builder) ->
-            builder.suggest("all").suggest("friend").suggest("none").buildFuture();
-    private static final SuggestionProvider<CommandSource> PRIVACY_SUGGESTIONS = (context, builder) ->
-            builder.suggest("private").suggest("public").buildFuture();
+    private static final SuggestionProvider<CommandSource> INVITE_PRIVACY_SUGGESTIONS =
+            matchingValueSuggestions(List.of("all", "friend", "none"));
+    private static final SuggestionProvider<CommandSource> PRIVACY_SUGGESTIONS =
+            matchingValueSuggestions(List.of("private", "public"));
+
+    private static SuggestionProvider<CommandSource> matchingValueSuggestions(
+            @NonNull List<String> acceptedValues
+    ) {
+        return (context, builder) -> {
+            String remainingInput = builder.getRemainingLowerCase();
+            acceptedValues.stream()
+                    .filter(acceptedValue -> acceptedValue.startsWith(remainingInput))
+                    .forEach(builder::suggest);
+            return builder.buildFuture();
+        };
+    }
 
     public static LiteralArgumentBuilder<CommandSource> create(GuildService guildService) {
         return BrigadierCommand

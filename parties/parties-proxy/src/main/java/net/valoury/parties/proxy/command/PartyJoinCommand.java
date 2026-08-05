@@ -51,6 +51,9 @@ public final class PartyJoinCommand {
     ) {
         return (context, builder) -> {
             String remainingInput = builder.getRemainingLowerCase();
+            if (remainingInput.isEmpty()) {
+                return builder.buildFuture();
+            }
             proxyServer.getAllPlayers().stream()
                     .map(Player::getUsername)
                     .filter(username -> username.toLowerCase(Locale.ROOT)

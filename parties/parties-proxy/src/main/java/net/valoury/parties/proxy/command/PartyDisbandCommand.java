@@ -4,6 +4,7 @@ import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
 import com.mojang.brigadier.builder.LiteralArgumentBuilder;
 import com.mojang.brigadier.context.CommandContext;
+import com.mojang.brigadier.suggestion.SuggestionProvider;
 import com.velocitypowered.api.command.BrigadierCommand;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.proxy.Player;
@@ -23,6 +24,13 @@ import org.slf4j.LoggerFactory;
 public final class PartyDisbandCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(PartyDisbandCommand.class);
+    private static final SuggestionProvider<CommandSource> CONFIRMATION_SUGGESTIONS =
+            (context, builder) -> {
+                if ("confirm".startsWith(builder.getRemainingLowerCase())) {
+                    builder.suggest("confirm");
+                }
+                return builder.buildFuture();
+            };
 
     public static LiteralArgumentBuilder<CommandSource> create(PartyService partyService) {
         return BrigadierCommand
@@ -30,6 +38,7 @@ public final class PartyDisbandCommand {
                 .executes(context -> handleDisbandParty(context, partyService, false))
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("confirmation", StringArgumentType.word())
+                        .suggests(CONFIRMATION_SUGGESTIONS)
                         .executes(context -> {
                             String confirmation = StringArgumentType.getString(context, "confirmation");
                             return handleDisbandParty(context, partyService, "confirm".equalsIgnoreCase(confirmation));

@@ -1,4 +1,4 @@
-package net.valoury.parties.proxy.command;
+﻿package net.valoury.parties.proxy.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -74,6 +74,9 @@ public final class PartyModeratorCommand {
     ) {
         return (context, builder) -> {
             String remainingInput = builder.getRemainingLowerCase();
+            if (remainingInput.isEmpty()) {
+                return builder.buildFuture();
+            }
             proxyServer.getAllPlayers().stream()
                     .map(Player::getUsername)
                     .filter(username -> username.toLowerCase(Locale.ROOT)

@@ -1,4 +1,4 @@
-package net.valoury.guilds.proxy.command;
+﻿package net.valoury.guilds.proxy.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -18,15 +18,23 @@ import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import java.util.List;
+
 public final class GuildColorCommand {
 
     private static final Logger LOGGER = LoggerFactory.getLogger(GuildColorCommand.class);
-    private static final SuggestionProvider<CommandSource> COLOR_SUGGESTIONS = (context, builder) ->
-            builder.suggest("black").suggest("dark_blue").suggest("dark_green").suggest("dark_aqua")
-                    .suggest("dark_red").suggest("dark_purple").suggest("gold").suggest("gray")
-                    .suggest("dark_gray").suggest("blue").suggest("green").suggest("aqua")
-                    .suggest("red").suggest("light_purple").suggest("yellow").suggest("white")
-                    .buildFuture();
+    private static final List<String> GUILD_COLORS = List.of(
+            "black", "dark_blue", "dark_green", "dark_aqua", "dark_red", "dark_purple",
+            "gold", "gray", "dark_gray", "blue", "green", "aqua", "red", "light_purple",
+            "yellow", "white"
+    );
+    private static final SuggestionProvider<CommandSource> COLOR_SUGGESTIONS = (context, builder) -> {
+        String remainingInput = builder.getRemainingLowerCase();
+        GUILD_COLORS.stream()
+                .filter(guildColor -> guildColor.startsWith(remainingInput))
+                .forEach(builder::suggest);
+        return builder.buildFuture();
+    };
 
     public static LiteralArgumentBuilder<CommandSource> create(GuildService guildService) {
         return BrigadierCommand

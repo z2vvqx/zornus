@@ -36,6 +36,9 @@ public final class PunishmentCheckMuteCommand {
     private static SuggestionProvider<CommandSource> onlinePlayerSuggestions(ProxyServer proxyServer) {
         return (context, builder) -> {
             String remainingInput = builder.getRemainingLowerCase();
+            if (remainingInput.isEmpty()) {
+                return builder.buildFuture();
+            }
             proxyServer.getAllPlayers().stream()
                     .map(Player::getUsername)
                     .filter(username -> username.toLowerCase(Locale.ROOT).startsWith(remainingInput))
