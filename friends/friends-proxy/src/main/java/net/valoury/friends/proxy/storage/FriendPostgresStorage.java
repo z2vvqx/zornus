@@ -140,7 +140,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                         allow_messages BOOLEAN NOT NULL DEFAULT TRUE,
                         allow_jump BOOLEAN NOT NULL DEFAULT TRUE,
                         show_last_seen BOOLEAN NOT NULL DEFAULT TRUE,
-                        show_location BOOLEAN NOT NULL DEFAULT FALSE,
+                        show_location BOOLEAN NOT NULL DEFAULT TRUE,
                         accept_requests BOOLEAN NOT NULL DEFAULT TRUE
                     )
                     """);
@@ -391,7 +391,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     public @NonNull CompletableFuture<Void> updateAllowMessages(UUID playerId, boolean value) {
         return databaseExecutor.run(() -> {
             String sql = """
-                    INSERT INTO settings (player_id, allow_messages) VALUES (?, ?)
+                    INSERT INTO settings (player_id, allow_messages, show_location) VALUES (?, ?, TRUE)
                     ON CONFLICT (player_id) DO UPDATE SET allow_messages = EXCLUDED.allow_messages
                     """;
             executeUpdate(sql, statement -> {
@@ -406,7 +406,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     public @NonNull CompletableFuture<Void> updateAllowJump(UUID playerId, boolean value) {
         return databaseExecutor.run(() -> {
             String sql = """
-                    INSERT INTO settings (player_id, allow_jump) VALUES (?, ?)
+                    INSERT INTO settings (player_id, allow_jump, show_location) VALUES (?, ?, TRUE)
                     ON CONFLICT (player_id) DO UPDATE SET allow_jump = EXCLUDED.allow_jump
                     """;
             executeUpdate(sql, statement -> {
@@ -421,7 +421,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     public @NonNull CompletableFuture<Void> updateShowLastSeen(UUID playerId, boolean value) {
         return databaseExecutor.run(() -> {
             String sql = """
-                    INSERT INTO settings (player_id, show_last_seen) VALUES (?, ?)
+                    INSERT INTO settings (player_id, show_last_seen, show_location) VALUES (?, ?, TRUE)
                     ON CONFLICT (player_id) DO UPDATE SET show_last_seen = EXCLUDED.show_last_seen
                     """;
             executeUpdate(sql, statement -> {
@@ -451,7 +451,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     public @NonNull CompletableFuture<Void> updateAllowRequests(UUID playerId, boolean value) {
         return databaseExecutor.run(() -> {
             String sql = """
-                    INSERT INTO settings (player_id, accept_requests) VALUES (?, ?)
+                    INSERT INTO settings (player_id, accept_requests, show_location) VALUES (?, ?, TRUE)
                     ON CONFLICT (player_id) DO UPDATE SET accept_requests = EXCLUDED.accept_requests
                     """;
             executeUpdate(sql, statement -> {
@@ -466,7 +466,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
     public @NonNull CompletableFuture<Void> updatePresenceState(UUID playerId, PresenceState value) {
         return databaseExecutor.run(() -> {
             String sql = """
-                    INSERT INTO settings (player_id, presence_state) VALUES (?, ?)
+                    INSERT INTO settings (player_id, presence_state, show_location) VALUES (?, ?, TRUE)
                     ON CONFLICT (player_id) DO UPDATE SET presence_state = EXCLUDED.presence_state
                     """;
             executeUpdate(sql, statement -> {

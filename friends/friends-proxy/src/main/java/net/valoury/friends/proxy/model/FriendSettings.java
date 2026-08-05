@@ -14,6 +14,6 @@ public record FriendSettings(
         boolean allowRequests
 ) {
     public FriendSettings(@NonNull UUID playerId) {
-        this(playerId, PresenceState.ONLINE, true, true, true, false, true);
+        this(playerId, PresenceState.ONLINE, true, true, true, true, true);
     }
 }
