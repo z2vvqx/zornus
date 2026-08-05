@@ -7,6 +7,7 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Dependency;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
+import net.kyori.adventure.text.Component;
 import net.valoury.friends.api.FriendsApi;
 import net.luckperms.api.LuckPermsProvider;
 import org.jspecify.annotations.NonNull;
@@ -32,20 +33,31 @@ public final class PartyProxyPlugin {
 
     @Subscribe
     public void onProxyInitialize(@NonNull ProxyInitializeEvent event) {
+        PartyProxyModule initializedModule = null;
         try {
             logger.info("Initializing Parties plugin...");
 
             FriendsApi friendsApi = resolveFriendsApi();
-            this.partyProxyModule = new PartyProxyModule(
+            initializedModule = new PartyProxyModule(
                     this,
                     proxyServer,
                     friendsApi.friendships(),
                     LuckPermsProvider.get()
             );
-            partyProxyModule.initialize(proxyServer.getCommandManager(), proxyServer.getEventManager(), proxyServer.getScheduler());
+            initializedModule.initialize(
+                    proxyServer.getCommandManager(),
+                    proxyServer.getEventManager(),
+                    proxyServer.getScheduler()
+            );
+            this.partyProxyModule = initializedModule;
             logger.info("Parties plugin initialized successfully");
         } catch (Exception exception) {
+            partyProxyModule = null;
+            if (initializedModule != null) {
+                initializedModule.shutdown();
+            }
             logger.error("Failed to initialize Parties plugin", exception);
+            proxyServer.shutdown(Component.text("Parties failed to initialize. Check the proxy logs."));
         }
     }
 

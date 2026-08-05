@@ -6,6 +6,7 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
+import net.kyori.adventure.text.Component;
 import net.valoury.discord.api.DiscordApi;
 import net.valoury.discord.api.link.AccountLinkService;
 import org.slf4j.Logger;
@@ -30,12 +31,24 @@ public final class DiscordProxyPlugin implements DiscordApi {
 
     @Subscribe
     public void onProxyInitialize(ProxyInitializeEvent event) {
+        DiscordProxyModule initializedModule = null;
         try {
-            discordProxyModule = new DiscordProxyModule();
-            discordProxyModule.initialize(proxyServer.getCommandManager());
+            initializedModule = new DiscordProxyModule();
+            initializedModule.initialize(proxyServer.getCommandManager());
+            discordProxyModule = initializedModule;
             logger.info("Discord account linking initialized successfully");
         } catch (RuntimeException exception) {
+            discordProxyModule = null;
+            if (initializedModule != null) {
+                try {
+                    initializedModule.close();
+                } catch (RuntimeException cleanupException) {
+                    exception.addSuppressed(cleanupException);
+                }
+            }
             logger.error("Failed to initialize Discord account linking", exception);
+            proxyServer.shutdown(Component.text(
+                    "Discord account linking failed to initialize. Check the proxy logs."));
         }
     }
 

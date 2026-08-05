@@ -6,6 +6,7 @@ import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
+import net.kyori.adventure.text.Component;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 
@@ -29,15 +30,23 @@ public final class PunishmentProxyPlugin {
 
     @Subscribe
     public void onProxyInitialize(@NonNull ProxyInitializeEvent event) {
+        PunishmentProxyModule initializedModule = null;
         try {
-            punishmentProxyModule = new PunishmentProxyModule(this, proxyServer);
-            punishmentProxyModule.initialize(
+            initializedModule = new PunishmentProxyModule(this, proxyServer);
+            initializedModule.initialize(
                     proxyServer.getCommandManager(),
                     proxyServer.getEventManager(),
                     proxyServer.getScheduler());
+            punishmentProxyModule = initializedModule;
             logger.info("Punishments plugin initialized successfully");
         } catch (Exception exception) {
+            punishmentProxyModule = null;
+            if (initializedModule != null) {
+                initializedModule.shutdown();
+            }
             logger.error("Failed to initialize Punishments plugin", exception);
+            proxyServer.shutdown(Component.text(
+                    "Punishments failed to initialize. The proxy is shutting down to prevent unenforced punishments."));
         }
     }
 

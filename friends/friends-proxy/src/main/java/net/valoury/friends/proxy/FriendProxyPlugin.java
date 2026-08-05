@@ -8,6 +8,7 @@ import com.velocitypowered.api.plugin.Dependency;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.luckperms.api.LuckPermsProvider;
+import net.kyori.adventure.text.Component;
 import net.valoury.friends.api.FriendsApi;
 import net.valoury.friends.api.FriendshipService;
 import org.jspecify.annotations.NonNull;
@@ -38,19 +39,26 @@ public final class FriendProxyPlugin implements FriendsApi {
 
     @Subscribe
     public void onProxyInitialize(@NonNull ProxyInitializeEvent event) {
+        FriendProxyModule initializedModule = null;
         try {
             logger.info("Initializing Friends plugin...");
 
-            this.friendProxyModule = new FriendProxyModule(this, proxyServer, LuckPermsProvider.get());
-            friendProxyModule.initialize(
+            initializedModule = new FriendProxyModule(this, proxyServer, LuckPermsProvider.get());
+            initializedModule.initialize(
                     proxyServer.getCommandManager(),
                     proxyServer.getEventManager(),
                     proxyServer.getScheduler()
             );
+            this.friendProxyModule = initializedModule;
 
             logger.info("Friends plugin initialized successfully");
         } catch (Exception exception) {
+            friendProxyModule = null;
+            if (initializedModule != null) {
+                initializedModule.shutdown();
+            }
             logger.error("Failed to initialize Friends plugin", exception);
+            proxyServer.shutdown(Component.text("Friends failed to initialize. Check the proxy logs."));
         }
     }
 

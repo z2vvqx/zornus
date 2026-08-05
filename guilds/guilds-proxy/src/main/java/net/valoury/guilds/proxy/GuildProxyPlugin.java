@@ -7,6 +7,7 @@ import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Dependency;
 import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
+import net.kyori.adventure.text.Component;
 import net.valoury.friends.api.FriendsApi;
 import net.luckperms.api.LuckPermsProvider;
 import org.jspecify.annotations.NonNull;
@@ -32,20 +33,31 @@ public final class GuildProxyPlugin {
 
     @Subscribe
     public void onProxyInitialize(@NonNull ProxyInitializeEvent event) {
+        GuildProxyModule initializedModule = null;
         try {
             logger.info("Initializing Guilds plugin...");
 
             FriendsApi friendsApi = resolveFriendsApi();
-            this.guildProxyModule = new GuildProxyModule(
+            initializedModule = new GuildProxyModule(
                     this,
                     proxyServer,
                     friendsApi.friendships(),
                     LuckPermsProvider.get()
             );
-            guildProxyModule.initialize(proxyServer.getCommandManager(), proxyServer.getEventManager(), proxyServer.getScheduler());
+            initializedModule.initialize(
+                    proxyServer.getCommandManager(),
+                    proxyServer.getEventManager(),
+                    proxyServer.getScheduler()
+            );
+            this.guildProxyModule = initializedModule;
             logger.info("Guilds plugin initialized successfully");
         } catch (Exception exception) {
+            guildProxyModule = null;
+            if (initializedModule != null) {
+                initializedModule.shutdown();
+            }
             logger.error("Failed to initialize Guilds plugin", exception);
+            proxyServer.shutdown(Component.text("Guilds failed to initialize. Check the proxy logs."));
         }
     }
 
