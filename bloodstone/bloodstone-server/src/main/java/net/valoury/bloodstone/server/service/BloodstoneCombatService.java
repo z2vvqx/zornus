@@ -33,6 +33,8 @@ public final class BloodstoneCombatService {
     private final BloodstonePresentationService presentationService;
     private final BloodstonePlayerService playerService;
     private final BloodstonePlayerNameService playerNameService;
+    private final BloodDropPickupProtectionService
+            bloodDropPickupProtectionService;
     private final CombatAttributionTracker attributionTracker =
             new CombatAttributionTracker();
 
@@ -43,7 +45,8 @@ public final class BloodstoneCombatService {
             BloodstoneCombatResolutionService combatResolutionService,
             BloodstonePresentationService presentationService,
             BloodstonePlayerService playerService,
-            BloodstonePlayerNameService playerNameService
+            BloodstonePlayerNameService playerNameService,
+            BloodDropPickupProtectionService bloodDropPickupProtectionService
     ) {
         this.currencyService = currencyService;
         this.combatTagService = combatTagService;
@@ -52,6 +55,8 @@ public final class BloodstoneCombatService {
         this.presentationService = presentationService;
         this.playerService = playerService;
         this.playerNameService = playerNameService;
+        this.bloodDropPickupProtectionService =
+                bloodDropPickupProtectionService;
     }
 
     public boolean isTagged(UUID playerId) {
@@ -252,6 +257,10 @@ public final class BloodstoneCombatService {
         Item dropped = victim.getWorld().dropItem(
                 victim.getLocation().clone().add(0.0D, 1.0D, 0.0D),
                 currencyService.createBlood(amount)
+        );
+        bloodDropPickupProtectionService.preventPickupBy(
+                dropped,
+                victim.getUniqueId()
         );
         dropped.setVelocity(dropped.getVelocity().setY(0.16D));
         presentationService.playBloodDropStep(victim.getLocation());

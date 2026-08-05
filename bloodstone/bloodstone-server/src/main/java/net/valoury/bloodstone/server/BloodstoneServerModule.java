@@ -9,6 +9,7 @@ import net.valoury.bloodstone.server.registrar.BloodstoneWorldGuardRegistrar;
 import net.valoury.bloodstone.server.service.BloodstoneCombatService;
 import net.valoury.bloodstone.server.service.BloodstoneCombatResolutionService;
 import net.valoury.bloodstone.server.service.BloodstoneCombatTagService;
+import net.valoury.bloodstone.server.service.BloodDropPickupProtectionService;
 import net.valoury.bloodstone.server.service.BloodstoneCurrencyService;
 import net.valoury.bloodstone.server.service.BloodstoneAxeFuserService;
 import net.valoury.bloodstone.server.service.BloodstoneDuelService;
@@ -164,6 +165,9 @@ public final class BloodstoneServerModule {
             );
             BloodstoneCombatTagService combatTagService =
                     new BloodstoneCombatTagService();
+            BloodDropPickupProtectionService
+                    bloodDropPickupProtectionService =
+                    new BloodDropPickupProtectionService(plugin);
             BloodstoneEffectAxeCombatService effectAxeCombatService =
                     new BloodstoneEffectAxeCombatService(
                             effectAxeService,
@@ -189,7 +193,8 @@ public final class BloodstoneServerModule {
                 combatResolutionService,
                 presentationService,
                 playerService,
-                playerNameService
+                playerNameService,
+                bloodDropPickupProtectionService
             );
             this.duelService = new BloodstoneDuelService(
                     plugin,
@@ -271,7 +276,8 @@ public final class BloodstoneServerModule {
                             currencyService,
                             combatService,
                             presentationService,
-                            messageService
+                            messageService,
+                            bloodDropPickupProtectionService
                     );
             BloodstoneUtilityStationService utilityStationService =
                     new BloodstoneUtilityStationService(

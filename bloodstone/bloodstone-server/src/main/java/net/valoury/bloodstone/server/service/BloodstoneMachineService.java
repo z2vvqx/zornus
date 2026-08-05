@@ -7,6 +7,9 @@ import org.bukkit.block.Block;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
 import org.bukkit.event.block.Action;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.ItemDespawnEvent;
+import org.bukkit.event.entity.ItemMergeEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerInteractEvent;
@@ -138,6 +141,26 @@ public final class BloodstoneMachineService {
 
     public void handleBloodPickup(PlayerPickupItemEvent event) {
         worldItemService.handleBloodPickup(event);
+    }
+
+    public void handleBloodPickupCompletion(PlayerPickupItemEvent event) {
+        worldItemService.handleBloodPickupCompletion(event);
+    }
+
+    public void handleBloodMerge(ItemMergeEvent event) {
+        worldItemService.handleBloodMerge(event);
+    }
+
+    public void handleBloodMergeCompletion(ItemMergeEvent event) {
+        worldItemService.handleBloodMergeCompletion(event);
+    }
+
+    public void handleItemDespawn(ItemDespawnEvent event) {
+        worldItemService.handleItemDespawn(event);
+    }
+
+    public void handlePossibleBloodDropRemoval(EntityDamageEvent event) {
+        worldItemService.handlePossibleBloodDropRemoval(event);
     }
 
     public void handleDisposableItemSpawn(ItemSpawnEvent event) {

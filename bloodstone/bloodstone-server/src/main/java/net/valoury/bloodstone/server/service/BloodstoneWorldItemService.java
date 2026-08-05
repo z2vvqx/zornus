@@ -5,8 +5,12 @@ import net.valoury.bloodstone.server.model.BloodstoneItemClassification;
 import org.bukkit.GameMode;
 import org.bukkit.Material;
 import org.bukkit.Sound;
+import org.bukkit.entity.Item;
 import org.bukkit.entity.ItemFrame;
 import org.bukkit.entity.Player;
+import org.bukkit.event.entity.EntityDamageEvent;
+import org.bukkit.event.entity.ItemDespawnEvent;
+import org.bukkit.event.entity.ItemMergeEvent;
 import org.bukkit.event.entity.ItemSpawnEvent;
 import org.bukkit.event.player.PlayerInteractEntityEvent;
 import org.bukkit.event.player.PlayerItemConsumeEvent;
@@ -36,6 +40,8 @@ public final class BloodstoneWorldItemService {
     private final BloodstoneCombatService combatService;
     private final BloodstonePresentationService presentationService;
     private final BloodstoneMessageService messageService;
+    private final BloodDropPickupProtectionService
+            bloodDropPickupProtectionService;
 
     public BloodstoneWorldItemService(
             Plugin plugin,
@@ -43,7 +49,8 @@ public final class BloodstoneWorldItemService {
             BloodstoneCurrencyService currencyService,
             BloodstoneCombatService combatService,
             BloodstonePresentationService presentationService,
-            BloodstoneMessageService messageService
+            BloodstoneMessageService messageService,
+            BloodDropPickupProtectionService bloodDropPickupProtectionService
     ) {
         this.plugin = plugin;
         this.itemService = itemService;
@@ -51,6 +58,8 @@ public final class BloodstoneWorldItemService {
         this.combatService = combatService;
         this.presentationService = presentationService;
         this.messageService = messageService;
+        this.bloodDropPickupProtectionService =
+                bloodDropPickupProtectionService;
     }
 
     public void handleItemFrame(PlayerInteractEntityEvent event) {
@@ -107,14 +116,71 @@ public final class BloodstoneWorldItemService {
         if (!isBloodstone(event.getPlayer())) {
             return;
         }
-        if (currencyService.isBlood(event.getItem().getItemStack())) {
-            event.getPlayer().playSound(
-                    event.getPlayer().getLocation(),
-                    Sound.ITEM_PICKUP,
-                    0.35F,
-                    1.4F
+        if (!currencyService.isBlood(event.getItem().getItemStack())) {
+            return;
+        }
+        if (bloodDropPickupProtectionService.isPickupPrevented(
+                event.getItem(),
+                event.getPlayer().getUniqueId()
+        )) {
+            event.setCancelled(true);
+            return;
+        }
+        event.getPlayer().playSound(
+                event.getPlayer().getLocation(),
+                Sound.ITEM_PICKUP,
+                0.35F,
+                1.4F
+        );
+    }
+
+    public void handleBloodPickupCompletion(PlayerPickupItemEvent event) {
+        if (event.getRemaining() == 0) {
+            bloodDropPickupProtectionService.clearPickupRestriction(
+                    event.getItem()
             );
         }
+    }
+
+    public void handleBloodMerge(ItemMergeEvent event) {
+        if (!currencyService.isBlood(event.getEntity().getItemStack())
+                || !currencyService.isBlood(
+                event.getTarget().getItemStack()
+        )) {
+            return;
+        }
+        if (bloodDropPickupProtectionService
+                .hasConflictingPickupRestriction(
+                        event.getEntity(),
+                        event.getTarget()
+                )) {
+            event.setCancelled(true);
+        }
+    }
+
+    public void handleBloodMergeCompletion(ItemMergeEvent event) {
+        bloodDropPickupProtectionService.clearPickupRestriction(
+                event.getEntity()
+        );
+    }
+
+    public void handleItemDespawn(ItemDespawnEvent event) {
+        bloodDropPickupProtectionService.clearPickupRestriction(
+                event.getEntity()
+        );
+    }
+
+    public void handlePossibleBloodDropRemoval(EntityDamageEvent event) {
+        if (!(event.getEntity() instanceof Item item)
+                || !bloodDropPickupProtectionService
+                .hasPickupRestriction(item)) {
+            return;
+        }
+        plugin.getServer().getScheduler().runTask(plugin, () -> {
+            if (item.isDead() || !item.isValid()) {
+                bloodDropPickupProtectionService.clearPickupRestriction(item);
+            }
+        });
     }
 
     public void handleDisposableItemSpawn(ItemSpawnEvent event) {
