@@ -139,9 +139,14 @@ public final class TicketManagementService {
                                         }
                                         return DiscordBotConstants.TICKET_CLOSED;
                                     });
+                        })
+                        .exceptionallyCompose(exception -> {
+                            Throwable cause = unwrap(exception);
+                            return compensateFailedClose(thread, removedParticipantIds, cause)
+                                    .thenCompose(ignored -> CompletableFuture.failedFuture(cause));
                         }))
                 .exceptionally(exception -> operationFailed(
-                        "prepare ticket thread " + thread.getId() + " for closure", exception));
+                        "close ticket thread " + thread.getId(), exception));
     }
 
     private CompletableFuture<List<Long>> prepareThreadForClose(ThreadChannel thread) {
@@ -190,7 +195,10 @@ public final class TicketManagementService {
             Throwable originalException
     ) {
         CompletableFuture<Void> restoreStorage = ticketService.restoreOpenTicket(thread.getIdLong())
-                .thenApply(ignored -> (Void) null)
+                .thenCompose(restored -> restored
+                        ? CompletableFuture.<Void>completedFuture(null)
+                        : CompletableFuture.<Void>failedFuture(new IllegalStateException(
+                                "Ticket storage did not restore the closing ticket")))
                 .exceptionally(exception -> {
                     originalException.addSuppressed(unwrap(exception));
                     return null;
