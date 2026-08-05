@@ -4,6 +4,7 @@ import java.time.Duration;
 import java.util.List;
 
 public final class PunishmentProxyConstants {
+    public static final String COMMAND_PERMISSION = "valoury.punishments.manage";
     public static final String POSTGRESQL_URL = "jdbc:postgresql://localhost:5432/punishments";
     public static final String POSTGRESQL_USER = "postgres";
     public static final String POSTGRESQL_PASSWORD = "postword";

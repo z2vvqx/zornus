@@ -3,14 +3,32 @@ package net.valoury.punishments.proxy.command;
 import com.mojang.brigadier.tree.ArgumentCommandNode;
 import com.mojang.brigadier.tree.CommandNode;
 import com.velocitypowered.api.command.CommandSource;
+import com.velocitypowered.api.permission.Tristate;
+import net.valoury.punishments.proxy.PunishmentProxyConstants;
 import org.junit.jupiter.api.Test;
 
 import java.util.ArrayList;
 import java.util.List;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertFalse;
+import static org.junit.jupiter.api.Assertions.assertTrue;
 
 class PunishmentCommandTreeTest {
+    @Test
+    void requiresThePunishmentManagementPermission() {
+        CommandSource permittedSource = permission ->
+                PunishmentProxyConstants.COMMAND_PERMISSION.equals(permission)
+                        ? Tristate.TRUE
+                        : Tristate.FALSE;
+        CommandSource unpermittedSource = permission -> Tristate.FALSE;
+
+        CommandNode<CommandSource> commandNode = PunishmentCommand.create(null, null).getNode();
+
+        assertTrue(commandNode.canUse(permittedSource));
+        assertFalse(commandNode.canUse(unpermittedSource));
+    }
+
     @Test
     void everyRecognizedCommandPrefixHasAnExecutor() {
         List<String> prefixesWithoutExecutors = new ArrayList<>();
