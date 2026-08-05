@@ -900,7 +900,7 @@ public final class PartyService implements AutoCloseable {
 
         return storage.fetchSettingsForMembers(party.getMemberIds())
                 .thenCompose(settingsMap -> {
-                    List<CompletableFuture<Void>> warpFutures = new ArrayList<>();
+                    List<CompletableFuture<Boolean>> warpFutures = new ArrayList<>();
 
                     for (UUID memberId : party.getMemberIds()) {
                         if (!party.isLeader(memberId)) {
@@ -919,16 +919,24 @@ public final class PartyService implements AutoCloseable {
                                 continue;
                             }
 
-                            CompletableFuture<Void> warpFuture = member.createConnectionRequest(targetServer)
+                            CompletableFuture<Boolean> warpFuture = member.createConnectionRequest(targetServer)
                                     .connect()
-                                    .thenAccept(result -> notificationService.notifyMemberWarped(member, sender))
-                                    .exceptionally(throwable -> null);
+                                    .thenApply(result -> {
+                                        if (!connectionRequestSucceeded(result)) {
+                                            return false;
+                                        }
+                                        notificationService.notifyMemberWarped(member, sender);
+                                        return true;
+                                    })
+                                    .exceptionally(throwable -> false);
                             warpFutures.add(warpFuture);
                         }
                     }
 
                     return CompletableFuture.allOf(warpFutures.toArray(new CompletableFuture[0]))
-                            .thenApply(ignored -> PartyResult.PARTY_WARPED);
+                            .thenApply(ignored -> warpFutures.stream().allMatch(CompletableFuture::join)
+                                    ? PartyResult.PARTY_WARPED
+                                    : PartyResult.WARP_FAILED);
                 });
     }
 
@@ -975,9 +983,17 @@ public final class PartyService implements AutoCloseable {
 
                     return sender.createConnectionRequest(actualLeader.getCurrentServer().get().getServer())
                             .connect()
-                            .thenApply(result -> PartyResult.JUMPED_TO_LEADER)
+                            .thenApply(result -> connectionRequestSucceeded(result)
+                                    ? PartyResult.JUMPED_TO_LEADER
+                                    : PartyResult.WARP_FAILED)
                             .exceptionally(throwable -> PartyResult.WARP_FAILED);
                 });
+    }
+
+    static boolean connectionRequestSucceeded(
+            @NonNull Result connectionResult
+    ) {
+        return connectionResult.isSuccessful();
     }
 
     public @NonNull CompletableFuture<PartyResults.UpdateSetting> updateBooleanSetting(

@@ -1,5 +1,6 @@
 package net.valoury.friends.proxy.service;
 
+import com.velocitypowered.api.proxy.ConnectionRequestBuilder.Result;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.Component;
@@ -373,8 +374,16 @@ public final class FriendService implements FriendshipService, AutoCloseable {
         Player actualTarget = currentTarget.get();
         return jumper.createConnectionRequest(actualTarget.getCurrentServer().get().getServer())
                 .connect()
-                .<JumpToFriendResult>thenApply(result -> new JumpToFriendResult.Jumped())
+                .thenApply(FriendService::jumpResultForConnection)
                 .exceptionally(throwable -> new JumpToFriendResult.JumpFailed());
+    }
+
+    static @NonNull JumpToFriendResult jumpResultForConnection(
+            @NonNull Result connectionResult
+    ) {
+        return connectionResult.isSuccessful()
+                ? new JumpToFriendResult.Jumped()
+                : new JumpToFriendResult.JumpFailed();
     }
 
     public @NonNull CompletableFuture<FriendSettings> getSettings(@NonNull UUID playerUuid) {
