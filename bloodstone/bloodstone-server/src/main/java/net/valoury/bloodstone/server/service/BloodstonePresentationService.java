@@ -4,6 +4,7 @@ import com.github.retrooper.packetevents.PacketEvents;
 import com.github.retrooper.packetevents.protocol.color.AlphaColor;
 import com.github.retrooper.packetevents.protocol.particle.Particle;
 import com.github.retrooper.packetevents.protocol.particle.data.ParticleColorData;
+import com.github.retrooper.packetevents.protocol.particle.data.ParticleDustData;
 import com.github.retrooper.packetevents.protocol.particle.type.ParticleTypes;
 import com.github.retrooper.packetevents.util.Vector3d;
 import com.github.retrooper.packetevents.util.Vector3f;
@@ -251,19 +252,32 @@ public final class BloodstonePresentationService {
                             REVENGE_TARGET_PARTICLE_RADIUS
                     )
             );
-            dominatedPlayer.spigot().playEffect(
-                    particleLocation,
-                    Effect.COLOURED_DUST,
-                    0,
-                    0,
-                    1.0F,
-                    0.0F,
-                    0.0F,
-                    1.0F,
-                    0,
-                    Integer.MAX_VALUE
+            PacketEvents.getAPI().getPlayerManager().sendPacket(
+                    dominatedPlayer,
+                    createRevengeTargetParticlePacket(new Vector3d(
+                            particleLocation.getX(),
+                            particleLocation.getY(),
+                            particleLocation.getZ()
+                    ))
             );
         }
+    }
+
+    private static WrapperPlayServerParticle createRevengeTargetParticlePacket(
+            Vector3d position
+    ) {
+        return new WrapperPlayServerParticle(
+                new Particle<>(
+                        ParticleTypes.DUST,
+                        new ParticleDustData(1.0F, 255, 0, 0)
+                ),
+                true,
+                position,
+                new Vector3f(0.0F, 0.0F, 0.0F),
+                0.0F,
+                1,
+                true
+        );
     }
 
     public void playMenuNavigation(Player player) {
