@@ -13,6 +13,8 @@ import org.jspecify.annotations.NonNull;
 
 public final class BloodstoneDeathAndRespawnListener implements Listener {
 
+    private static final long FORCED_RESPAWN_DELAY_TICKS = 5L;
+
     private final BloodstoneService bloodstoneService;
     private final BloodstoneCombatService combatService;
     private final BloodstoneDuelService duelService;
@@ -41,6 +43,7 @@ public final class BloodstoneDeathAndRespawnListener implements Listener {
         bloodstoneService.handlePlayerDeath(player, event.getDrops());
         duelService.handleDeath(player);
         combatService.handleDeath(player);
+        scheduleForcedRespawn(player);
     }
 
     @EventHandler
@@ -51,14 +54,20 @@ public final class BloodstoneDeathAndRespawnListener implements Listener {
         }
 
         event.setRespawnLocation(bloodstoneService.selectRespawnLocation(player.getWorld()));
-        plugin.getServer().getScheduler().runTask(plugin, () -> {
-            if (!player.isOnline() || !bloodstoneService.isInBloodstoneWorld(player)) {
+        bloodstoneService.restoreBaselineKit(player);
+        player.updateInventory();
+        bloodstoneService.playBaselineRestoredFeedback(player);
+        combatService.handleRespawn(player);
+    }
+
+    private void scheduleForcedRespawn(Player player) {
+        plugin.getServer().getScheduler().runTaskLater(plugin, () -> {
+            if (!player.isOnline()
+                    || !player.isDead()
+                    || !bloodstoneService.isInBloodstoneWorld(player)) {
                 return;
             }
-            bloodstoneService.restoreBaselineKit(player);
-            player.updateInventory();
-            bloodstoneService.playBaselineRestoredFeedback(player);
-            combatService.handleRespawn(player);
-        });
+            player.spigot().respawn();
+        }, FORCED_RESPAWN_DELAY_TICKS);
     }
 }

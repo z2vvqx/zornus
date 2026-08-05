@@ -72,7 +72,6 @@ public final class BloodstoneService {
     }
 
     public void handlePlayerDeath(Player player, List<ItemStack> drops) {
-        player.spigot().respawn();
         playDeathParticles(player.getLocation());
         Iterator<ItemStack> dropIterator = drops.iterator();
         while (dropIterator.hasNext()) {
