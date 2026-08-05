@@ -144,35 +144,56 @@ public final class GuildService implements AutoCloseable {
 
         UUID senderId = sender.getUniqueId();
 
+        return storage.getPlayerGuild(senderId)
+                .thenCompose(guildOptional -> {
+                    if (guildOptional.isEmpty()) {
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.SendInvitation.NotInGuild());
+                    }
+
+                    Guild guild = guildOptional.get();
+                    GuildRank senderRank = guild.findMemberRank(senderId)
+                            .orElse(GuildRank.OUTCAST);
+                    if (!senderRank.canManageInvitations()) {
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.SendInvitation.InsufficientRank());
+                    }
+
+                    if (sender.getUsername().equalsIgnoreCase(targetUsername)) {
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.SendInvitation.CannotInviteSelf());
+                    }
+
+                    return resolveAndSendInvitation(sender, targetUsername, guild);
+                });
+    }
+
+    private @NonNull CompletableFuture<GuildResults.SendInvitation> resolveAndSendInvitation(
+            @NonNull Player sender,
+            @NonNull String targetUsername,
+            @NonNull Guild guild
+    ) {
+        UUID senderId = sender.getUniqueId();
         return resolveTargetPlayer(targetUsername)
                 .thenCompose(targetOptional -> {
                     if (targetOptional.isEmpty()) {
-                        return CompletableFuture.completedFuture(new GuildResults.SendInvitation.PlayerNotFound());
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.SendInvitation.PlayerNotFound());
                     }
+
                     PlayerRecord targetRecord = targetOptional.get();
                     UUID targetId = targetRecord.playerUuid();
                     String targetPlayerName = targetRecord.username();
-
                     if (senderId.equals(targetId)) {
-                        return CompletableFuture.completedFuture(new GuildResults.SendInvitation.CannotInviteSelf());
+                        return CompletableFuture.completedFuture(
+                                new GuildResults.SendInvitation.CannotInviteSelf());
                     }
 
-                    return storage.getPlayerGuild(senderId)
-                            .thenCompose(guildOptional -> {
-                                if (guildOptional.isEmpty()) {
-                                    return CompletableFuture.completedFuture(new GuildResults.SendInvitation.NotInGuild());
-                                }
-                                Guild guild = guildOptional.get();
-                                GuildRank senderRank = guild.findMemberRank(senderId)
-                                        .orElse(GuildRank.OUTCAST);
-                                if (!senderRank.canManageInvitations()) {
-                                    return CompletableFuture.completedFuture(
-                                            new GuildResults.SendInvitation.InsufficientRank());
-                                }
-                                return executeSendInvitation(sender, targetId, targetPlayerName, guild)
-                                        .thenApply(result ->
-                                                GuildResults.SendInvitation.from(result, targetPlayerName));
-                            });
+                    return executeSendInvitation(sender, targetId, targetPlayerName, guild)
+                            .thenApply(result -> GuildResults.SendInvitation.from(
+                                    result,
+                                    targetPlayerName
+                            ));
                 });
     }
 

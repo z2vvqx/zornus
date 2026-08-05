@@ -12,6 +12,7 @@ import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.valoury.parties.proxy.PartyProxyConstants;
+import net.valoury.parties.proxy.model.result.PartyResults;
 import net.valoury.parties.proxy.service.PartyService;
 import net.valoury.shared.SharedConstants;
 import net.valoury.shared.utilities.StringUtils;
@@ -20,7 +21,6 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
 import java.util.Locale;
-import java.util.Optional;
 
 /**
  * Command for inviting players to party.
@@ -54,12 +54,12 @@ public final class PartyInviteCommand {
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("player_name", StringArgumentType.word())
                         .suggests(onlinePlayerSuggestions(proxyServer))
-                        .executes(context -> handleInvitePlayer(context, partyService, proxyServer))
+                        .executes(context -> handleInvitePlayer(context, partyService))
                 );
     }
 
-    private static int handleInvitePlayer(@NonNull CommandContext<CommandSource> context, PartyService partyService,
-                                          ProxyServer proxyServer) {
+    private static int handleInvitePlayer(@NonNull CommandContext<CommandSource> context,
+                                          PartyService partyService) {
         CommandSource source = context.getSource();
         if (!(source instanceof Player sender)) {
             source.sendMessage(StringUtils.deserialize(SharedConstants.PLAYERS_ONLY));
@@ -67,60 +67,54 @@ public final class PartyInviteCommand {
         }
 
         String targetName = StringArgumentType.getString(context, "player_name");
-
-        Optional<Player> targetOptional = proxyServer.getPlayer(targetName);
-        if (targetOptional.isEmpty()) {
-            sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
-            return Command.SINGLE_SUCCESS;
-        }
-        Player target = targetOptional.get();
-        String targetUsername = target.getUsername();
-
-        partyService.sendInvitation(sender, target)
+        partyService.sendInvitation(sender, targetName)
                 .thenAccept(result -> {
-                    switch (result.legacy()) {
-                        case NOT_LEADER ->
+                    switch (result) {
+                        case PartyResults.SendInvitation.NotLeader ignored ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_NOT_LEADER));
-                        case INSUFFICIENT_ROLE ->
+                        case PartyResults.SendInvitation.InsufficientRole ignored ->
                                 sender.sendMessage(StringUtils.deserialize(
                                         PartyProxyConstants.ERROR_INSUFFICIENT_ROLE));
-                        case CANNOT_INVITE_SELF ->
+                        case PartyResults.SendInvitation.PlayerNotFound ignored ->
+                                sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
+                        case PartyResults.SendInvitation.CannotInviteSelf ignored ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.INVITE_ERROR_CANNOT_INVITE_SELF));
-                        case TARGET_ALREADY_IN_PARTY ->
+                        case PartyResults.SendInvitation.TargetAlreadyInParty targetAlreadyInParty ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.INVITE_ERROR_TARGET_IN_PARTY,
-                                        Placeholder.unparsed("target", targetUsername)));
-                        case PARTY_FULL ->
+                                        Placeholder.unparsed("target", targetAlreadyInParty.targetName())));
+                        case PartyResults.SendInvitation.PartyFull ignored ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.INVITE_ERROR_PARTY_FULL,
                                         Placeholder.unparsed("maximum_size", String.valueOf(PartyProxyConstants.MAX_PARTY_SIZE))));
-                        case INVITATION_COOLDOWN_ACTIVE ->
+                        case PartyResults.SendInvitation.CooldownActive cooldownActive ->
                                 sender.sendMessage(StringUtils.deserialize(
                                         PartyProxyConstants.ERROR_INVITATION_COOLDOWN,
                                         TagResolver.resolver(
-                                                Placeholder.unparsed("target", targetUsername),
+                                                Placeholder.unparsed("target", cooldownActive.targetName()),
                                                 Placeholder.unparsed("time_remaining", "a moment"))));
-                        case SENDER_INVITATION_LIMIT_REACHED ->
+                        case PartyResults.SendInvitation.SenderLimitReached ignored ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_SENDER_INVITATION_LIMIT_REACHED));
-                        case RECEIVER_INVITATION_LIMIT_REACHED ->
+                        case PartyResults.SendInvitation.ReceiverLimitReached receiverLimitReached ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_RECEIVER_INVITATION_LIMIT_REACHED,
-                                        Placeholder.unparsed("target", targetUsername)));
-                        case INVITES_DISABLED ->
+                                        Placeholder.unparsed("target", receiverLimitReached.targetName())));
+                        case PartyResults.SendInvitation.InvitesDisabled invitesDisabled ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.SETTINGS_ERROR_INVITES_DISABLED,
-                                        Placeholder.unparsed("target", targetUsername)));
-                        case INVITES_FRIENDS_ONLY ->
+                                        Placeholder.unparsed("target", invitesDisabled.targetName())));
+                        case PartyResults.SendInvitation.InvitesFriendsOnly invitesFriendsOnly ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.SETTINGS_ERROR_INVITES_FRIENDS_ONLY,
-                                        Placeholder.unparsed("target", targetUsername)));
-                        case ALREADY_INVITED ->
+                                        Placeholder.unparsed("target", invitesFriendsOnly.targetName())));
+                        case PartyResults.SendInvitation.AlreadyInvited alreadyInvited ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.INVITE_ERROR_ALREADY_SENT,
-                                        Placeholder.unparsed("target", targetUsername)));
-                        case INVITATION_SENT ->
+                                        Placeholder.unparsed("target", alreadyInvited.targetName())));
+                        case PartyResults.SendInvitation.Sent sent ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.INVITE_SUCCESS,
-                                        Placeholder.unparsed("target", targetUsername)));
-                        default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
+                                        Placeholder.unparsed("target", sent.targetName())));
+                        case PartyResults.SendInvitation.PartyNotFound ignored ->
+                                sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     }
                 })
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to send party invitation from {} to {}",
-                            sender.getUniqueId(), target.getUniqueId(), throwable);
+                            sender.getUniqueId(), targetName, throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));
                     return null;
                 });

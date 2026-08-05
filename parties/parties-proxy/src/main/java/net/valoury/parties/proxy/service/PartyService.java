@@ -156,35 +156,55 @@ public final class PartyService implements AutoCloseable {
 
     public @NonNull CompletableFuture<PartyResults.SendInvitation> sendInvitation(
             @NonNull Player sender,
-            @Nullable Player target
+            @Nullable String targetUsername
     ) {
-        return sendInvitationLegacy(sender, target).thenApply(PartyResults.SendInvitation::from);
-    }
-
-    private @NonNull CompletableFuture<PartyResult> sendInvitationLegacy(
-            @NonNull Player sender,
-            @Nullable Player target
-    ) {
-        if (target == null) {
-            return CompletableFuture.completedFuture(PartyResult.PLAYER_NOT_FOUND);
+        if (targetUsername == null) {
+            return CompletableFuture.completedFuture(
+                    new PartyResults.SendInvitation.PlayerNotFound());
         }
 
         UUID senderId = sender.getUniqueId();
-        UUID targetId = target.getUniqueId();
-
-        if (senderId.equals(targetId)) {
-            return CompletableFuture.completedFuture(PartyResult.CANNOT_INVITE_SELF);
-        }
-
         return storage.getPlayerParty(senderId)
                 .thenCompose(partyOptional -> {
                     if (partyOptional.isPresent()
                             && !partyOptional.get().canManageMembers(senderId)) {
-                        return CompletableFuture.<PartyResult>completedFuture(
-                                PartyResult.INSUFFICIENT_ROLE);
+                        return CompletableFuture.completedFuture(
+                                new PartyResults.SendInvitation.InsufficientRole());
                     }
-                    return executeSendInvitation(sender, target, partyOptional);
+
+                    if (sender.getUsername().equalsIgnoreCase(targetUsername)) {
+                        return CompletableFuture.completedFuture(
+                                new PartyResults.SendInvitation.CannotInviteSelf());
+                    }
+
+                    return resolveAndSendInvitation(sender, targetUsername, partyOptional);
                 });
+    }
+
+    private @NonNull CompletableFuture<PartyResults.SendInvitation> resolveAndSendInvitation(
+            @NonNull Player sender,
+            @NonNull String targetUsername,
+            @NonNull Optional<Party> partyOptional
+    ) {
+        Optional<Player> targetOptional = proxyServer.getPlayer(targetUsername);
+        if (targetOptional.isEmpty()) {
+            return CompletableFuture.completedFuture(
+                    new PartyResults.SendInvitation.PlayerNotFound());
+        }
+
+        Player target = targetOptional.get();
+        UUID senderId = sender.getUniqueId();
+        UUID targetId = target.getUniqueId();
+        if (senderId.equals(targetId)) {
+            return CompletableFuture.completedFuture(
+                    new PartyResults.SendInvitation.CannotInviteSelf());
+        }
+
+        return executeSendInvitation(sender, target, partyOptional)
+                .thenApply(result -> PartyResults.SendInvitation.from(
+                        result,
+                        target.getUsername()
+                ));
     }
 
     private @NonNull CompletableFuture<PartyResult> executeSendInvitation(

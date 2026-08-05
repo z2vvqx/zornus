@@ -645,46 +645,42 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             try (Connection connection = dataSource.getConnection()) {
                 connection.setAutoCommit(false);
                 try {
-                    // 1. Verify the guild and the sender's current invitation capability.
-                    try (PreparedStatement statement = connection.prepareStatement(
-                            "SELECT 1 FROM guilds WHERE guild_id = ?")) {
-                        statement.setObject(1, guildId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            if (!resultSet.next()) {
-                                connection.rollback();
-                                return new SendInvitationOutcome.GuildNoLongerExists();
-                            }
-                        }
-                    }
-
+                    // 1. Verify and lock the sender membership before the guild row.
                     String checkSenderRankSql = """
                             SELECT guild_rank
                             FROM guild_members
                             WHERE guild_id = ? AND player_id = ?
                             FOR UPDATE
                             """;
-                    GuildRank senderRank;
+                    GuildRank senderRank = null;
                     try (PreparedStatement statement = connection.prepareStatement(checkSenderRankSql)) {
                         statement.setObject(1, guildId);
                         statement.setObject(2, senderId);
                         try (ResultSet resultSet = statement.executeQuery()) {
-                            if (!resultSet.next()) {
-                                connection.rollback();
-                                return new SendInvitationOutcome.SenderInsufficientRank();
+                            if (resultSet.next()) {
+                                senderRank = GuildRank.fromStoredName(resultSet.getString("guild_rank"));
                             }
-                            senderRank = GuildRank.fromStoredName(resultSet.getString("guild_rank"));
                         }
                     }
 
+                    if (senderRank == null) {
+                        try (PreparedStatement statement = connection.prepareStatement(
+                                "SELECT 1 FROM guilds WHERE guild_id = ?")) {
+                            statement.setObject(1, guildId);
+                            try (ResultSet resultSet = statement.executeQuery()) {
+                                boolean guildExists = resultSet.next();
+                                connection.rollback();
+                                return guildExists
+                                        ? new SendInvitationOutcome.SenderInsufficientRank()
+                                        : new SendInvitationOutcome.GuildNoLongerExists();
+                            }
+                        }
+                    }
                     if (!senderRank.canManageInvitations()) {
                         connection.rollback();
                         return new SendInvitationOutcome.SenderInsufficientRank();
                     }
 
-                    /*
-                     * Serialize invitation sends for this guild so two authorized
-                     * members cannot both create an invitation for the same target.
-                     */
                     try (PreparedStatement statement = connection.prepareStatement(
                             "SELECT 1 FROM guilds WHERE guild_id = ? FOR UPDATE")) {
                         statement.setObject(1, guildId);
@@ -696,7 +692,49 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         }
                     }
 
-                    // 2. Check target privacy settings
+                    // 2. Reject targets that cannot be added before policy and limit checks.
+                    String checkTargetInGuildSql = "SELECT guild_id FROM guild_members WHERE player_id = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(checkTargetInGuildSql)) {
+                        statement.setObject(1, targetId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (resultSet.next()) {
+                                UUID targetGuildId = resultSet.getObject("guild_id", UUID.class);
+                                connection.rollback();
+                                return targetGuildId.equals(guildId)
+                                        ? new SendInvitationOutcome.TargetAlreadyInGuild()
+                                        : new SendInvitationOutcome.TargetInAnotherGuild();
+                            }
+                        }
+                    }
+
+                    String checkGuildSizeSql = "SELECT COUNT(*) FROM guild_members WHERE guild_id = ?";
+                    int memberCount;
+                    try (PreparedStatement statement = connection.prepareStatement(checkGuildSizeSql)) {
+                        statement.setObject(1, guildId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            resultSet.next();
+                            memberCount = resultSet.getInt(1);
+                        }
+                    }
+                    if (memberCount >= GuildProxyConstants.MAX_GUILD_SIZE) {
+                        connection.rollback();
+                        return new SendInvitationOutcome.GuildFull();
+                    }
+
+                    String checkExistingInviteSql =
+                            "SELECT 1 FROM guild_invitations WHERE guild_id = ? AND target_id = ?";
+                    try (PreparedStatement statement = connection.prepareStatement(checkExistingInviteSql)) {
+                        statement.setObject(1, guildId);
+                        statement.setObject(2, targetId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (resultSet.next()) {
+                                connection.rollback();
+                                return new SendInvitationOutcome.AlreadyInvited();
+                            }
+                        }
+                    }
+
+                    // 3. Check target privacy settings.
                     String targetPrivacy = "all";
                     String checkPrivacySql = "SELECT invite_privacy FROM guild_settings WHERE player_id = ?";
                     try (PreparedStatement statement = connection.prepareStatement(checkPrivacySql)) {
@@ -728,37 +766,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         }
                     }
 
-                    // 3. Check if target is already in a guild
-                    String checkTargetInGuildSql = "SELECT guild_id FROM guild_members WHERE player_id = ?";
-                    try (PreparedStatement statement = connection.prepareStatement(checkTargetInGuildSql)) {
-                        statement.setObject(1, targetId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            if (resultSet.next()) {
-                                UUID targetGuildId = resultSet.getObject("guild_id", UUID.class);
-                                connection.rollback();
-                                return targetGuildId.equals(guildId)
-                                        ? new SendInvitationOutcome.TargetAlreadyInGuild()
-                                        : new SendInvitationOutcome.TargetInAnotherGuild();
-                            }
-                        }
-                    }
-
-                    // 4. Check if guild is full
-                    String checkGuildSizeSql = "SELECT COUNT(*) FROM guild_members WHERE guild_id = ?";
-                    int memberCount;
-                    try (PreparedStatement statement = connection.prepareStatement(checkGuildSizeSql)) {
-                        statement.setObject(1, guildId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            resultSet.next();
-                            memberCount = resultSet.getInt(1);
-                        }
-                    }
-                    if (memberCount >= GuildProxyConstants.MAX_GUILD_SIZE) {
-                        connection.rollback();
-                        return new SendInvitationOutcome.GuildFull();
-                    }
-
-                    // 5. Check invitation cooldown
+                    // 4. Check invitation cooldown.
                     String checkCooldownSql = "SELECT timestamp FROM guild_cooldowns WHERE sender_id = ? AND receiver_id = ?";
                     try (PreparedStatement statement = connection.prepareStatement(checkCooldownSql)) {
                         statement.setObject(1, senderId);
@@ -778,7 +786,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     // Serialize invitation limit checks per player
                     acquirePerPlayerLocks(connection, senderId, targetId);
 
-                    // 6. Check sender invitation limits
+                    // 5. Check sender invitation limits.
                     String countSenderInvitesSql = """
                             SELECT (SELECT COUNT(*) FROM guild_invitations WHERE sender_id = ?) +
                                    (SELECT COUNT(*) FROM guild_invitations WHERE target_id = ?)
@@ -797,7 +805,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         return new SendInvitationOutcome.SenderLimitReached();
                     }
 
-                    // 7. Check receiver invitation limits
+                    // 6. Check receiver invitation limits.
                     String countReceiverInvitesSql = """
                             SELECT (SELECT COUNT(*) FROM guild_invitations WHERE sender_id = ?) +
                                    (SELECT COUNT(*) FROM guild_invitations WHERE target_id = ?)
@@ -816,21 +824,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         return new SendInvitationOutcome.ReceiverLimitReached();
                     }
 
-                    // 8. Check if already invited
-                    String checkExistingInviteSql =
-                            "SELECT 1 FROM guild_invitations WHERE guild_id = ? AND target_id = ?";
-                    try (PreparedStatement statement = connection.prepareStatement(checkExistingInviteSql)) {
-                        statement.setObject(1, guildId);
-                        statement.setObject(2, targetId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            if (resultSet.next()) {
-                                connection.rollback();
-                                return new SendInvitationOutcome.AlreadyInvited();
-                            }
-                        }
-                    }
-
-                    // 9. Insert invitation
+                    // 7. Insert invitation.
                     String insertInviteSql = """
                             INSERT INTO guild_invitations (guild_id, sender_id, target_id, created_at)
                             VALUES (?, ?, ?, NOW())
@@ -842,7 +836,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         statement.executeUpdate();
                     }
 
-                    // 10. Record/refresh cooldown
+                    // 8. Record or refresh the cooldown.
                     String upsertCooldownSql = """
                             INSERT INTO guild_cooldowns (sender_id, receiver_id, timestamp)
                             VALUES (?, ?, NOW())

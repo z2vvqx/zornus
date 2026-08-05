@@ -56,6 +56,10 @@ final class PartyInvitationPostgresOperations {
                     connection.rollback();
                     return new SendInvitationOutcome.PartyFull();
                 }
+                if (invitationExists(connection, partyId, senderId, targetId)) {
+                    connection.rollback();
+                    return new SendInvitationOutcome.AlreadyInvited();
+                }
 
                 String targetPrivacy = fetchInvitePrivacy(connection, targetId);
                 if ("none".equals(targetPrivacy)
@@ -77,11 +81,6 @@ final class PartyInvitationPostgresOperations {
                     connection.rollback();
                     return new SendInvitationOutcome.ReceiverLimitReached();
                 }
-                if (invitationExists(connection, partyId, senderId, targetId)) {
-                    connection.rollback();
-                    return new SendInvitationOutcome.AlreadyInvited();
-                }
-
                 try (PreparedStatement statement = connection.prepareStatement("""
                         INSERT INTO party_invitations (party_id, sender_id, target_id, created_at)
                         VALUES (?, ?, ?, NOW())

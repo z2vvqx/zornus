@@ -671,7 +671,23 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                         }
                     }
 
-                    // 4. Check request cooldown
+                    // 4. Check if the receiver accepts requests
+                    String checkSettingsSql = "SELECT accept_requests FROM settings WHERE player_id = ?";
+                    boolean acceptsRequests = true;
+                    try (PreparedStatement statement = connection.prepareStatement(checkSettingsSql)) {
+                        statement.setObject(1, receiverId);
+                        try (ResultSet resultSet = statement.executeQuery()) {
+                            if (resultSet.next()) {
+                                acceptsRequests = resultSet.getBoolean("accept_requests");
+                            }
+                        }
+                    }
+                    if (!acceptsRequests) {
+                        connection.rollback();
+                        return new SendRequestOutcome.PlayerNotAcceptingRequests();
+                    }
+
+                    // 5. Check request cooldown
                     String checkCooldownSql = "SELECT timestamp FROM request_cooldowns WHERE sender_id = ? AND receiver_id = ?";
                     try (PreparedStatement statement = connection.prepareStatement(checkCooldownSql)) {
                         statement.setObject(1, senderId);
@@ -688,7 +704,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                         }
                     }
 
-                    // 5. Check request limits (total sent + received per player)
+                    // 6. Check request limits (total sent + received per player)
                     String countSenderTotalSql = """
                             SELECT (SELECT COUNT(*) FROM requests WHERE sender = ?) +
                                    (SELECT COUNT(*) FROM requests WHERE receiver = ?)
@@ -725,7 +741,7 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                         return new SendRequestOutcome.ReceiverRequestLimitReached();
                     }
 
-                    // 6. Check friend limits
+                    // 7. Check friend limits
                     int senderFriendCount = countFriendsInTransaction(connection, senderId);
                     if (senderFriendCount >= FriendProxyConstants.MAX_FRIENDS) {
                         connection.rollback();
@@ -736,22 +752,6 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                     if (receiverFriendCount >= FriendProxyConstants.MAX_FRIENDS) {
                         connection.rollback();
                         return new SendRequestOutcome.ReceiverFriendsLimitReached();
-                    }
-
-                    // 7. Check if receiver accepts requests
-                    String checkSettingsSql = "SELECT accept_requests FROM settings WHERE player_id = ?";
-                    boolean acceptsRequests = true; // default
-                    try (PreparedStatement statement = connection.prepareStatement(checkSettingsSql)) {
-                        statement.setObject(1, receiverId);
-                        try (ResultSet resultSet = statement.executeQuery()) {
-                            if (resultSet.next()) {
-                                acceptsRequests = resultSet.getBoolean("accept_requests");
-                            }
-                        }
-                    }
-                    if (!acceptsRequests) {
-                        connection.rollback();
-                        return new SendRequestOutcome.PlayerNotAcceptingRequests();
                     }
 
                     // 8. Insert the friend request

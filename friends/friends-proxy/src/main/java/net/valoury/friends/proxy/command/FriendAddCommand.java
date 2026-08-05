@@ -73,7 +73,7 @@ public final class FriendAddCommand {
 
         String targetName = StringArgumentType.getString(context, "player_name");
 
-        friendService.resolveTargetPlayer(targetName)
+        friendService.resolveTargetPlayer(sender, targetName)
                 .exceptionally(throwable -> {
                     LOGGER.error("Failed to resolve player by username: {}", targetName, throwable);
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));

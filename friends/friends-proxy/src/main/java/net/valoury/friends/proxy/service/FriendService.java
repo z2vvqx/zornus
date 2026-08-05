@@ -400,6 +400,18 @@ public final class FriendService implements FriendshipService, AutoCloseable {
         return storage.fetchPlayerByUsername(username);
     }
 
+    public @NonNull CompletableFuture<Optional<PlayerRecord>> resolveTargetPlayer(
+            @NonNull Player sender,
+            @NonNull String username
+    ) {
+        if (sender.getUsername().equalsIgnoreCase(username)) {
+            return CompletableFuture.completedFuture(Optional.of(
+                    new PlayerRecord(sender.getUniqueId(), sender.getUsername())
+            ));
+        }
+        return resolveTargetPlayer(username);
+    }
+
     public @NonNull CompletableFuture<Optional<PlayerRecord>> fetchPlayerByUuid(@NonNull UUID playerUuid) {
         return storage.fetchPlayerByUuid(playerUuid);
     }
