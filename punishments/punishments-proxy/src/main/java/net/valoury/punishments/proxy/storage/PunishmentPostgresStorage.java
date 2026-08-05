@@ -7,6 +7,7 @@ import net.valoury.punishments.proxy.model.Punishment;
 import net.valoury.punishments.proxy.model.PunishmentType;
 import net.valoury.shared.database.DatabaseDefaults;
 import net.valoury.shared.database.DatabaseExecutor;
+import net.valoury.shared.database.PostgresSchemaVerifier;
 import net.valoury.shared.model.PlayerRecord;
 import org.jspecify.annotations.NonNull;
 
@@ -63,17 +64,6 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
         }
     }
 
-    private static boolean schemaExists(Connection connection, String rootTable) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT to_regclass(?) IS NOT NULL")) {
-            statement.setString(1, rootTable);
-            try (ResultSet resultSet = statement.executeQuery()) {
-                resultSet.next();
-                return resultSet.getBoolean(1);
-            }
-        }
-    }
-
     private static Instant getInstant(ResultSet resultSet, String column) throws SQLException {
         Timestamp timestamp = resultSet.getTimestamp(column);
         return timestamp == null ? null : timestamp.toInstant();
@@ -89,21 +79,25 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
 
     private void initializeSchema() {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
-            if (schemaExists(connection, "punishments")) {
-                return;
-            }
-            statement.execute("""
+            connection.setAutoCommit(false);
+            try {
+                if (PostgresSchemaVerifier.relationExists(connection, "punishments")) {
+                    validateSchema(connection);
+                    connection.commit();
+                    return;
+                }
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS punishment_players (
                         player_id UUID PRIMARY KEY,
                         username VARCHAR(16) NOT NULL,
                         last_joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE INDEX IF NOT EXISTS idx_punishment_players_username_lower
                     ON punishment_players (LOWER(username))
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS punishments (
                         identifier VARCHAR(4) PRIMARY KEY,
                         punishment_type VARCHAR(8) NOT NULL
@@ -130,33 +124,80 @@ public final class PunishmentPostgresStorage implements PunishmentStorage {
                         )
                     )
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE INDEX IF NOT EXISTS idx_punishments_player_history
                     ON punishments (punished_player_id, created_at DESC)
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE INDEX IF NOT EXISTS idx_punishments_active_expiry
                     ON punishments (expires_at)
                     WHERE active AND expires_at IS NOT NULL
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE UNIQUE INDEX IF NOT EXISTS idx_punishments_one_active_type
                     ON punishments (punished_player_id, punishment_type)
                     WHERE active AND punishment_type IN ('BAN', 'MUTE')
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE UNIQUE INDEX IF NOT EXISTS idx_punishments_one_active_warning_reason
                     ON punishments (punished_player_id, LOWER(BTRIM(reason)))
                     WHERE active AND punishment_type = 'WARN'
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE UNIQUE INDEX IF NOT EXISTS idx_punishments_preset_application
                     ON punishments (punished_player_id, preset_name, preset_application_number)
                     WHERE preset_name IS NOT NULL AND preset_application_number IS NOT NULL
                     """);
+
+                validateSchema(connection);
+                connection.commit();
+            } catch (SQLException | RuntimeException exception) {
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackException) {
+                    exception.addSuppressed(rollbackException);
+                }
+                throw exception;
+            }
         } catch (SQLException exception) {
             throw new RuntimeException("Failed to initialize punishment database schema", exception);
         }
+    }
+
+    private static void validateSchema(Connection connection) throws SQLException {
+        PostgresSchemaVerifier.requireRelations(
+                connection,
+                "punishment_players",
+                "idx_punishment_players_username_lower",
+                "punishments",
+                "idx_punishments_player_history",
+                "idx_punishments_active_expiry",
+                "idx_punishments_one_active_type",
+                "idx_punishments_one_active_warning_reason",
+                "idx_punishments_preset_application"
+        );
+        PostgresSchemaVerifier.requireColumns(
+                connection, "punishment_players", "player_id", "username", "last_joined_at");
+        PostgresSchemaVerifier.requireColumns(
+                connection,
+                "punishments",
+                "identifier",
+                "punishment_type",
+                "punished_player_id",
+                "imposing_player_id",
+                "reason",
+                "created_at",
+                "expires_at",
+                "active",
+                "revoked_at",
+                "revoking_player_id",
+                "revocation_reason",
+                "victim_notified",
+                "preset_name",
+                "preset_application_number"
+        );
+        PostgresSchemaVerifier.requireConstraints(
+                connection, "punishments", "chk_punishments_preset_metadata");
     }
 
     @Override

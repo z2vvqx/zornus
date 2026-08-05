@@ -1,4 +1,4 @@
-package net.valoury.friends.proxy.storage;
+﻿package net.valoury.friends.proxy.storage;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -9,6 +9,7 @@ import net.valoury.friends.proxy.model.FriendSettings;
 import net.valoury.friends.proxy.model.PresenceState;
 import net.valoury.shared.database.DatabaseDefaults;
 import net.valoury.shared.database.DatabaseExecutor;
+import net.valoury.shared.database.PostgresSchemaVerifier;
 import net.valoury.shared.model.PlayerRecord;
 import net.valoury.shared.utilities.CooldownKey;
 import org.jetbrains.annotations.Contract;
@@ -68,17 +69,6 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
         }
     }
 
-    private static boolean schemaExists(Connection connection, String rootTable) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT to_regclass(?) IS NOT NULL")) {
-            statement.setString(1, rootTable);
-            try (ResultSet resultSet = statement.executeQuery()) {
-                resultSet.next();
-                return resultSet.getBoolean(1);
-            }
-        }
-    }
-
     @Override
     public void close() {
         databaseExecutor.shutdown();
@@ -95,10 +85,14 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
 
     private void initializeSchema() {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
-            if (schemaExists(connection, "players")) {
-                return;
-            }
-            statement.execute("""
+            connection.setAutoCommit(false);
+            try {
+                if (PostgresSchemaVerifier.relationExists(connection, "players")) {
+                    validateSchema(connection);
+                    connection.commit();
+                    return;
+                }
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS players (
                         player_id UUID PRIMARY KEY,
                         username VARCHAR(16) NOT NULL,
@@ -106,14 +100,14 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                         last_seen_at TIMESTAMPTZ
                     )
                     """);
-            // Usernames are not a stable identity: Mojang allows renames and recycles freed
-            // names, so a UNIQUE constraint here causes a later player's join to collide with
-            // a stale row still holding their new name under a different player_id. player_id
-            // is the only identity we can rely on being unique; username is just a
-            // last-known display name, resolved by recency in fetchPlayerByUsername.
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_players_username_lower ON players (LOWER(username))");
+                // Usernames are not a stable identity: Mojang allows renames and recycles freed
+                // names, so a UNIQUE constraint here causes a later player's join to collide with
+                // a stale row still holding their new name under a different player_id. player_id
+                // is the only identity we can rely on being unique; username is just a
+                // last-known display name, resolved by recency in fetchPlayerByUsername.
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_players_username_lower ON players (LOWER(username))");
 
-            statement.execute("""
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS relations (
                         player1 UUID NOT NULL REFERENCES players(player_id),
                         player2 UUID NOT NULL REFERENCES players(player_id),
@@ -122,10 +116,10 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                         CHECK (player1 < player2)
                     )
                     """);
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_relations_player1 ON relations(player1)");
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_relations_player2 ON relations(player2)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_relations_player1 ON relations(player1)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_relations_player2 ON relations(player2)");
 
-            statement.execute("""
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS requests (
                         sender UUID NOT NULL REFERENCES players(player_id),
                         receiver UUID NOT NULL REFERENCES players(player_id),
@@ -133,13 +127,13 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                         PRIMARY KEY (sender, receiver)
                     )
                     """);
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_receiver ON requests(receiver)");
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_sender ON requests(sender)");
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_receiver_created ON requests(receiver, created_at DESC)");
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_sender_created ON requests(sender, created_at DESC)");
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_created ON requests(created_at)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_receiver ON requests(receiver)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_sender ON requests(sender)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_receiver_created ON requests(receiver, created_at DESC)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_sender_created ON requests(sender, created_at DESC)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_requests_created ON requests(created_at)");
 
-            statement.execute("""
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS settings (
                         player_id UUID PRIMARY KEY REFERENCES players(player_id),
                         presence_state VARCHAR(16) NOT NULL DEFAULT 'online',
@@ -151,16 +145,16 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                     )
                     """);
 
-            statement.execute("""
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS last_message (
                         player_id UUID PRIMARY KEY REFERENCES players(player_id),
                         sender_id UUID NOT NULL REFERENCES players(player_id),
                         timestamp TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
                     """);
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_last_message_timestamp ON last_message(timestamp)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_last_message_timestamp ON last_message(timestamp)");
 
-            statement.execute("""
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS request_cooldowns (
                         sender_id UUID NOT NULL REFERENCES players(player_id),
                         receiver_id UUID NOT NULL REFERENCES players(player_id),

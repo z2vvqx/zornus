@@ -6,6 +6,7 @@ import net.valoury.parties.proxy.PartyProxyConstants;
 import net.valoury.parties.proxy.model.*;
 import net.valoury.shared.database.DatabaseDefaults;
 import net.valoury.shared.database.DatabaseExecutor;
+import net.valoury.shared.database.PostgresSchemaVerifier;
 import net.valoury.shared.model.GroupJoinPolicy;
 import org.jetbrains.annotations.Contract;
 import org.jspecify.annotations.NonNull;
@@ -62,41 +63,6 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
         }
     }
 
-    private static boolean schemaExists(Connection connection, String rootTable) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT to_regclass(?) IS NOT NULL")) {
-            statement.setString(1, rootTable);
-            try (ResultSet resultSet = statement.executeQuery()) {
-                resultSet.next();
-                return resultSet.getBoolean(1);
-            }
-        }
-    }
-
-    private static boolean columnExists(
-            Connection connection,
-            String tableName,
-            String columnName
-    ) throws SQLException {
-        String sql = """
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM information_schema.columns
-                    WHERE table_schema = current_schema()
-                      AND table_name = ?
-                      AND column_name = ?
-                )
-                """;
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, tableName);
-            statement.setString(2, columnName);
-            try (ResultSet resultSet = statement.executeQuery()) {
-                resultSet.next();
-                return resultSet.getBoolean(1);
-            }
-        }
-    }
-
     private static boolean columnIsNullable(
             Connection connection,
             String tableName,
@@ -134,18 +100,15 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
 
     private void initializeSchema() {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
-            if (schemaExists(connection, "parties")) {
-                if (!columnExists(connection, "party_members", "is_moderator")
-                        || !columnExists(connection, "party_settings", "auto_warp")
-                        || !schemaExists(connection, "party_group_settings")
-                        || !columnIsNullable(connection, "party_invitations", "party_id")) {
-                    throw new IllegalStateException(
-                            "Existing party schema does not support the current party lifecycle");
+            connection.setAutoCommit(false);
+            try {
+                if (PostgresSchemaVerifier.relationExists(connection, "parties")) {
+                    validateSchema(connection);
+                    connection.commit();
+                    return;
                 }
-                return;
-            }
-            // STEP 1: Create party_members WITHOUT FK to parties (avoids circular dependency)
-            statement.execute("""
+                // STEP 1: Create party_members WITHOUT FK to parties (avoids circular dependency)
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS party_members (
                         party_id UUID NOT NULL,
                         player_id UUID NOT NULL UNIQUE,
@@ -153,10 +116,10 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         PRIMARY KEY (party_id, player_id)
                     )
                     """);
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_party_members_party ON party_members(party_id)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_party_members_party ON party_members(party_id)");
 
-            // STEP 2: Create parties with deferred FK to party_members
-            statement.execute("""
+                // STEP 2: Create parties with deferred FK to party_members
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS parties (
                         party_id UUID PRIMARY KEY,
                         leader_id UUID NOT NULL,
@@ -166,23 +129,18 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                     )
                     """);
 
-            // STEP 3: Add FK from party_members to parties (now that both tables exist)
-            // Wrapped in exception handler to allow re-running initializeSchema safely
-            try {
-                statement.execute("""
+                // STEP 3: Add FK from party_members to parties (now that both tables exist)
+                if (!PostgresSchemaVerifier.constraintExists(
+                        connection, "party_members", "fk_party_members_party")) {
+                    statement.execute("""
                         ALTER TABLE party_members
                             ADD CONSTRAINT fk_party_members_party
                             FOREIGN KEY (party_id) REFERENCES parties(party_id) ON DELETE CASCADE
                         """);
-            } catch (SQLException exception) {
-                // Constraint already exists - ignore
-                if (!"42710".equals(exception.getSQLState())) {
-                    throw exception;
                 }
-            }
 
-            // Remaining tables (unchanged structure)
-            statement.execute("""
+                // Remaining tables (unchanged structure)
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS party_invitations (
                         party_id UUID REFERENCES parties(party_id) ON DELETE CASCADE,
                         sender_id UUID NOT NULL,
@@ -191,16 +149,16 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         PRIMARY KEY (sender_id, target_id)
                     )
                     """);
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_invitations_target ON party_invitations(target_id)");
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_invitations_sender ON party_invitations(sender_id)");
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_invitations_created ON party_invitations(created_at DESC)");
-            statement.execute("""
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_invitations_target ON party_invitations(target_id)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_invitations_sender ON party_invitations(sender_id)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_invitations_created ON party_invitations(created_at DESC)");
+                statement.execute("""
                     CREATE UNIQUE INDEX IF NOT EXISTS idx_invitations_party_target
                     ON party_invitations(party_id, target_id)
                     WHERE party_id IS NOT NULL
                     """);
 
-            statement.execute("""
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS party_settings (
                         player_id UUID PRIMARY KEY,
                         allow_chat BOOLEAN NOT NULL DEFAULT TRUE,
@@ -210,7 +168,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                     )
                     """);
 
-            statement.execute("""
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS party_group_settings (
                         party_id UUID PRIMARY KEY REFERENCES parties(party_id) ON DELETE CASCADE,
                         join_policy VARCHAR(8) NOT NULL DEFAULT 'private'
@@ -218,7 +176,7 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                     )
                     """);
 
-            statement.execute("""
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS party_confirmations (
                         player_id UUID PRIMARY KEY,
                         confirmation_type VARCHAR(32) NOT NULL,
@@ -226,12 +184,12 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE INDEX IF NOT EXISTS idx_party_confirmations_created
                     ON party_confirmations(created_at)
                     """);
 
-            statement.execute("""
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS party_cooldowns (
                         sender_id UUID NOT NULL,
                         receiver_id UUID NOT NULL,
@@ -239,13 +197,78 @@ public final class PartyPostgresStorage implements PartyStorage, AutoCloseable {
                         PRIMARY KEY (sender_id, receiver_id)
                     )
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE INDEX IF NOT EXISTS idx_party_cooldowns_timestamp
                     ON party_cooldowns(timestamp)
                     """);
 
+                validateSchema(connection);
+                connection.commit();
+            } catch (SQLException | RuntimeException exception) {
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackException) {
+                    exception.addSuppressed(rollbackException);
+                }
+                throw exception;
+            }
         } catch (SQLException exception) {
             throw new RuntimeException("Failed to initialize database schema", exception);
+        }
+    }
+
+    private static void validateSchema(Connection connection) throws SQLException {
+        PostgresSchemaVerifier.requireRelations(
+                connection,
+                "party_members",
+                "idx_party_members_party",
+                "parties",
+                "party_invitations",
+                "idx_invitations_target",
+                "idx_invitations_sender",
+                "idx_invitations_created",
+                "idx_invitations_party_target",
+                "party_settings",
+                "party_group_settings",
+                "party_confirmations",
+                "idx_party_confirmations_created",
+                "party_cooldowns",
+                "idx_party_cooldowns_timestamp"
+        );
+        PostgresSchemaVerifier.requireColumns(
+                connection, "party_members", "party_id", "player_id", "is_moderator");
+        PostgresSchemaVerifier.requireColumns(
+                connection, "parties", "party_id", "leader_id", "last_warp_time");
+        PostgresSchemaVerifier.requireColumns(
+                connection, "party_invitations", "party_id", "sender_id", "target_id", "created_at");
+        PostgresSchemaVerifier.requireColumns(
+                connection,
+                "party_settings",
+                "player_id",
+                "allow_chat",
+                "allow_warp",
+                "auto_warp",
+                "invite_privacy"
+        );
+        PostgresSchemaVerifier.requireColumns(
+                connection, "party_group_settings", "party_id", "join_policy");
+        PostgresSchemaVerifier.requireColumns(
+                connection,
+                "party_confirmations",
+                "player_id",
+                "confirmation_type",
+                "target_id",
+                "created_at"
+        );
+        PostgresSchemaVerifier.requireColumns(
+                connection, "party_cooldowns", "sender_id", "receiver_id", "timestamp");
+        PostgresSchemaVerifier.requireConstraints(
+                connection, "parties", "fk_leader_is_member");
+        PostgresSchemaVerifier.requireConstraints(
+                connection, "party_members", "fk_party_members_party");
+        if (!columnIsNullable(connection, "party_invitations", "party_id")) {
+            throw new SQLException(
+                    "Database schema requires nullable column party_invitations.party_id");
         }
     }
 

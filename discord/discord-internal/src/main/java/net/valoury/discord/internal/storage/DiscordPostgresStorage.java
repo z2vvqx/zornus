@@ -15,6 +15,7 @@ import net.valoury.discord.api.ticket.TicketStatus;
 import net.valoury.discord.api.ticket.TicketStorage;
 import net.valoury.shared.database.DatabaseDefaults;
 import net.valoury.shared.database.DatabaseExecutor;
+import net.valoury.shared.database.PostgresSchemaVerifier;
 
 import java.sql.Connection;
 import java.sql.PreparedStatement;
@@ -526,21 +527,25 @@ public final class DiscordPostgresStorage implements TicketStorage, AccountLinkS
 
     private void initializeTicketSchema() {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
-            if (schemaExists(connection, "discord_tickets")) {
-                return;
-            }
-            statement.execute("""
+            connection.setAutoCommit(false);
+            try {
+                if (PostgresSchemaVerifier.relationExists(connection, "discord_tickets")) {
+                    validateTicketSchema(connection);
+                    connection.commit();
+                    return;
+                }
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS discord_ticket_counter (
                         counter_key SMALLINT PRIMARY KEY CHECK (counter_key = 1),
                         last_ticket_number BIGINT NOT NULL CHECK (last_ticket_number >= 0)
                     )
                     """);
-            statement.execute("""
+                statement.execute("""
                     INSERT INTO discord_ticket_counter (counter_key, last_ticket_number)
                     VALUES (1, 0)
                     ON CONFLICT (counter_key) DO NOTHING
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE TABLE discord_tickets (
                         ticket_number BIGINT PRIMARY KEY CHECK (ticket_number > 0),
                         thread_id BIGINT UNIQUE,
@@ -563,20 +568,58 @@ public final class DiscordPostgresStorage implements TicketStorage, AccountLinkS
                         )
                     )
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE UNIQUE INDEX idx_discord_tickets_one_open_owner
                     ON discord_tickets (owner_discord_user_id)
                     WHERE owner_discord_user_id IS NOT NULL
                       AND status IN ('CREATING', 'OPEN', 'CLOSING')
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE INDEX idx_discord_tickets_active_thread
                     ON discord_tickets (thread_id)
                     WHERE status IN ('OPEN', 'CLOSING')
                     """);
+
+                validateTicketSchema(connection);
+                connection.commit();
+            } catch (SQLException exception) {
+                rollback(connection, exception);
+                throw exception;
+            }
         } catch (SQLException exception) {
             throw new RuntimeException("Failed to initialize Discord ticket database schema", exception);
         }
+    }
+
+    private static void validateTicketSchema(Connection connection) throws SQLException {
+        PostgresSchemaVerifier.requireRelations(
+                connection,
+                "discord_ticket_counter",
+                "discord_tickets",
+                "idx_discord_tickets_one_open_owner",
+                "idx_discord_tickets_active_thread"
+        );
+        PostgresSchemaVerifier.requireColumns(
+                connection, "discord_ticket_counter", "counter_key", "last_ticket_number");
+        PostgresSchemaVerifier.requireColumns(
+                connection,
+                "discord_tickets",
+                "ticket_number",
+                "thread_id",
+                "owner_discord_user_id",
+                "guild_id",
+                "parent_channel_id",
+                "staff_role_id",
+                "status",
+                "created_at",
+                "closed_at"
+        );
+        PostgresSchemaVerifier.requireConstraints(
+                connection,
+                "discord_tickets",
+                "chk_discord_ticket_owner_state",
+                "chk_discord_ticket_thread_state"
+        );
     }
 
     private void initializeLinkSchema() {
@@ -615,16 +658,6 @@ public final class DiscordPostgresStorage implements TicketStorage, AccountLinkS
                     """);
         } catch (SQLException exception) {
             throw new RuntimeException("Failed to initialize account link database schema", exception);
-        }
-    }
-
-    private static boolean schemaExists(Connection connection, String rootTable) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement("SELECT to_regclass(?) IS NOT NULL")) {
-            statement.setString(1, rootTable);
-            try (ResultSet resultSet = statement.executeQuery()) {
-                resultSet.next();
-                return resultSet.getBoolean(1);
-            }
         }
     }
 

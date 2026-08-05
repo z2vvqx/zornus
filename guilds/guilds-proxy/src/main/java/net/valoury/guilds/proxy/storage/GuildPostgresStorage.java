@@ -6,6 +6,7 @@ import net.valoury.guilds.proxy.GuildProxyConstants;
 import net.valoury.guilds.proxy.model.*;
 import net.valoury.shared.database.DatabaseDefaults;
 import net.valoury.shared.database.DatabaseExecutor;
+import net.valoury.shared.database.PostgresSchemaVerifier;
 import net.valoury.shared.model.GroupJoinPolicy;
 import net.valoury.shared.model.PlayerRecord;
 import org.jetbrains.annotations.Contract;
@@ -56,41 +57,6 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
             databaseExecutor.shutdownNow();
             dataSource.close();
             throw exception;
-        }
-    }
-
-    private static boolean schemaExists(Connection connection, String rootTable) throws SQLException {
-        try (PreparedStatement statement = connection.prepareStatement(
-                "SELECT to_regclass(?) IS NOT NULL")) {
-            statement.setString(1, rootTable);
-            try (ResultSet resultSet = statement.executeQuery()) {
-                resultSet.next();
-                return resultSet.getBoolean(1);
-            }
-        }
-    }
-
-    private static boolean columnExists(
-            Connection connection,
-            String tableName,
-            String columnName
-    ) throws SQLException {
-        String sql = """
-                SELECT EXISTS (
-                    SELECT 1
-                    FROM information_schema.columns
-                    WHERE table_schema = current_schema()
-                      AND table_name = ?
-                      AND column_name = ?
-                )
-                """;
-        try (PreparedStatement statement = connection.prepareStatement(sql)) {
-            statement.setString(1, tableName);
-            statement.setString(2, columnName);
-            try (ResultSet resultSet = statement.executeQuery()) {
-                resultSet.next();
-                return resultSet.getBoolean(1);
-            }
         }
     }
 
@@ -153,32 +119,28 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
 
     private void initializeSchema() {
         try (Connection connection = dataSource.getConnection(); Statement statement = connection.createStatement()) {
-            if (schemaExists(connection, "guilds")) {
-                if (!columnExists(connection, "guild_members", "guild_rank")) {
-                    throw new IllegalStateException(
-                            "Existing guild schema is missing required column guild_members.guild_rank");
+            connection.setAutoCommit(false);
+            try {
+                if (PostgresSchemaVerifier.relationExists(connection, "guilds")) {
+                    validateSchema(connection);
+                    connection.commit();
+                    return;
                 }
-                if (!schemaExists(connection, "guild_group_settings")) {
-                    throw new IllegalStateException(
-                            "Existing guild schema is missing required table guild_group_settings");
-                }
-                return;
-            }
-            // STEP 1: Create guild_players table
-            statement.execute("""
+                // STEP 1: Create guild_players table
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS guild_players (
                         player_id UUID PRIMARY KEY,
                         username VARCHAR(16) NOT NULL,
                         last_joined_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
                     """);
-            // UUID is the stable identity. Usernames can change and later be reused by a
-            // different account, so keep last-known names non-unique and resolve them by
-            // the most recent join.
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_guild_players_username_lower ON guild_players (LOWER(username))");
+                // UUID is the stable identity. Usernames can change and later be reused by a
+                // different account, so keep last-known names non-unique and resolve them by
+                // the most recent join.
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_guild_players_username_lower ON guild_players (LOWER(username))");
 
-            // STEP 2: Create guild_members WITHOUT FK to guilds (avoids circular dependency)
-            statement.execute("""
+                // STEP 2: Create guild_members WITHOUT FK to guilds (avoids circular dependency)
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS guild_members (
                         guild_id UUID NOT NULL,
                         player_id UUID NOT NULL UNIQUE,
@@ -189,10 +151,10 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         PRIMARY KEY (guild_id, player_id)
                     )
                     """);
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_guild_members_guild ON guild_members(guild_id)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_guild_members_guild ON guild_members(guild_id)");
 
-            // STEP 3: Create guilds with deferred FK to guild_members
-            statement.execute("""
+                // STEP 3: Create guilds with deferred FK to guild_members
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS guilds (
                         guild_id UUID PRIMARY KEY,
                         guild_name VARCHAR(24) NOT NULL,
@@ -204,24 +166,21 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                             REFERENCES guild_members(guild_id, player_id) DEFERRABLE INITIALLY DEFERRED
                     )
                     """);
-            statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_guilds_name_ci ON guilds(LOWER(guild_name))");
-            statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_guilds_tag_ci ON guilds(LOWER(guild_tag))");
+                statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_guilds_name_ci ON guilds(LOWER(guild_name))");
+                statement.execute("CREATE UNIQUE INDEX IF NOT EXISTS idx_guilds_tag_ci ON guilds(LOWER(guild_tag))");
 
-            // STEP 4: Add FK from guild_members to guilds (now that both tables exist)
-            try {
-                statement.execute("""
+                // STEP 4: Add FK from guild_members to guilds (now that both tables exist)
+                if (!PostgresSchemaVerifier.constraintExists(
+                        connection, "guild_members", "fk_guild_members_guild")) {
+                    statement.execute("""
                         ALTER TABLE guild_members
                             ADD CONSTRAINT fk_guild_members_guild
                             FOREIGN KEY (guild_id) REFERENCES guilds(guild_id) ON DELETE CASCADE
                         """);
-            } catch (SQLException exception) {
-                if (!"42710".equals(exception.getSQLState())) {
-                    throw exception;
                 }
-            }
 
-            // STEP 5: Create guild_invitations
-            statement.execute("""
+                // STEP 5: Create guild_invitations
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS guild_invitations (
                         guild_id UUID NOT NULL REFERENCES guilds(guild_id) ON DELETE CASCADE,
                         sender_id UUID NOT NULL,
@@ -230,12 +189,12 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         PRIMARY KEY (guild_id, sender_id, target_id)
                     )
                     """);
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_target ON guild_invitations(target_id)");
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_sender ON guild_invitations(sender_id)");
-            statement.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_created ON guild_invitations(created_at DESC)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_target ON guild_invitations(target_id)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_sender ON guild_invitations(sender_id)");
+                statement.execute("CREATE INDEX IF NOT EXISTS idx_guild_invitations_created ON guild_invitations(created_at DESC)");
 
-            // STEP 6: Create guild_settings
-            statement.execute("""
+                // STEP 6: Create guild_settings
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS guild_settings (
                         player_id UUID PRIMARY KEY,
                         invite_privacy VARCHAR(8) NOT NULL DEFAULT 'all' CHECK (invite_privacy IN ('all', 'friend', 'none')),
@@ -243,7 +202,7 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     )
                     """);
 
-            statement.execute("""
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS guild_group_settings (
                         guild_id UUID PRIMARY KEY REFERENCES guilds(guild_id) ON DELETE CASCADE,
                         join_policy VARCHAR(8) NOT NULL DEFAULT 'private'
@@ -251,8 +210,8 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                     )
                     """);
 
-            // STEP 7: Create guild_cooldowns
-            statement.execute("""
+                // STEP 7: Create guild_cooldowns
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS guild_cooldowns (
                         sender_id UUID NOT NULL,
                         receiver_id UUID NOT NULL,
@@ -260,13 +219,13 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         PRIMARY KEY (sender_id, receiver_id)
                     )
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE INDEX IF NOT EXISTS idx_guild_cooldowns_timestamp
                     ON guild_cooldowns(timestamp)
                     """);
 
-            // STEP 8: Create guild_confirmations
-            statement.execute("""
+                // STEP 8: Create guild_confirmations
+                statement.execute("""
                     CREATE TABLE IF NOT EXISTS guild_confirmations (
                         player_id UUID PRIMARY KEY,
                         confirmation_type VARCHAR(32) NOT NULL,
