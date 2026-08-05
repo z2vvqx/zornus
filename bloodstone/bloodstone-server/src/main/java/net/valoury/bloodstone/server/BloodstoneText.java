@@ -23,7 +23,7 @@ public final class BloodstoneText {
     private static final LegacyComponentSerializer LEGACY_AMPERSAND =
             LegacyComponentSerializer.legacyAmpersand();
     private static final int DEFAULT_TITLE_FADE_IN_TICKS = 5;
-    private static final int DEFAULT_TITLE_STAY_TICKS = 10;
+    private static final int DEFAULT_TITLE_STAY_TICKS = 20;
     private static final int DEFAULT_TITLE_FADE_OUT_TICKS = 5;
 
     private BloodstoneText() {

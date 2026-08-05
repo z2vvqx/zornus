@@ -3,6 +3,7 @@ package net.valoury.bloodstone.server.service;
 import net.kyori.adventure.text.Component;
 import net.luckperms.api.LuckPerms;
 import net.luckperms.api.model.user.UserManager;
+import net.valoury.bloodstone.server.BloodstoneText;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.InvocationHandler;
@@ -63,6 +64,28 @@ final class BloodstonePlayerNameServiceTest {
         ).join();
 
         assertEquals(Component.text("MMAJED"), resolved);
+    }
+
+    @Test
+    void unavailableOnlinePlayerUsesIdentifierFallback() {
+        BloodstonePlayerNameService service = new BloodstonePlayerNameService(
+                null,
+                Logger.getAnonymousLogger()
+        );
+
+        Component resolved = service.resolvePlayerName(null, PLAYER_ID);
+
+        assertEquals(Component.text("e7161f11"), resolved);
+    }
+
+    @Test
+    void formattedNamePreservesSuffixColorForMessagePlaceholders() {
+        Component resolved = BloodstonePlayerNameService.formatPlayerName(
+                "&6[VIP] &b",
+                Component.text("PlayerOne")
+        );
+
+        assertEquals("&6[VIP] &bPlayerOne", BloodstoneText.ampersand(resolved));
     }
 
     private static BloodstonePlayerNameService service(

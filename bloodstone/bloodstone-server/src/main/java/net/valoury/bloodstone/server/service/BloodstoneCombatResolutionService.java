@@ -32,14 +32,10 @@ import java.util.logging.Logger;
 
 public final class BloodstoneCombatResolutionService {
 
-    private static final String BLOODSTONE_BROADCAST_FORMAT =
-            "<dark_aqua>Bloodstone</dark_aqua> <dark_gray>â”€</dark_gray> <white><message></white>";
     private static final String RAMPAGE_MESSAGE_FORMAT =
             "<green><text> <white><killer></white>'s rampage! <weapon></green>";
     private static final String RAMPAGE_TITLE =
             "<aqua><bold>RAMPAGE</bold></aqua>";
-    private static final String RAMPAGE_INDICATOR_FORMAT =
-            "<bold>áƒ <rampage></bold>";
     private static final int STATISTIC_RESOLUTION_MAXIMUM_ATTEMPTS = 3;
 
     private final Plugin plugin;
@@ -48,6 +44,7 @@ public final class BloodstoneCombatResolutionService {
     private final BloodstonePresentationService presentationService;
     private final BloodstoneMainThreadExecutor mainThreadExecutor;
     private final BloodstonePlayerService playerService;
+    private final BloodstonePlayerNameService playerNameService;
     private final Logger logger;
     private final DominationTracker dominationTracker =
             new DominationTracker();
@@ -61,6 +58,7 @@ public final class BloodstoneCombatResolutionService {
             BloodstonePresentationService presentationService,
             BloodstoneMainThreadExecutor mainThreadExecutor,
             BloodstonePlayerService playerService,
+            BloodstonePlayerNameService playerNameService,
             Logger logger
     ) {
         this.plugin = plugin;
@@ -69,6 +67,7 @@ public final class BloodstoneCombatResolutionService {
         this.presentationService = presentationService;
         this.mainThreadExecutor = mainThreadExecutor;
         this.playerService = playerService;
+        this.playerNameService = playerNameService;
         this.logger = logger;
     }
 
@@ -100,13 +99,19 @@ public final class BloodstoneCombatResolutionService {
             BloodstoneText.sendMessage(
                     killer,
                     BloodstoneServerConstants.KILLER_MESSAGE_FORMAT,
-                    Placeholder.component("victim", victim.displayName()),
+                    Placeholder.component(
+                            "victim",
+                            playerNameService.resolveOnlinePlayerName(victim)
+                    ),
                     Placeholder.unparsed("health", killerHealth)
             );
             BloodstoneText.sendMessage(
                     victim,
                     BloodstoneServerConstants.VICTIM_MESSAGE_FORMAT,
-                    Placeholder.component("killer", killer.displayName()),
+                    Placeholder.component(
+                            "killer",
+                            playerNameService.resolveOnlinePlayerName(killer)
+                    ),
                     Placeholder.unparsed("health", killerHealth)
             );
         }
@@ -140,7 +145,7 @@ public final class BloodstoneCombatResolutionService {
         if (notification == null) {
             return;
         }
-        Component otherPlayerName = displayName(
+        Component otherPlayerName = resolvePlayerName(
                 notification.otherPlayerId()
         );
         switch (notification.type()) {
@@ -268,7 +273,7 @@ public final class BloodstoneCombatResolutionService {
             if (revengePlayer != null && revengePlayer.isOnline()) {
                 presentationService.playRevenge(
                         revengePlayer,
-                        displayName(victimId)
+                        resolvePlayerName(victimId)
                 );
             }
         }
@@ -289,7 +294,7 @@ public final class BloodstoneCombatResolutionService {
             if (dominator != null && dominator.isOnline()) {
                 presentationService.playDomination(
                         dominator,
-                        displayName(victimId)
+                        resolvePlayerName(victimId)
                 );
             }
         }
@@ -444,14 +449,14 @@ public final class BloodstoneCombatResolutionService {
             UUID victimId
     ) {
         return TagResolver.resolver(
-                Placeholder.component("killer", displayName(killerId)),
-                Placeholder.component("victim", displayName(victimId))
+                Placeholder.component("killer", resolvePlayerName(killerId)),
+                Placeholder.component("victim", resolvePlayerName(victimId))
         );
     }
 
     private void broadcastBloodstone(Component message) {
         Component broadcast = BloodstoneText.deserialize(
-                BLOODSTONE_BROADCAST_FORMAT,
+                BloodstoneServerConstants.COMBAT_BROADCAST_FORMAT,
                 Placeholder.component("message", message)
         );
         for (Player player : Bukkit.getOnlinePlayers()) {
@@ -465,7 +470,7 @@ public final class BloodstoneCombatResolutionService {
         CombatAnnouncements.RampageAnnouncement message =
                 CombatAnnouncements.rampage(rampage);
         Component rampageIndicator = BloodstoneText.deserialize(
-                RAMPAGE_INDICATOR_FORMAT,
+                BloodstoneServerConstants.RAMPAGE_INDICATOR_FORMAT,
                 Placeholder.unparsed("rampage", Integer.toString(rampage))
         );
         Component broadcastWeapon = rampageIndicator.color(
@@ -474,7 +479,10 @@ public final class BloodstoneCombatResolutionService {
         broadcastBloodstone(BloodstoneText.deserialize(
                 RAMPAGE_MESSAGE_FORMAT,
                 Placeholder.unparsed("text", message.text()),
-                Placeholder.component("killer", killer.displayName()),
+                Placeholder.component(
+                        "killer",
+                        playerNameService.resolveOnlinePlayerName(killer)
+                ),
                 Placeholder.component("weapon", broadcastWeapon)
         ));
         presentationService.playRampageAnnouncement(
@@ -490,11 +498,9 @@ public final class BloodstoneCombatResolutionService {
         );
     }
 
-    private static Component displayName(UUID playerId) {
+    private Component resolvePlayerName(UUID playerId) {
         Player player = Bukkit.getPlayer(playerId);
-        return player == null
-                ? Component.text(playerId.toString().substring(0, 8))
-                : player.displayName();
+        return playerNameService.resolvePlayerName(player, playerId);
     }
 
     private static String formatHealth(double health) {

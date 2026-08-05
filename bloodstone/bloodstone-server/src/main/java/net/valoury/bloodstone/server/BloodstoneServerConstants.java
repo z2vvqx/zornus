@@ -241,8 +241,10 @@ public final class BloodstoneServerConstants {
             "<red><bold>Guild Stash — Soon</bold></red>",
             List.of("", "<gray>This feature is not available yet.</gray>")
     );
+    public static final String RAMPAGE_INDICATOR_FORMAT = "<bold>\u1403 <rampage></bold>";
+    public static final String AXE_FUSER_RESERVATION_REFUNDED = "The fusion could not start; your axes and Blood Alloy were restored.";
     // General
-    private static final String MESSAGE_PREFIX = "<dark_gray>❘</dark_gray> <dark_red>Blood<red>stone</red></dark_red> <dark_gray>»</dark_gray> ";
+    private static final String MESSAGE_PREFIX = "<dark_gray>❘</dark_gray> <dark_red><b>Blood<red>stone</red></b></dark_red> <dark_gray>»</dark_gray> ";
     public static final String ERROR_FORMAT = MESSAGE_PREFIX + "<red><error></red>";
     public static final String RANDOM_BOX_WHOOSH = MESSAGE_PREFIX + "<light_purple>Whoosh!</light_purple>";
     public static final String POTIONS_STACKED = MESSAGE_PREFIX + "<green>Stacked all potions of the held type.</green>";
@@ -256,6 +258,7 @@ public final class BloodstoneServerConstants {
     public static final String DUEL_VICTORY_FORMAT = MESSAGE_PREFIX + "<green>You defeated <white><player></white>.</green>";
     public static final String DUEL_DEFEAT_FORMAT = MESSAGE_PREFIX + "<red>You were defeated by <white><player></white>.</red>";
     public static final String DUEL_FORFEIT_VICTORY_FORMAT = MESSAGE_PREFIX + "<green><player> forfeited the duel.</green>";
+    public static final String COMBAT_BROADCAST_FORMAT = MESSAGE_PREFIX + "<white><message></white>";
     public static final String UNATTRIBUTED_DEATH_MESSAGE = MESSAGE_PREFIX + "<gray>You forgot to remain alive.</gray>";
     public static final String KILLER_MESSAGE_FORMAT = MESSAGE_PREFIX + "<green>You eliminated <white><victim></white> with <gold><health>❤</gold> remaining.</green>";
     public static final String VICTIM_MESSAGE_FORMAT = MESSAGE_PREFIX + "<red>You were eliminated by <white><killer></white> with <gold><health>❤</gold> remaining.</red>";
@@ -283,7 +286,6 @@ public final class BloodstoneServerConstants {
     public static final String AXE_FUSER_AXES_REQUIRED = UNABLE_TO_PROCEED_PREFIX + "you don't own both selected effect axes.";
     public static final String AXE_FUSER_UNAVAILABLE = UNABLE_TO_PROCEED_PREFIX + "the Axe Fuser is no longer available.";
     public static final String AXE_FUSER_ACCESS_REQUIRED = UNABLE_TO_PROCEED_PREFIX + "no fuser access.";
-    public static final String AXE_FUSER_RESERVATION_REFUNDED = "The fusion could not start; your axes and Blood Alloy were restored.";
 
     private BloodstoneServerConstants() {
         throw new UnsupportedOperationException("Constants class cannot be instantiated");

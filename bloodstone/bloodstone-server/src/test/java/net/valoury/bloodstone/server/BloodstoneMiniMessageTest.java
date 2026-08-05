@@ -148,6 +148,21 @@ final class BloodstoneMiniMessageTest {
         );
     }
 
+    @Test
+    void combatPresentationUsesConfiguredPrefixAndRampageGlyph() {
+        assertEquals(
+                "<dark_gray>\u2758</dark_gray> "
+                        + "<dark_red><b>Blood<red>stone</red></b></dark_red> "
+                        + "<dark_gray>\u00BB</dark_gray> "
+                        + "<white><message></white>",
+                BloodstoneServerConstants.COMBAT_BROADCAST_FORMAT
+        );
+        assertEquals(
+                "<bold>\u1403 <rampage></bold>",
+                BloodstoneServerConstants.RAMPAGE_INDICATOR_FORMAT
+        );
+    }
+
     private void assertTemplate(String name, String template) {
         assertFalse(
                 template.indexOf('\u00A7') >= 0,

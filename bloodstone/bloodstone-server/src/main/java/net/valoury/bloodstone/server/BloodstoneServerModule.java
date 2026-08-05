@@ -99,6 +99,14 @@ public final class BloodstoneServerModule {
             BloodstoneMainThreadExecutor mainThreadExecutor =
                     new BloodstoneMainThreadExecutor(plugin);
             this.messageService = new BloodstoneMessageService();
+            LuckPerms luckPerms = plugin.getServer()
+                    .getServicesManager()
+                    .load(LuckPerms.class);
+            BloodstonePlayerNameService playerNameService =
+                    new BloodstonePlayerNameService(
+                            luckPerms,
+                            plugin.getLogger()
+                    );
             this.playerToolOperationCapacity = new PlayerOperationCapacity(
                     MAXIMUM_CONCURRENT_TOOL_OPERATIONS_PER_PLAYER
             );
@@ -171,6 +179,7 @@ public final class BloodstoneServerModule {
                             presentationService,
                             mainThreadExecutor,
                             playerService,
+                            playerNameService,
                             plugin.getLogger()
                     );
             this.combatService = new BloodstoneCombatService(
@@ -179,13 +188,15 @@ public final class BloodstoneServerModule {
                 effectAxeCombatService,
                 combatResolutionService,
                 presentationService,
-                playerService
+                playerService,
+                playerNameService
             );
             this.duelService = new BloodstoneDuelService(
                     plugin,
                     combatService,
                     playerService,
-                    messageService
+                    messageService,
+                    playerNameService
             );
             this.storageService = new BloodstoneStorageService(
                 storage,
@@ -290,14 +301,6 @@ public final class BloodstoneServerModule {
                 mainThreadExecutor,
                 plugin.getLogger()
             );
-            LuckPerms luckPerms = plugin.getServer()
-                    .getServicesManager()
-                    .load(LuckPerms.class);
-            BloodstonePlayerNameService playerNameService =
-                    new BloodstonePlayerNameService(
-                            luckPerms,
-                            plugin.getLogger()
-                    );
             this.leaderboardService = new BloodstoneLeaderboardService(
                 storage,
                 guildsApi.memberships(),

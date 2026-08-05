@@ -32,6 +32,7 @@ public final class BloodstoneCombatService {
     private final BloodstoneCombatResolutionService combatResolutionService;
     private final BloodstonePresentationService presentationService;
     private final BloodstonePlayerService playerService;
+    private final BloodstonePlayerNameService playerNameService;
     private final CombatAttributionTracker attributionTracker =
             new CombatAttributionTracker();
 
@@ -41,7 +42,8 @@ public final class BloodstoneCombatService {
             BloodstoneEffectAxeCombatService effectAxeCombatService,
             BloodstoneCombatResolutionService combatResolutionService,
             BloodstonePresentationService presentationService,
-            BloodstonePlayerService playerService
+            BloodstonePlayerService playerService,
+            BloodstonePlayerNameService playerNameService
     ) {
         this.currencyService = currencyService;
         this.combatTagService = combatTagService;
@@ -49,6 +51,7 @@ public final class BloodstoneCombatService {
         this.combatResolutionService = combatResolutionService;
         this.presentationService = presentationService;
         this.playerService = playerService;
+        this.playerNameService = playerNameService;
     }
 
     public boolean isTagged(UUID playerId) {
@@ -269,7 +272,10 @@ public final class BloodstoneCombatService {
                                 BloodstoneServerConstants.HEADSHOT_DISPLAY
                         )
                 ),
-                Placeholder.component("victim", victim.displayName()),
+                Placeholder.component(
+                        "victim",
+                        playerNameService.resolveOnlinePlayerName(victim)
+                ),
                 Placeholder.unparsed(
                         "health",
                         formatHealth(remainingHealth)

@@ -34,6 +34,7 @@ public final class BloodstoneDuelService {
     private final BloodstoneCombatService combatService;
     private final BloodstonePlayerService playerService;
     private final BloodstoneMessageService messageService;
+    private final BloodstonePlayerNameService playerNameService;
     private final DuelSessionRegistry sessions = new DuelSessionRegistry();
     private final @Nullable DuelArena arena;
 
@@ -41,12 +42,14 @@ public final class BloodstoneDuelService {
             Plugin plugin,
             BloodstoneCombatService combatService,
             BloodstonePlayerService playerService,
-            BloodstoneMessageService messageService
+            BloodstoneMessageService messageService,
+            BloodstonePlayerNameService playerNameService
     ) {
         this.plugin = plugin;
         this.combatService = combatService;
         this.playerService = playerService;
         this.messageService = messageService;
+        this.playerNameService = playerNameService;
         this.arena = DuelArena.load(plugin);
         if (arena == null) {
             plugin.getLogger().warning(
@@ -104,7 +107,10 @@ public final class BloodstoneDuelService {
                 BloodstoneServerConstants.DUEL_REQUEST_SENT_FORMAT,
                 Placeholder.component(
                         "player",
-                        displayName(challengedPlayer, challengedPlayer.getUniqueId())
+                        resolvePlayerName(
+                                challengedPlayer,
+                                challengedPlayer.getUniqueId()
+                        )
                 )
         );
         BloodstoneText.sendMessage(
@@ -112,7 +118,10 @@ public final class BloodstoneDuelService {
                 BloodstoneServerConstants.DUEL_REQUEST_RECEIVED_FORMAT,
                 Placeholder.component(
                         "player",
-                        displayName(challenger, challenger.getUniqueId())
+                        resolvePlayerName(
+                                challenger,
+                                challenger.getUniqueId()
+                        )
                 )
         );
         Bukkit.getScheduler().runTaskLater(
@@ -172,7 +181,7 @@ public final class BloodstoneDuelService {
                     BloodstoneServerConstants.DUEL_REJECTED_FORMAT,
                     Placeholder.component(
                             "player",
-                            displayName(
+                            resolvePlayerName(
                                     challengedPlayer,
                                     challengedPlayer.getUniqueId()
                             )
@@ -230,7 +239,10 @@ public final class BloodstoneDuelService {
         BloodstoneText.sendMessage(
                 defeatedPlayer,
                 BloodstoneServerConstants.DUEL_DEFEAT_FORMAT,
-                Placeholder.component("player", displayName(winner, winnerId))
+                Placeholder.component(
+                        "player",
+                        resolvePlayerName(winner, winnerId)
+                )
         );
         if (winner == null || !winner.isOnline()) {
             return;
@@ -242,7 +254,7 @@ public final class BloodstoneDuelService {
                 BloodstoneServerConstants.DUEL_VICTORY_FORMAT,
                 Placeholder.component(
                         "player",
-                        displayName(
+                        resolvePlayerName(
                                 defeatedPlayer,
                                 defeatedPlayer.getUniqueId()
                         )
@@ -285,7 +297,7 @@ public final class BloodstoneDuelService {
                 BloodstoneServerConstants.DUEL_FORFEIT_VICTORY_FORMAT,
                 Placeholder.component(
                         "player",
-                        displayName(
+                        resolvePlayerName(
                                 forfeitingPlayer,
                                 forfeitingPlayer.getUniqueId()
                         )
@@ -492,9 +504,10 @@ public final class BloodstoneDuelService {
         return null;
     }
 
-    private Component displayName(@Nullable Player player, UUID playerId) {
-        return player == null
-                ? Component.text(playerId.toString().substring(0, 8))
-                : player.displayName();
+    private Component resolvePlayerName(
+            @Nullable Player player,
+            UUID playerId
+    ) {
+        return playerNameService.resolvePlayerName(player, playerId);
     }
 }

@@ -46,6 +46,16 @@ public final class BloodstonePlayerNameService {
         }
     }
 
+    public Component resolvePlayerName(
+            @Nullable Player player,
+            UUID playerId
+    ) {
+        Objects.requireNonNull(playerId, "Player ID cannot be null");
+        return player == null
+                ? Component.text(playerId.toString().substring(0, 8))
+                : resolveOnlinePlayerName(player);
+    }
+
     public CompletableFuture<Component> resolveStoredPlayerName(
             UUID playerId,
             String username
