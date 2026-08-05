@@ -1,5 +1,6 @@
-﻿package net.valoury.parties.proxy.service;
+package net.valoury.parties.proxy.service;
 
+import com.velocitypowered.api.proxy.ConnectionRequestBuilder.Result;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import com.velocitypowered.api.proxy.ServerConnection;
@@ -109,7 +110,7 @@ public final class PartyService implements AutoCloseable {
                                     return PartyResult.NO_CONFIRMATION_PENDING;
                                 });
                     }
-                    // Exact match â€” confirm the action
+                    // Exact match — confirm the action
                     return CompletableFuture.completedFuture(getRequiredResult(type));
                 });
     }

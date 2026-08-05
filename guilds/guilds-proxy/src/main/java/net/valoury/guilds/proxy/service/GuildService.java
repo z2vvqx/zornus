@@ -1,4 +1,4 @@
-﻿package net.valoury.guilds.proxy.service;
+package net.valoury.guilds.proxy.service;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -1161,7 +1161,7 @@ public final class GuildService implements AutoCloseable {
                                     return GuildResult.NO_CONFIRMATION_PENDING;
                                 });
                     }
-                    // Exact match â€” confirm the action
+                    // Exact match — confirm the action
                     return CompletableFuture.completedFuture(getRequiredResult(type));
                 });
     }

@@ -1,4 +1,4 @@
-﻿package net.valoury.friends.proxy.storage;
+package net.valoury.friends.proxy.storage;
 
 import com.zaxxer.hikari.HikariConfig;
 import com.zaxxer.hikari.HikariDataSource;
@@ -162,14 +162,67 @@ public final class FriendPostgresStorage implements FriendStorage, AutoCloseable
                         PRIMARY KEY (sender_id, receiver_id)
                     )
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE INDEX IF NOT EXISTS idx_request_cooldowns_timestamp
                     ON request_cooldowns(timestamp)
                     """);
 
+                validateSchema(connection);
+                connection.commit();
+            } catch (SQLException | RuntimeException exception) {
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackException) {
+                    exception.addSuppressed(rollbackException);
+                }
+                throw exception;
+            }
         } catch (SQLException exception) {
             throw new RuntimeException("Failed to initialize database schema", exception);
         }
+    }
+
+    private static void validateSchema(Connection connection) throws SQLException {
+        PostgresSchemaVerifier.requireRelations(
+                connection,
+                "players",
+                "idx_players_username_lower",
+                "relations",
+                "idx_relations_player1",
+                "idx_relations_player2",
+                "requests",
+                "idx_requests_receiver",
+                "idx_requests_sender",
+                "idx_requests_receiver_created",
+                "idx_requests_sender_created",
+                "idx_requests_created",
+                "settings",
+                "last_message",
+                "idx_last_message_timestamp",
+                "request_cooldowns",
+                "idx_request_cooldowns_timestamp"
+        );
+        PostgresSchemaVerifier.requireColumns(
+                connection, "players", "player_id", "username", "last_joined_at", "last_seen_at");
+        PostgresSchemaVerifier.requireColumns(
+                connection, "relations", "player1", "player2", "created_at");
+        PostgresSchemaVerifier.requireColumns(
+                connection, "requests", "sender", "receiver", "created_at");
+        PostgresSchemaVerifier.requireColumns(
+                connection,
+                "settings",
+                "player_id",
+                "presence_state",
+                "allow_messages",
+                "allow_jump",
+                "show_last_seen",
+                "show_location",
+                "accept_requests"
+        );
+        PostgresSchemaVerifier.requireColumns(
+                connection, "last_message", "player_id", "sender_id", "timestamp");
+        PostgresSchemaVerifier.requireColumns(
+                connection, "request_cooldowns", "sender_id", "receiver_id", "timestamp");
     }
 
     private <T> T executeQuery(String sql, SQLParameterSetter parameterSetter, ResultSetMapper<T> resultMapper, String operationName) {

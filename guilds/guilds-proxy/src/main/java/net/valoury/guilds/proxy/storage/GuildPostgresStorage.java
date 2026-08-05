@@ -234,14 +234,82 @@ public final class GuildPostgresStorage implements GuildStorage, AutoCloseable {
                         created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
                     )
                     """);
-            statement.execute("""
+                statement.execute("""
                     CREATE INDEX IF NOT EXISTS idx_guild_confirmations_created
                     ON guild_confirmations(created_at)
                     """);
 
+                validateSchema(connection);
+                connection.commit();
+            } catch (SQLException | RuntimeException exception) {
+                try {
+                    connection.rollback();
+                } catch (SQLException rollbackException) {
+                    exception.addSuppressed(rollbackException);
+                }
+                throw exception;
+            }
         } catch (SQLException exception) {
             throw new RuntimeException("Failed to initialize database schema", exception);
         }
+    }
+
+    private static void validateSchema(Connection connection) throws SQLException {
+        PostgresSchemaVerifier.requireRelations(
+                connection,
+                "guild_players",
+                "idx_guild_players_username_lower",
+                "guild_members",
+                "idx_guild_members_guild",
+                "guilds",
+                "idx_guilds_name_ci",
+                "idx_guilds_tag_ci",
+                "guild_invitations",
+                "idx_guild_invitations_target",
+                "idx_guild_invitations_sender",
+                "idx_guild_invitations_created",
+                "guild_settings",
+                "guild_group_settings",
+                "guild_cooldowns",
+                "idx_guild_cooldowns_timestamp",
+                "guild_confirmations",
+                "idx_guild_confirmations_created"
+        );
+        PostgresSchemaVerifier.requireColumns(
+                connection, "guild_players", "player_id", "username", "last_joined_at");
+        PostgresSchemaVerifier.requireColumns(
+                connection, "guild_members", "guild_id", "player_id", "guild_rank");
+        PostgresSchemaVerifier.requireColumns(
+                connection,
+                "guilds",
+                "guild_id",
+                "guild_name",
+                "guild_tag",
+                "guild_color",
+                "leader_id",
+                "created_at"
+        );
+        PostgresSchemaVerifier.requireColumns(
+                connection, "guild_invitations", "guild_id", "sender_id", "target_id", "created_at");
+        PostgresSchemaVerifier.requireColumns(
+                connection, "guild_settings", "player_id", "invite_privacy", "show_chat");
+        PostgresSchemaVerifier.requireColumns(
+                connection, "guild_group_settings", "guild_id", "join_policy");
+        PostgresSchemaVerifier.requireColumns(
+                connection, "guild_cooldowns", "sender_id", "receiver_id", "timestamp");
+        PostgresSchemaVerifier.requireColumns(
+                connection,
+                "guild_confirmations",
+                "player_id",
+                "confirmation_type",
+                "target_id",
+                "new_value",
+                "created_at"
+        );
+        PostgresSchemaVerifier.requireConstraints(
+                connection, "guild_members", "chk_guild_members_rank", "fk_guild_members_guild");
+        PostgresSchemaVerifier.requireConstraints(
+                connection, "guilds", "fk_leader_is_member");
     }
 
     private <T> T executeQuery(String sql, SQLParameterSetter parameterSetter, ResultSetMapper<T> resultMapper, String operationName) {
