@@ -48,7 +48,7 @@ public final class GuildTagCommand {
                         case GUILD_TAG_UPDATED -> sender.sendMessage(StringUtils.deserialize(
                                 GuildProxyConstants.TAG_SUCCESS, Placeholder.unparsed("new_tag", guildTag)));
                         case NOT_IN_GUILD ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_IN_GUILD));
+                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.TAG_ERROR_NOT_IN_GUILD));
                         case NOT_LEADER ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_LEADER));
                         case INVALID_GUILD_TAG ->

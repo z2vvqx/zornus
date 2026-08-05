@@ -1,4 +1,4 @@
-package net.valoury.guilds.proxy.service;
+﻿package net.valoury.guilds.proxy.service;
 
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
@@ -771,16 +771,15 @@ public final class GuildService implements AutoCloseable {
     }
 
     private @NonNull CompletableFuture<GuildResult> sendGuildChatLegacy(@NonNull Player sender, @NonNull String message) {
-        if (message.length() > GuildProxyConstants.MAX_MESSAGE_LENGTH) {
-            return CompletableFuture.completedFuture(GuildResult.MESSAGE_TOO_LONG);
-        }
-
         UUID senderId = sender.getUniqueId();
 
         return storage.getPlayerGuild(senderId)
                 .thenCompose(guildOptional -> {
                     if (guildOptional.isEmpty()) {
                         return CompletableFuture.completedFuture(GuildResult.NOT_IN_GUILD);
+                    }
+                    if (message.length() > GuildProxyConstants.MAX_MESSAGE_LENGTH) {
+                        return CompletableFuture.completedFuture(GuildResult.MESSAGE_TOO_LONG);
                     }
                     Guild guild = guildOptional.get();
                     Set<UUID> memberIds = guild.getMemberIds();
@@ -892,14 +891,6 @@ public final class GuildService implements AutoCloseable {
     }
 
     private @NonNull CompletableFuture<GuildResult> renameGuildLegacy(@NonNull Player sender, @Nullable String newName, boolean isConfirming) {
-        if (newName == null) {
-            return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_NAME);
-        }
-
-        if (!isValidGuildName(newName)) {
-            return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_NAME);
-        }
-
         UUID senderId = sender.getUniqueId();
 
         return storage.getPlayerGuild(senderId)
@@ -910,6 +901,9 @@ public final class GuildService implements AutoCloseable {
                     Guild guild = guildOptional.get();
                     if (!guild.isLeader(senderId)) {
                         return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
+                    }
+                    if (!isValidGuildName(newName)) {
+                        return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_NAME);
                     }
 
                     if (guild.guildName().equals(newName)) {
@@ -979,9 +973,6 @@ public final class GuildService implements AutoCloseable {
     }
 
     private @NonNull CompletableFuture<GuildResult> updateGuildTagLegacy(@NonNull Player sender, @Nullable String guildTag) {
-        if (!isValidGuildTag(guildTag)) {
-            return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_TAG);
-        }
         UUID senderId = sender.getUniqueId();
         return storage.getPlayerGuild(senderId)
                 .thenCompose(guildOptional -> {
@@ -991,6 +982,9 @@ public final class GuildService implements AutoCloseable {
                     Guild guild = guildOptional.get();
                     if (!guild.isLeader(senderId)) {
                         return CompletableFuture.completedFuture(GuildResult.NOT_LEADER);
+                    }
+                    if (!isValidGuildTag(guildTag)) {
+                        return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_TAG);
                     }
                     return storage.tryUpdateGuildTag(guild.guildId(), senderId, guildTag)
                             .thenApply(outcome -> switch (outcome) {
@@ -1011,10 +1005,6 @@ public final class GuildService implements AutoCloseable {
     }
 
     private @NonNull CompletableFuture<GuildResult> updateGuildColorLegacy(@NonNull Player sender, @Nullable String guildColor) {
-        if (guildColor == null || !ALLOWED_GUILD_COLORS.contains(guildColor.toLowerCase())) {
-            return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_COLOR);
-        }
-        String formattedColor = "<" + guildColor.toLowerCase() + ">";
         UUID senderId = sender.getUniqueId();
         return storage.getPlayerGuild(senderId)
                 .thenCompose(guildOptional -> {
@@ -1027,6 +1017,10 @@ public final class GuildService implements AutoCloseable {
                     if (!senderRank.canUpdateColor()) {
                         return CompletableFuture.completedFuture(GuildResult.INSUFFICIENT_RANK);
                     }
+                    if (guildColor == null || !ALLOWED_GUILD_COLORS.contains(guildColor.toLowerCase())) {
+                        return CompletableFuture.completedFuture(GuildResult.INVALID_GUILD_COLOR);
+                    }
+                    String formattedColor = "<" + guildColor.toLowerCase() + ">";
                     return storage.updateGuildColor(guild.guildId(), senderId, formattedColor)
                             .thenApply(outcome -> switch (outcome) {
                                 case UpdateGuildColorOutcome.Updated ignored ->
@@ -1057,15 +1051,14 @@ public final class GuildService implements AutoCloseable {
             @NonNull UUID playerId,
             @NonNull String value
     ) {
-        Optional<GroupJoinPolicy> joinPolicy = GroupJoinPolicy.fromInput(value);
-        if (joinPolicy.isEmpty()) {
-            return CompletableFuture.completedFuture(GuildResult.INVALID_SETTING);
-        }
-
         return storage.getPlayerGuild(playerId)
                 .thenCompose(guildOptional -> {
                     if (guildOptional.isEmpty()) {
                         return CompletableFuture.completedFuture(GuildResult.NOT_IN_GUILD);
+                    }
+                    Optional<GroupJoinPolicy> joinPolicy = GroupJoinPolicy.fromInput(value);
+                    if (joinPolicy.isEmpty()) {
+                        return CompletableFuture.completedFuture(GuildResult.INVALID_SETTING);
                     }
                     return storage.updateJoinPolicy(
                                     guildOptional.get().guildId(),
@@ -1168,7 +1161,7 @@ public final class GuildService implements AutoCloseable {
                                     return GuildResult.NO_CONFIRMATION_PENDING;
                                 });
                     }
-                    // Exact match — confirm the action
+                    // Exact match â€” confirm the action
                     return CompletableFuture.completedFuture(getRequiredResult(type));
                 });
     }

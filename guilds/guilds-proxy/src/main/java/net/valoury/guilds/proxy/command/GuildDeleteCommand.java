@@ -46,7 +46,7 @@ public final class GuildDeleteCommand {
                         case NO_CONFIRMATION_PENDING ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.DISBAND_ERROR_NO_CONFIRMATION));
                         case NOT_IN_GUILD ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_IN_GUILD));
+                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.DISBAND_ERROR_NOT_IN_GUILD));
                         case NOT_LEADER ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_LEADER));
                         default -> sender.sendMessage(StringUtils.deserialize(SharedConstants.ERROR_UNEXPECTED));

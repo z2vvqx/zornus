@@ -1,4 +1,4 @@
-﻿package net.valoury.guilds.proxy.command;
+package net.valoury.guilds.proxy.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -67,7 +67,7 @@ public final class GuildColorCommand {
                                 Placeholder.component("colored_value",
                                         GuildColorFormatter.createColoredText(guildColor, guildColor))));
                         case NOT_IN_GUILD ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_IN_GUILD));
+                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.COLOR_ERROR_NOT_IN_GUILD));
                         case INSUFFICIENT_RANK ->
                                 sender.sendMessage(StringUtils.deserialize(
                                         GuildProxyConstants.ERROR_INSUFFICIENT_RANK));

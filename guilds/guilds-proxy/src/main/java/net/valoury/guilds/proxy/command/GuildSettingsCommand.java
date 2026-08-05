@@ -1,4 +1,4 @@
-﻿package net.valoury.guilds.proxy.command;
+package net.valoury.guilds.proxy.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.BoolArgumentType;
@@ -165,7 +165,7 @@ public final class GuildSettingsCommand {
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.USAGE_SETTINGS));
                         case NOT_IN_GUILD ->
                                 sender.sendMessage(StringUtils.deserialize(
-                                        GuildProxyConstants.ERROR_NOT_IN_GUILD));
+                                        GuildProxyConstants.SETTINGS_ERROR_NOT_IN_GUILD));
                         case INSUFFICIENT_RANK ->
                                 sender.sendMessage(StringUtils.deserialize(
                                         GuildProxyConstants.ERROR_INSUFFICIENT_RANK));

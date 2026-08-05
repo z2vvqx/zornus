@@ -1,4 +1,4 @@
-﻿package net.valoury.parties.proxy.command;
+package net.valoury.parties.proxy.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.StringArgumentType;
@@ -136,7 +136,7 @@ public final class PartyModeratorCommand {
             case PartyResults.ChangeModeratorRole.PlayerNotFound ignored ->
                     sender.sendMessage(StringUtils.deserialize(SharedConstants.PLAYER_NOT_FOUND));
             case PartyResults.ChangeModeratorRole.NotInParty ignored ->
-                    sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_NOT_IN_PARTY));
+                    sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ROLE_ERROR_NOT_IN_PARTY));
             case PartyResults.ChangeModeratorRole.NotLeader ignored ->
                     sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_NOT_LEADER));
             case PartyResults.ChangeModeratorRole.MemberNotFound ignored ->

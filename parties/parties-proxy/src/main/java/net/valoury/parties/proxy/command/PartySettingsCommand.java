@@ -1,4 +1,4 @@
-﻿package net.valoury.parties.proxy.command;
+package net.valoury.parties.proxy.command;
 
 import com.mojang.brigadier.Command;
 import com.mojang.brigadier.arguments.BoolArgumentType;
@@ -259,7 +259,7 @@ public final class PartySettingsCommand {
                                         PartyProxyConstants.USAGE_SETTINGS));
                         case PartyResults.UpdateSetting.NotInParty ignored ->
                                 sender.sendMessage(StringUtils.deserialize(
-                                        PartyProxyConstants.ERROR_NOT_IN_PARTY));
+                                        PartyProxyConstants.SETTINGS_ERROR_NOT_IN_PARTY));
                         case PartyResults.UpdateSetting.NotLeader ignored ->
                                 sender.sendMessage(StringUtils.deserialize(
                                         PartyProxyConstants.ERROR_NOT_LEADER));

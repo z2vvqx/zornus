@@ -39,7 +39,6 @@ public final class PartyProxyConstants {
     public static final String USAGE_PROMOTE = "<red><click:suggest_command:'/party promote '>/party promote <member_name></click></red>";
     public static final String USAGE_DEMOTE = "<red><click:suggest_command:'/party demote '>/party demote <member_name></click></red>";
 
-    public static final String ERROR_NOT_IN_PARTY = "<red>You are not in a party.</red>";
     public static final String ERROR_ALREADY_IN_PARTY = "<red>You are already in a party. Use <yellow>/party leave</yellow> first.</red>";
     public static final String ERROR_NOT_LEADER = "<red>Only the party leader can perform this action.</red>";
     public static final String ERROR_INSUFFICIENT_ROLE = "<red>Only the party leader or a moderator can perform this action.</red>";
@@ -47,6 +46,7 @@ public final class PartyProxyConstants {
     public static final String ERROR_RECEIVER_INVITATION_LIMIT_REACHED = "<red><yellow><target></yellow> has reached the maximum number of pending party invitations.</red>";
     public static final String ERROR_INVITATION_COOLDOWN = "<red>You must wait <yellow><time_remaining></yellow> before sending another party invitation to <yellow><target></yellow>.</red>";
     public static final String ERROR_MESSAGE_TOO_LONG = "<red>Your message is too long. Maximum length is <yellow><max_length></yellow> characters.</red>";
+    public static final String CHAT_ERROR_NOT_IN_PARTY = "<red>You must be in a party to use party chat.</red>";
     public static final String ERROR_CHAT_DISABLED = "<red>You have disabled party chat. Use <yellow>/party settings chat true</yellow> to enable it.</red>";
 
     public static final String DISBAND_SUCCESS = "<green>Party has been disbanded.</green>";
@@ -55,7 +55,7 @@ public final class PartyProxyConstants {
     public static final String DISBAND_ERROR_NO_CONFIRMATION = "<red>No confirmation is pending. Use <yellow>/party disband</yellow> first.</red>";
 
     public static final String LEAVE_SUCCESS = "<green>You left the party.</green>";
-    public static final String LEAVE_ERROR_NOT_IN_PARTY = "<red>You are not in a party to leave.</red>";
+    public static final String LEAVE_ERROR_NOT_IN_PARTY = "<red>You must be in a party to leave it.</red>";
     public static final String LEAVE_SUCCESS_DISBANDED = "<green>You left the party. The party has been disbanded because fewer than two players remained.</green>";
 
     public static final String INVITE_SUCCESS = "<green>Sent party invitation to <yellow><target></yellow>!</green>";
@@ -91,6 +91,7 @@ public final class PartyProxyConstants {
     public static final String PROMOTE_ERROR_ALREADY_MODERATOR = "<red>That player is already a party moderator.</red>";
     public static final String DEMOTE_ERROR_NOT_MODERATOR = "<red>That player is not a party moderator.</red>";
     public static final String ROLE_ERROR_PLAYER_NOT_IN_PARTY = "<red>That player is not in your party.</red>";
+    public static final String ROLE_ERROR_NOT_IN_PARTY = "<red>You must be in a party to manage moderator roles.</red>";
     public static final String ROLE_ERROR_CANNOT_CHANGE_LEADER = "<red>The party leader cannot be a moderator.</red>";
 
     public static final String TRANSFER_SUCCESS = "<green>Leadership transferred to <yellow><target></yellow>.</green>";
@@ -103,6 +104,7 @@ public final class PartyProxyConstants {
     public static final String JUMP_ERROR_FAILED = "<red>Failed to jump to your party leader.</red>";
 
     public static final String SETTINGS_UPDATE_SUCCESS = "<green>Setting <yellow><setting></yellow> has been updated to <yellow><value></yellow>.</green>";
+    public static final String SETTINGS_ERROR_NOT_IN_PARTY = "<red>You must be in a party to change its privacy.</red>";
     public static final String SETTINGS_DISPLAY_WARP = "<click:suggest_command:'/party settings warp '><#2DA0ED>warp</#2DA0ED></click> <dark_gray>[Personal]</dark_gray> <dark_gray>─</dark_gray> <white>Allow party leader to warp you: <value></white>";
     public static final String SETTINGS_DISPLAY_CHAT = "<click:suggest_command:'/party settings chat '><#2DA0ED>chat</#2DA0ED></click> <dark_gray>[Personal]</dark_gray> <dark_gray>─</dark_gray> <white>Show party chat messages: <value></white>";
     public static final String SETTINGS_DISPLAY_INVITES = "<click:suggest_command:'/party settings invites '><#2DA0ED>invites</#2DA0ED></click> <dark_gray>[Personal]</dark_gray> <dark_gray>─</dark_gray> <white>Who can invite you to party: <value></white>";
@@ -119,7 +121,7 @@ public final class PartyProxyConstants {
     public static final String JUMP_INFO_ALREADY_WITH_LEADER = "<yellow>You are already on the same server as your leader.</yellow>";
 
     public static final String WARP_SUCCESS = "<green>Warped all party members to your server!</green>";
-    public static final String WARP_ERROR_NOT_IN_PARTY = "<red>You are not in a party.</red>";
+    public static final String WARP_ERROR_NOT_IN_PARTY = "<red>You must be in a party to warp its members.</red>";
     public static final String WARP_ERROR_ON_COOLDOWN = "<red>You must wait before warping the party again.</red>";
     public static final String WARP_ERROR_NO_INSTANCE = "<red>You are not in a valid instance.</red>";
     public static final String WARP_ERROR_FAILED = "<red>Failed to warp party members.</red>";

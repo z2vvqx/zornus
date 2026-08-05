@@ -42,7 +42,6 @@ public final class GuildProxyConstants {
     public static final String USAGE_TAG = "<red><click:suggest_command:'/guild tag '>/guild tag <new_tag></click></red>";
     public static final String USAGE_COLOR = "<red><click:suggest_command:'/guild color '>/guild color <color></click></red>";
 
-    public static final String ERROR_NOT_IN_GUILD = "<red>You are not in a guild.</red>";
     public static final String ERROR_ALREADY_IN_GUILD = "<red>You are already in a guild. Use <yellow>/guild leave</yellow> first.</red>";
     public static final String ERROR_NOT_LEADER = "<red>Only the guild leader can perform this action.</red>";
     public static final String ERROR_INSUFFICIENT_RANK = "<red>Your guild rank cannot perform this action.</red>";
@@ -50,6 +49,7 @@ public final class GuildProxyConstants {
     public static final String ERROR_RECEIVER_INVITATION_LIMIT_REACHED = "<red><yellow><target></yellow> has reached the maximum number of pending guild invitations.</red>";
     public static final String ERROR_INVITATION_COOLDOWN = "<red>You must wait <yellow><time_remaining></yellow> before sending another guild invitation to <yellow><target></yellow>.</red>";
     public static final String ERROR_MESSAGE_TOO_LONG = "<red>Your message is too long. Maximum length is <yellow><max_length></yellow> characters.</red>";
+    public static final String CHAT_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to use guild chat.</red>";
     public static final String ERROR_CHAT_DISABLED = "<red>You have disabled guild chat. Use <yellow>/guild settings chat true</yellow> to enable it.</red>";
     public static final String ERROR_INVALID_GUILD_NAME = "<red>Guild name must be 3-24 characters and contain only letters, numbers, and underscores.</red>";
     public static final String ERROR_INVALID_GUILD_TAG = "<red>Guild tag must be 2-5 characters and contain only letters, numbers, and underscores.</red>";
@@ -59,11 +59,12 @@ public final class GuildProxyConstants {
 
     public static final String CREATE_SUCCESS = "<green>You have created the guild <yellow><guild_name></yellow> [<guild_tag>]!</green>";
     public static final String DISBAND_SUCCESS = "<green>Guild has been disbanded.</green>";
+    public static final String DISBAND_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to delete it.</red>";
     public static final String DISBAND_CONFIRMATION_REQUIRED = "<yellow>Are you sure you want to delete the guild? Use <red>/guild delete confirm</red> to proceed.</yellow>";
     public static final String DISBAND_ERROR_NO_CONFIRMATION = "<red>No confirmation is pending. Use <yellow>/guild delete</yellow> first.</red>";
 
     public static final String LEAVE_SUCCESS = "<green>You left the guild.</green>";
-    public static final String LEAVE_ERROR_NOT_IN_GUILD = "<red>You are not in a guild to leave.</red>";
+    public static final String LEAVE_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to leave it.</red>";
     public static final String LEAVE_SUCCESS_DISBANDED = "<green>You left the guild. The guild has been disbanded as it became empty.</green>";
 
     public static final String INVITE_SUCCESS = "<green>Sent guild invitation to <yellow><target></yellow>!</green>";
@@ -96,6 +97,7 @@ public final class GuildProxyConstants {
     public static final String KICK_ERROR_CANNOT_KICK_SELF = "<red>You cannot kick yourself. Use <yellow>/guild leave</yellow> instead.</red>";
 
     public static final String RANK_ERROR_CANNOT_CHANGE_SELF = "<red>You cannot change your own guild rank.</red>";
+    public static final String RANK_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to change member ranks.</red>";
     public static final String RANK_ERROR_CANNOT_MANAGE = "<red>You can only manage members below your rank.</red>";
     public static final String RANK_ERROR_PROMOTION_MATCHES_ACTOR = "<red>You cannot promote a member to the same rank as you.</red>";
     public static final String RANK_ERROR_ALREADY_HIGHEST = "<red><target> already has the highest available rank.</red>";
@@ -114,9 +116,12 @@ public final class GuildProxyConstants {
     public static final String RENAME_CONFIRMATION_REQUIRED = "<yellow>Are you sure you want to rename the guild to <yellow><new_name></yellow>? Use <green>/guild rename <new_name> confirm</green> to proceed.</yellow>";
     public static final String RENAME_ERROR_NO_CONFIRMATION = "<red>No confirmation is pending. Use <yellow>/guild rename <name></yellow> first.</red>";
     public static final String TAG_SUCCESS = "<green>Guild tag updated to <yellow><new_tag></yellow>.</green>";
+    public static final String TAG_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to change its tag.</red>";
     public static final String COLOR_SUCCESS = "<green>Guild color updated to <colored_value>.</green>";
+    public static final String COLOR_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to change its color.</red>";
 
     public static final String SETTINGS_UPDATE_SUCCESS = "<green>Setting <yellow><setting></yellow> has been updated to <yellow><value></yellow>.</green>";
+    public static final String SETTINGS_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to change its privacy.</red>";
     public static final String SETTINGS_DISPLAY_INVITES = "<click:suggest_command:'/guild settings invites '><#2DA0ED>invites</#2DA0ED></click> <dark_gray>[Personal]</dark_gray> <dark_gray>─</dark_gray> <white>Who can invite you to guild: <value></white>";
     public static final String SETTINGS_DISPLAY_CHAT = "<click:suggest_command:'/guild settings chat '><#2DA0ED>chat</#2DA0ED></click> <dark_gray>[Personal]</dark_gray> <dark_gray>─</dark_gray> <white>Show guild chat messages: <value></white>";
     public static final String SETTINGS_DISPLAY_PRIVACY = "<click:suggest_command:'/guild settings privacy '><#2DA0ED>privacy</#2DA0ED></click> <dark_gray>─</dark_gray> <white>Guild privacy: <value></white>";
@@ -124,6 +129,7 @@ public final class GuildProxyConstants {
     public static final String SETTINGS_ERROR_INVITES_FRIENDS_ONLY = "<red><yellow><target></yellow> only accepts invites from friends.</red>";
 
     public static final String LIST_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to view the member list.</red>";
+    public static final String INFO_ERROR_NOT_IN_GUILD = "<red>You must be in a guild to view its information.</red>";
 
     public static final String UI_LIST_RANK_LEADER = "<#2DA0ED><bold>LEADER:</bold></#2DA0ED>";
     public static final String UI_LIST_RANK_DIRECTOR = "<#2DA0ED><bold>DIRECTOR:</bold></#2DA0ED>";

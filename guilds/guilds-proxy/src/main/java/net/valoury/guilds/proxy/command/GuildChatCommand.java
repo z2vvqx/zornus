@@ -57,7 +57,7 @@ public final class GuildChatCommand {
                         case CHAT_SENT -> {
                         }
                         case NOT_IN_GUILD ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_IN_GUILD));
+                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.CHAT_ERROR_NOT_IN_GUILD));
                         case CHAT_DISABLED ->
                                 sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_CHAT_DISABLED));
                         case MESSAGE_TOO_LONG -> sender.sendMessage(StringUtils.deserialize(

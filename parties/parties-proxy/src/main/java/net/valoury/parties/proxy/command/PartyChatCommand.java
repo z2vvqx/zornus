@@ -63,7 +63,7 @@ public final class PartyChatCommand {
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_MESSAGE_TOO_LONG,
                                         Placeholder.unparsed("max_length", String.valueOf(PartyProxyConstants.MAX_MESSAGE_LENGTH))));
                         case NOT_IN_PARTY ->
-                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_NOT_IN_PARTY));
+                                sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.CHAT_ERROR_NOT_IN_PARTY));
                         case CHAT_DISABLED ->
                                 sender.sendMessage(StringUtils.deserialize(PartyProxyConstants.ERROR_CHAT_DISABLED));
                         case CHAT_SENT -> {

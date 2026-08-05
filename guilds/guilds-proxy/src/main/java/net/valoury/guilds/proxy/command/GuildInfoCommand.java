@@ -59,7 +59,7 @@ public final class GuildInfoCommand {
                         case GuildInfoResult.Found found ->
                                 resolveAndDisplayGuildInfo(sender, guildService, found.guild());
                         case GuildInfoResult.NotInGuild ignored ->
-                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.ERROR_NOT_IN_GUILD));
+                                sender.sendMessage(StringUtils.deserialize(GuildProxyConstants.INFO_ERROR_NOT_IN_GUILD));
                         case GuildInfoResult.NotFound ignored ->
                                 sender.sendMessage(StringUtils.deserialize("<red>Unable to find that guild.</red>"));
                     }

@@ -95,7 +95,7 @@ public final class GuildDemoteCommand {
             }
             case GuildRankChangeResult.NotInGuild ignored ->
                     sender.sendMessage(StringUtils.deserialize(
-                            GuildProxyConstants.ERROR_NOT_IN_GUILD));
+                            GuildProxyConstants.RANK_ERROR_NOT_IN_GUILD));
             case GuildRankChangeResult.PlayerNotFound ignored ->
                     sender.sendMessage(StringUtils.deserialize(
                             SharedConstants.PLAYER_NOT_FOUND));
