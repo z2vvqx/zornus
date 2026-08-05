@@ -359,8 +359,9 @@ public final class BloodstoneServerModule {
                     ? new BloodstonePlaceholderRegistrar(
                         this.leaderboardService,
                         playerService,
-                        guildProfileCache
-                )
+                        guildProfileCache,
+                        this.combatService::isDominatedBy
+                    )
                     : null;
         } catch (RuntimeException | Error exception) {
             storage.close();

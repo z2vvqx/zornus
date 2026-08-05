@@ -79,9 +79,12 @@ final class DominationTrackerTest {
                 )),
                 tracker.activeDominations()
         );
+        assertTrue(tracker.isActiveDomination(dominator, victim));
+        assertFalse(tracker.isActiveDomination(victim, dominator));
 
         assertTrue(tracker.recordKill(victim, dominator).revengeCredit());
         assertTrue(tracker.activeDominations().isEmpty());
+        assertFalse(tracker.isActiveDomination(dominator, victim));
         assertFalse(tracker.recordKill(victim, dominator).revengeCredit());
     }
 }

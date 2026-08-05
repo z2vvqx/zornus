@@ -1,12 +1,14 @@
 package net.valoury.bloodstone.server.registrar;
 
 import me.clip.placeholderapi.expansion.PlaceholderExpansion;
+import me.clip.placeholderapi.expansion.Relational;
 import net.valoury.bloodstone.server.model.LeaderboardBoard;
 import net.valoury.bloodstone.server.model.PlayerProfile;
 import net.valoury.bloodstone.server.service.BloodstoneLeaderboardService;
 import net.valoury.bloodstone.server.service.BloodstoneGuildProfileCache;
 import net.valoury.bloodstone.server.service.BloodstonePlayerService;
 import org.bukkit.OfflinePlayer;
+import org.bukkit.entity.Player;
 import org.jspecify.annotations.Nullable;
 
 import java.util.ArrayList;
@@ -14,6 +16,9 @@ import java.util.List;
 import java.util.Locale;
 import java.util.Map;
 import java.util.Optional;
+import java.util.UUID;
+import java.util.concurrent.ThreadLocalRandom;
+import java.util.function.BiPredicate;
 
 public final class BloodstonePlaceholderRegistrar {
 
@@ -26,6 +31,9 @@ public final class BloodstonePlaceholderRegistrar {
     static final String GUILD_BEST_RAMPAGE_IDENTIFIER = "top.guild.best.rampage";
     static final String PLAYER_STATISTICS_IDENTIFIER = "player.stats";
     static final String CANONICAL_IDENTIFIER = "bloodstone";
+    static final String DOMINATOR_MARKER_IDENTIFIER = "dominator_marker";
+    static final String LIGHT_RED_DOMINATOR_MARKER = " &c&k|||&r";
+    static final String DARK_RED_DOMINATOR_MARKER = " &4&k|||&r";
 
     private final List<PlaceholderExpansion> expansions = new ArrayList<>();
     private final BloodstoneGuildProfileCache guildProfileCache;
@@ -33,7 +41,8 @@ public final class BloodstonePlaceholderRegistrar {
     public BloodstonePlaceholderRegistrar(
             BloodstoneLeaderboardService leaderboardService,
             BloodstonePlayerService playerService,
-            BloodstoneGuildProfileCache guildProfileCache
+            BloodstoneGuildProfileCache guildProfileCache,
+            BiPredicate<UUID, UUID> dominationRelation
     ) {
         this.guildProfileCache = guildProfileCache;
         expansions.add(new BoardExpansion(PLAYER_KILLS_IDENTIFIER,
@@ -53,7 +62,8 @@ public final class BloodstonePlaceholderRegistrar {
         expansions.add(new CanonicalExpansion(
                 leaderboardService,
                 playerService,
-                guildProfileCache
+                guildProfileCache,
+                dominationRelation
         ));
     }
 
@@ -162,20 +172,24 @@ public final class BloodstonePlaceholderRegistrar {
         }
     }
 
-    private static final class CanonicalExpansion extends BloodstoneExpansion {
+    private static final class CanonicalExpansion extends BloodstoneExpansion
+            implements Relational {
 
         private final BloodstoneLeaderboardService leaderboardService;
         private final BloodstonePlayerService playerService;
         private final BloodstoneGuildProfileCache guildProfileCache;
+        private final BiPredicate<UUID, UUID> dominationRelation;
 
         private CanonicalExpansion(
                 BloodstoneLeaderboardService leaderboardService,
                 BloodstonePlayerService playerService,
-                BloodstoneGuildProfileCache guildProfileCache
+                BloodstoneGuildProfileCache guildProfileCache,
+                BiPredicate<UUID, UUID> dominationRelation
         ) {
             this.leaderboardService = leaderboardService;
             this.playerService = playerService;
             this.guildProfileCache = guildProfileCache;
+            this.dominationRelation = dominationRelation;
         }
 
         @Override
@@ -207,6 +221,22 @@ public final class BloodstonePlaceholderRegistrar {
                     .orElse(null);
         }
 
+        @Override
+        public @Nullable String onPlaceholderRequest(
+                Player viewer,
+                Player target,
+                String parameters
+        ) {
+            if (!DOMINATOR_MARKER_IDENTIFIER.equalsIgnoreCase(parameters)) {
+                return null;
+            }
+            return dominatorMarker(
+                    dominationRelation,
+                    viewer.getUniqueId(),
+                    target.getUniqueId()
+            );
+        }
+
         private Optional<BoardRequest> canonicalBoard(String parameters) {
             for (Map.Entry<String, LeaderboardBoard> entry : Map.of(
                     "top_player_kills_", LeaderboardBoard.PLAYER_KILLS,
@@ -225,6 +255,19 @@ public final class BloodstonePlaceholderRegistrar {
             }
             return Optional.empty();
         }
+    }
+
+    static String dominatorMarker(
+            BiPredicate<UUID, UUID> dominationRelation,
+            UUID viewerId,
+            UUID targetId
+    ) {
+        if (!dominationRelation.test(viewerId, targetId)) {
+            return "";
+        }
+        return ThreadLocalRandom.current().nextBoolean()
+                ? LIGHT_RED_DOMINATOR_MARKER
+                : DARK_RED_DOMINATOR_MARKER;
     }
 
     private static @Nullable String playerStatistic(

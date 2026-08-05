@@ -165,6 +165,16 @@ public final class BloodstoneCombatResolutionService {
         playRevengeTargetParticles();
     }
 
+    public boolean isDominatedBy(
+            UUID dominatedPlayerId,
+            UUID potentialDominatorId
+    ) {
+        return dominationTracker.isActiveDomination(
+                potentialDominatorId,
+                dominatedPlayerId
+        );
+    }
+
     public void clear() {
         dominationTracker.clear();
         pendingRespawnNotifications.clear();

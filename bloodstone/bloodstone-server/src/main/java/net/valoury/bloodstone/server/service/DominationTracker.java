@@ -9,6 +9,8 @@ import java.util.UUID;
 public final class DominationTracker {
 
     private final Map<DominationPair, Integer> killChains = new HashMap<>();
+    private volatile List<ActiveDomination> activeDominationSnapshot =
+            List.of();
 
     public Outcome recordKill(UUID killerId, UUID victimId) {
         Objects.requireNonNull(killerId, "Killer ID cannot be null");
@@ -24,6 +26,7 @@ public final class DominationTracker {
                 1,
                 Integer::sum
         );
+        refreshActiveDominationSnapshot();
         return new Outcome(
                 killCount,
                 killCount == 4,
@@ -34,10 +37,25 @@ public final class DominationTracker {
 
     public void clear() {
         killChains.clear();
+        activeDominationSnapshot = List.of();
     }
 
     public List<ActiveDomination> activeDominations() {
-        return killChains.entrySet().stream()
+        return activeDominationSnapshot;
+    }
+
+    public boolean isActiveDomination(
+            UUID dominatorId,
+            UUID dominatedPlayerId
+    ) {
+        return activeDominationSnapshot.contains(new ActiveDomination(
+                dominatorId,
+                dominatedPlayerId
+        ));
+    }
+
+    private void refreshActiveDominationSnapshot() {
+        activeDominationSnapshot = killChains.entrySet().stream()
                 .filter(entry -> entry.getValue() >= 4)
                 .map(entry -> new ActiveDomination(
                         entry.getKey().killerId(),

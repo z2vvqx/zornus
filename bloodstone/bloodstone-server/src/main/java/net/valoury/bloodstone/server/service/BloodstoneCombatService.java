@@ -58,6 +58,16 @@ public final class BloodstoneCombatService {
         return combatTagService.isTagged(playerId);
     }
 
+    public boolean isDominatedBy(
+            UUID dominatedPlayerId,
+            UUID potentialDominatorId
+    ) {
+        return combatResolutionService.isDominatedBy(
+                dominatedPlayerId,
+                potentialDominatorId
+        );
+    }
+
     public void forceKillAttribution(
             UUID victimId,
             UUID killerId,
