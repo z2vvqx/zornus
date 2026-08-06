@@ -51,6 +51,32 @@ public final class DiscordInteractionResponder {
         );
     }
 
+    public void reply(
+            IReplyCallback interaction,
+            String operationDescription,
+            String feedback
+    ) {
+        Objects.requireNonNull(interaction, "Discord interaction cannot be null");
+        requireText(operationDescription, "Discord operation description cannot be blank");
+        requireText(feedback, "Discord feedback cannot be blank");
+
+        long discordUserId = interaction.getUser().getIdLong();
+        interaction.replyComponents(messageFactory.rawText(feedback))
+                .useComponentsV2()
+                .setEphemeral(true)
+                .setAllowedMentions(Collections.emptySet())
+                .queue(
+                        ignored -> {
+                        },
+                        exception -> LOGGER.error(
+                                "Failed to send {} feedback to Discord user {}",
+                                operationDescription,
+                                discordUserId,
+                                unwrap(exception)
+                        )
+                );
+    }
+
     private void completeFeedback(
             InteractionHook hook,
             long discordUserId,

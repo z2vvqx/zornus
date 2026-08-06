@@ -8,6 +8,7 @@ import com.velocitypowered.api.plugin.Plugin;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.Component;
 import net.valoury.discord.api.DiscordApi;
+import net.valoury.discord.api.evidence.EvidenceService;
 import net.valoury.discord.api.link.AccountLinkService;
 import org.slf4j.Logger;
 
@@ -71,5 +72,13 @@ public final class DiscordProxyPlugin implements DiscordApi {
             throw new IllegalStateException("Discord API is unavailable before plugin initialization");
         }
         return discordProxyModule.accountLinks();
+    }
+
+    @Override
+    public EvidenceService evidence() {
+        if (discordProxyModule == null) {
+            throw new IllegalStateException("Discord API is unavailable before plugin initialization");
+        }
+        return discordProxyModule.evidence();
     }
 }

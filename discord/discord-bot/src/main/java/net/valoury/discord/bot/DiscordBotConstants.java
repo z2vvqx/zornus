@@ -2,13 +2,15 @@ package net.valoury.discord.bot;
 
 public final class DiscordBotConstants {
     public static final String TOKEN = "FAKE_DISCORD_BOT_TOKEN";
+    public static final long NORMAL_GUILD_ID = 623179535008923684L;
+    public static final long STAFF_GUILD_ID = 1260501003544035389L;
     public static final String TICKET_COMMAND_NAME = "ticket";
     public static final String LINK_COMMAND_NAME = "link";
     public static final String UNLINK_COMMAND_NAME = "unlink";
     public static final String TICKET_OPEN_BUTTON_PREFIX = "ticket:open:";
     public static final String TICKET_THREAD_NAME_PREFIX = "TICKET・#";
-    public static final String SUCCESS_FEEDBACK_PREFIX = "<a:valorV:1533039959651516498> ▸ ";
-    public static final String FAILURE_FEEDBACK_PREFIX = "<a:valorX:1533039960708350032> ▸ ";
+    public static final String SUCCESS_FEEDBACK_PREFIX = "<:valourycheckmark:1534501951797198959> ▸ ";
+    public static final String FAILURE_FEEDBACK_PREFIX = "<:valourycrossmark:1534501953562738861> ▸ ";
 
     public static final String TICKET_PANEL_TEXT = """
             ## !مسائل [فالوري](<https://discord.gg/invite/xkzC7meRdG>) ― نحن هنا دائماً لمساعدتك 🔍

@@ -24,7 +24,8 @@ public final class DiscordBotApplication {
                             EnumSet.noneOf(GatewayIntent.class))
                     .addEventListeners(
                             botModule.ticketInteractionListener(),
-                            botModule.linkInteractionListener()
+                            botModule.linkInteractionListener(),
+                            botModule.evidenceInteractionListener()
                     )
                     .build()
                     .awaitReady();

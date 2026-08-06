@@ -8,12 +8,26 @@ import static org.junit.jupiter.api.Assertions.assertEquals;
 
 class DiscordCommandRegistrarTest {
     @Test
-    void createsTheCompleteGlobalCommandSet() {
+    void createsTheSharedNormalGuildCommandSet() {
         DiscordCommandRegistrar commandRegistrar = new DiscordCommandRegistrar();
 
         assertEquals(
                 List.of("ticket", "link", "unlink"),
-                commandRegistrar.createCommands().stream().map(command -> command.getName()).toList()
+                commandRegistrar.createSharedGuildCommands().stream()
+                        .map(command -> command.getName())
+                        .toList()
+        );
+    }
+
+    @Test
+    void createsTheStaffGuildCommandSetWithEvidence() {
+        DiscordCommandRegistrar commandRegistrar = new DiscordCommandRegistrar();
+
+        assertEquals(
+                List.of("ticket", "link", "unlink", "evidence"),
+                commandRegistrar.createStaffGuildCommands().stream()
+                        .map(command -> command.getName())
+                        .toList()
         );
     }
 }
