@@ -14,6 +14,7 @@
         <module>parties</module>
         <module>guilds</module>
         <module>punishments</module>
+        <module>staff</module>
         <module>bloodstone</module>
         <module>discord</module>
         <module>bootstrap</module>
