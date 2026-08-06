@@ -254,7 +254,10 @@ final class BloodstonePostgresSchema {
                         player_id UUID NOT NULL REFERENCES bloodstone_players(player_id)
                             ON DELETE CASCADE,
                         storage_type VARCHAR(16) NOT NULL CHECK (
-                            storage_type IN ('DEFAULT', 'IRON', 'GOLD', 'DIAMOND', 'EMERALD', 'EXTRA')
+                            storage_type IN (
+                                'DEFAULT', 'LEGATE', 'CAVALIER',
+                                'ARCHON', 'VALORIAN', 'EXTRA'
+                            )
                         ),
                         contents_payload BYTEA,
                         version BIGINT NOT NULL DEFAULT 0 CHECK (version >= 0),

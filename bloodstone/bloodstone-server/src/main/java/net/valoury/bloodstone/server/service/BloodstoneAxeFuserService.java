@@ -97,6 +97,35 @@ public final class BloodstoneAxeFuserService {
         );
     }
 
+    static int mergedRemainingDurability(
+            int maximumDurability,
+            int firstRemainingDurability,
+            int secondRemainingDurability
+    ) {
+        if (maximumDurability < 1) {
+            throw new IllegalArgumentException("Maximum durability must be positive");
+        }
+        if (firstRemainingDurability < 1
+                || firstRemainingDurability > maximumDurability
+                || secondRemainingDurability < 1
+                || secondRemainingDurability > maximumDurability) {
+            throw new IllegalArgumentException(
+                    "Input durability must be between 1 and " + maximumDurability
+            );
+        }
+        return (int) Math.min(
+                maximumDurability,
+                (long) firstRemainingDurability + secondRemainingDurability
+        );
+    }
+
+    static boolean hasAxeFuserAccess(BloodstoneRank rank) {
+        return Objects.requireNonNull(
+                rank,
+                "Bloodstone rank cannot be null"
+        ) == BloodstoneRank.VALORIAN;
+    }
+
     public void open(Player player, Block furnace) {
         if (!acceptingOperations) {
             reject(player, BloodstoneServerConstants.ERROR_SHUTTING_DOWN);
@@ -600,28 +629,6 @@ public final class BloodstoneAxeFuserService {
         );
     }
 
-    static int mergedRemainingDurability(
-            int maximumDurability,
-            int firstRemainingDurability,
-            int secondRemainingDurability
-    ) {
-        if (maximumDurability < 1) {
-            throw new IllegalArgumentException("Maximum durability must be positive");
-        }
-        if (firstRemainingDurability < 1
-                || firstRemainingDurability > maximumDurability
-                || secondRemainingDurability < 1
-                || secondRemainingDurability > maximumDurability) {
-            throw new IllegalArgumentException(
-                    "Input durability must be between 1 and " + maximumDurability
-            );
-        }
-        return (int) Math.min(
-                maximumDurability,
-                (long) firstRemainingDurability + secondRemainingDurability
-        );
-    }
-
     private boolean hasMarker(Player player, int slot, UUID marker) {
         ItemStack item = player.getInventory().getItem(slot);
         return item != null
@@ -665,13 +672,6 @@ public final class BloodstoneAxeFuserService {
                         leftover
                 )
         );
-    }
-
-    static boolean hasAxeFuserAccess(BloodstoneRank rank) {
-        return Objects.requireNonNull(
-                rank,
-                "Bloodstone rank cannot be null"
-        ) == BloodstoneRank.ARCHON;
     }
 
     private void finishOperation(

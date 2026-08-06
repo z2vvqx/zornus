@@ -18,10 +18,10 @@ public final class BloodstoneStorageAccess {
     ) {
         return switch (storageType) {
             case DEFAULT -> true;
-            case LEGATE -> rank.ordinal() >= BloodstoneRank.LEGATE.ordinal();
-            case JUSTICAR -> rank.ordinal() >= BloodstoneRank.JUSTICAR.ordinal();
-            case REGENT -> rank.ordinal() >= BloodstoneRank.REGENT.ordinal();
-            case ARCHON -> rank == BloodstoneRank.ARCHON;
+            case LEGATE -> rank.isAtLeast(BloodstoneRank.LEGATE);
+            case CAVALIER -> rank.isAtLeast(BloodstoneRank.CAVALIER);
+            case ARCHON -> rank.isAtLeast(BloodstoneRank.ARCHON);
+            case VALORIAN -> rank.isAtLeast(BloodstoneRank.VALORIAN);
             case EXTRA -> extraUnlocked;
         };
     }

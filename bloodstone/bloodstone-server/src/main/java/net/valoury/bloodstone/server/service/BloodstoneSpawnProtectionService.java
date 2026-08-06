@@ -18,9 +18,9 @@ public final class BloodstoneSpawnProtectionService {
     private static final Set<String> SPAWN_EQUIVALENT_REGION_NAMES = Set.of(
             "spawn",
             "legate",
-            "justicar",
-            "regent",
-            "archon"
+            "cavalier",
+            "archon",
+            "valorian"
     );
 
     private final WorldGuardPlugin worldGuard;
@@ -35,6 +35,11 @@ public final class BloodstoneSpawnProtectionService {
             throw new IllegalStateException("Unsupported WorldGuard installation");
         }
         this.worldGuard = worldGuardPlugin;
+    }
+
+    public static boolean isSpawnRegion(String regionName) {
+        return regionName != null
+                && SPAWN_EQUIVALENT_REGION_NAMES.contains(regionName.toLowerCase(Locale.ROOT));
     }
 
     public boolean isInsideSpawn(Player player) {
@@ -60,10 +65,5 @@ public final class BloodstoneSpawnProtectionService {
             }
         }
         return false;
-    }
-
-    public static boolean isSpawnRegion(String regionName) {
-        return regionName != null
-                && SPAWN_EQUIVALENT_REGION_NAMES.contains(regionName.toLowerCase(Locale.ROOT));
     }
 }

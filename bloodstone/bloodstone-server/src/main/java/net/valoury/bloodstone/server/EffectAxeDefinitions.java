@@ -124,7 +124,7 @@ public final class EffectAxeDefinitions {
             @NonNull String id,
             @NonNull String displayNameTemplate,
             @NonNull String effectLoreTemplate,
-            int archonBloodAlloyCost,
+            int valorianBloodAlloyCost,
             @NonNull PotionEffectType effectType,
             int amplifier,
             @NonNull Duration duration,
@@ -139,9 +139,9 @@ public final class EffectAxeDefinitions {
             if (amplifier < 0) {
                 throw new IllegalArgumentException("Effect amplifier cannot be negative");
             }
-            if (archonBloodAlloyCost < 1 || archonBloodAlloyCost % 4 != 0) {
+            if (valorianBloodAlloyCost < 1 || valorianBloodAlloyCost % 4 != 0) {
                 throw new IllegalArgumentException(
-                        "Archon Blood Alloy cost must be a positive multiple of four"
+                        "Valorian Blood Alloy cost must be a positive multiple of four"
                 );
             }
             if (duration.isZero() || duration.isNegative()) {
@@ -152,11 +152,10 @@ public final class EffectAxeDefinitions {
         public int bloodAlloyCost(@NonNull BloodstoneRank rank) {
             Objects.requireNonNull(rank, "Bloodstone rank cannot be null");
             return switch (rank) {
-                case DEFAULT -> Math.min(64, archonBloodAlloyCost * 5 / 2);
-                case LEGATE -> archonBloodAlloyCost * 2;
-                case JUSTICAR -> archonBloodAlloyCost * 3 / 2;
-                case REGENT -> archonBloodAlloyCost * 5 / 4;
-                case ARCHON -> archonBloodAlloyCost;
+                case LEGATE -> valorianBloodAlloyCost * 2;
+                case CAVALIER -> valorianBloodAlloyCost * 3 / 2;
+                case ARCHON -> valorianBloodAlloyCost * 5 / 4;
+                case VALORIAN -> valorianBloodAlloyCost;
             };
         }
 

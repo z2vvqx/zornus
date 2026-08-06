@@ -160,7 +160,7 @@ final class BloodstonePostgresInventoryRepository {
                         statement.setObject(1, playerId);
                         statement.setString(
                                 2,
-                                storageType.persistenceKey()
+                                storageType.name()
                         );
                         statement.executeUpdate();
                     }
@@ -184,7 +184,7 @@ final class BloodstonePostgresInventoryRepository {
                         statement.setObject(3, playerId);
                         statement.setString(
                                 4,
-                                storageType.persistenceKey()
+                                storageType.name()
                         );
                         setInstant(statement, 5, now);
                         statement.setObject(6, sessionToken);
@@ -219,7 +219,7 @@ final class BloodstonePostgresInventoryRepository {
                         statement.setObject(1, playerId);
                         statement.setString(
                                 2,
-                                storageType.persistenceKey()
+                                storageType.name()
                         );
                         try (ResultSet resultSet =
                                      statement.executeQuery()) {
@@ -277,7 +277,7 @@ final class BloodstonePostgresInventoryRepository {
                 statement.setObject(3, session.playerId());
                 statement.setString(
                         4,
-                        session.storageType().persistenceKey()
+                        session.storageType().name()
                 );
                 statement.setObject(5, session.sessionToken());
                 statement.setLong(6, session.version());
@@ -335,7 +335,7 @@ final class BloodstonePostgresInventoryRepository {
                 statement.setObject(2, session.playerId());
                 statement.setString(
                         3,
-                        session.storageType().persistenceKey()
+                        session.storageType().name()
                 );
                 statement.setObject(4, session.sessionToken());
                 statement.setLong(5, session.version());
@@ -410,7 +410,7 @@ final class BloodstonePostgresInventoryRepository {
             statement.setObject(1, session.playerId());
             statement.setString(
                     2,
-                    session.storageType().persistenceKey()
+                    session.storageType().name()
             );
             statement.setObject(3, session.sessionToken());
             statement.setLong(4, session.version() + 1);
@@ -448,7 +448,7 @@ final class BloodstonePostgresInventoryRepository {
             statement.setObject(1, session.playerId());
             statement.setString(
                     2,
-                    session.storageType().persistenceKey()
+                    session.storageType().name()
             );
             statement.setLong(3, session.version() + 1);
             statement.setBytes(4, payload);

@@ -68,7 +68,7 @@ final class BloodstoneCatalogTest {
     @Test
     void effectAxesKeepRankedCostsDurabilityAndEffects() {
         assertEquals(6, EffectAxeDefinitions.values().size());
-        Map<String, Integer> archonPrices = Map.of(
+        Map<String, Integer> valorianPrices = Map.of(
                 "speed", 16,
                 "strength", 32,
                 "wither", 24,
@@ -78,32 +78,23 @@ final class BloodstoneCatalogTest {
         );
         for (EffectAxeDefinitions.EffectAxeDefinition definition
                 : EffectAxeDefinitions.values()) {
-            int archonPrice = archonPrices.get(definition.id());
+            int valorianPrice = valorianPrices.get(definition.id());
             assertEquals(
-                    archonPrice,
+                    valorianPrice,
+                    definition.bloodAlloyCost(BloodstoneRank.VALORIAN)
+            );
+            assertEquals(
+                    valorianPrice * 5 / 4,
                     definition.bloodAlloyCost(BloodstoneRank.ARCHON)
             );
             assertEquals(
-                    archonPrice * 5 / 4,
-                    definition.bloodAlloyCost(BloodstoneRank.REGENT)
+                    valorianPrice * 3 / 2,
+                    definition.bloodAlloyCost(BloodstoneRank.CAVALIER)
             );
             assertEquals(
-                    archonPrice * 3 / 2,
-                    definition.bloodAlloyCost(BloodstoneRank.JUSTICAR)
-            );
-            assertEquals(
-                    archonPrice * 2,
+                    valorianPrice * 2,
                     definition.bloodAlloyCost(BloodstoneRank.LEGATE)
             );
-            assertEquals(
-                    Math.min(64, archonPrice * 5 / 2),
-                    definition.bloodAlloyCost(BloodstoneRank.DEFAULT)
-            );
-            assertTrue(
-                    definition.bloodAlloyCost(BloodstoneRank.DEFAULT)
-                            >= definition.bloodAlloyCost(BloodstoneRank.LEGATE)
-            );
-            assertTrue(definition.bloodAlloyCost(BloodstoneRank.DEFAULT) <= 64);
         }
 
         assertEquals(Duration.ofSeconds(8), EffectAxeDefinitions.SPEED.duration());
@@ -191,11 +182,10 @@ final class BloodstoneCatalogTest {
 
     @Test
     void rankEconomyAndResistanceDurationStayBound() {
-        assertEquals(3, BloodstoneRank.DEFAULT.bloodPerQualifyingHit());
         assertEquals(4, BloodstoneRank.LEGATE.bloodPerQualifyingHit());
-        assertEquals(5, BloodstoneRank.JUSTICAR.bloodPerQualifyingHit());
-        assertEquals(6, BloodstoneRank.REGENT.bloodPerQualifyingHit());
-        assertEquals(7, BloodstoneRank.ARCHON.bloodPerQualifyingHit());
+        assertEquals(5, BloodstoneRank.CAVALIER.bloodPerQualifyingHit());
+        assertEquals(6, BloodstoneRank.ARCHON.bloodPerQualifyingHit());
+        assertEquals(7, BloodstoneRank.VALORIAN.bloodPerQualifyingHit());
         assertEquals(3_600, new BloodstoneItemService().createResistanceEffect().getDuration());
         assertEquals(Map.ofEntries(
                         Map.entry(BloodstoneShopProduct.SHARPNESS_IV_SWORD, 2),

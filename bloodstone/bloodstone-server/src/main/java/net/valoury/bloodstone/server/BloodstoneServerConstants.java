@@ -195,13 +195,13 @@ public final class BloodstoneServerConstants {
     public static final int STORAGE_MENU_ROWS = 3;
     public static final int DEFAULT_STORAGE_SLOT = 10;
     public static final int LEGATE_STORAGE_SLOT = 11;
-    public static final int JUSTICAR_STORAGE_SLOT = 12;
-    public static final int REGENT_STORAGE_SLOT = 13;
+    public static final int CAVALIER_STORAGE_SLOT = 12;
+    public static final int ARCHON_STORAGE_SLOT = 13;
 
     // ========================================
     // DISPLAY CONSTANTS
     // ========================================
-    public static final int ARCHON_STORAGE_SLOT = 14;
+    public static final int VALORIAN_STORAGE_SLOT = 14;
     public static final int EXTRA_STORAGE_SLOT = 15;
     public static final int GUILD_STASH_SLOT = 16;
     public static final String STORAGE_INVENTORY_TITLE_FORMAT = "Storages: <storage>";
@@ -269,8 +269,6 @@ public final class BloodstoneServerConstants {
     public static final String ERROR_INVENTORY_SPACE = UNABLE_TO_PROCEED_PREFIX + "not enough inventory space.";
     public static final String ERROR_UNRECOGNIZED_ITEM = UNABLE_TO_PROCEED_PREFIX + "unrecognized item type.";
     public static final String ERROR_SHUTTING_DOWN = UNABLE_TO_PROCEED_PREFIX + "Bloodstone is shutting down.";
-    public static final String ENCHANTER_ACCESS_REQUIRED = UNABLE_TO_PROCEED_PREFIX + "no enchanter access.";
-    public static final String DISENCHANTER_ACCESS_REQUIRED = UNABLE_TO_PROCEED_PREFIX + "no disenchanter access.";
     public static final String ENCHANTER_ITEM_REJECTED = UNABLE_TO_PROCEED_PREFIX + "item doesn't accept enchantments.";
     public static final String DISENCHANTER_ITEM_REJECTED = UNABLE_TO_PROCEED_PREFIX + "item doesn't accept disenchanting.";
     public static final String EFFECT_AXE_MODIFICATION_REJECTED = UNABLE_TO_PROCEED_PREFIX + "item is too powerful.";

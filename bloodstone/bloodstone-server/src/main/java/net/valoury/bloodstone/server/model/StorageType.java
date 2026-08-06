@@ -3,18 +3,12 @@ package net.valoury.bloodstone.server.model;
 import java.util.Locale;
 
 public enum StorageType {
-    DEFAULT("DEFAULT"),
-    LEGATE("IRON"),
-    JUSTICAR("GOLD"),
-    REGENT("DIAMOND"),
-    ARCHON("EMERALD"),
-    EXTRA("EXTRA");
-
-    private final String persistenceKey;
-
-    StorageType(String persistenceKey) {
-        this.persistenceKey = persistenceKey;
-    }
+    DEFAULT,
+    LEGATE,
+    CAVALIER,
+    ARCHON,
+    VALORIAN,
+    EXTRA;
 
     public String displayName() {
         String lowerCaseName = name().toLowerCase(Locale.ROOT);
@@ -25,13 +19,10 @@ public enum StorageType {
     public int inventorySize() {
         return switch (this) {
             case DEFAULT, LEGATE -> 27;
-            case JUSTICAR -> 36;
-            case REGENT -> 45;
-            case ARCHON, EXTRA -> 54;
+            case CAVALIER -> 36;
+            case ARCHON -> 45;
+            case VALORIAN, EXTRA -> 54;
         };
     }
 
-    public String persistenceKey() {
-        return persistenceKey;
-    }
 }

@@ -1,7 +1,6 @@
 package net.valoury.bloodstone.server.service;
 
 import net.valoury.bloodstone.server.BloodstoneServerConstants;
-import net.valoury.bloodstone.server.model.BloodstoneRank;
 import net.valoury.bloodstone.server.storage.BloodstoneOperationStorage;
 import net.valoury.bloodstone.server.storage.RepairReserveOutcome;
 import org.bukkit.Effect;
@@ -27,7 +26,6 @@ import java.util.logging.Logger;
 
 public final class BloodstoneRepairService {
 
-    private static final int DEFAULT_BLOOD_COST = 20;
     private static final Set<Material> REPAIRABLE_ITEMS = Set.of(
             Material.DIAMOND_SWORD,
             Material.DIAMOND_AXE,
@@ -42,7 +40,6 @@ public final class BloodstoneRepairService {
     private final BloodstoneOperationStorage storage;
     private final BloodstoneItemService itemService;
     private final BloodstoneItemIdentityService itemIdentity;
-    private final BloodstoneCurrencyService currencyService;
     private final BloodstoneOperationRecoveryService operationRecoveryService;
     private final BloodstoneReservedItemDeliveryService deliveryService;
     private final PlayerOperationCapacity playerOperationCapacity;
@@ -59,7 +56,6 @@ public final class BloodstoneRepairService {
             BloodstoneOperationStorage storage,
             BloodstoneItemService itemService,
             BloodstoneItemIdentityService itemIdentity,
-            BloodstoneCurrencyService currencyService,
             BloodstoneOperationRecoveryService operationRecoveryService,
             BloodstoneReservedItemDeliveryService deliveryService,
             PlayerOperationCapacity playerOperationCapacity,
@@ -72,7 +68,6 @@ public final class BloodstoneRepairService {
         this.storage = storage;
         this.itemService = itemService;
         this.itemIdentity = itemIdentity;
-        this.currencyService = currencyService;
         this.operationRecoveryService = operationRecoveryService;
         this.deliveryService = deliveryService;
         this.playerOperationCapacity = playerOperationCapacity;
@@ -102,16 +97,6 @@ public final class BloodstoneRepairService {
         }
         if (heldItem.getDurability() < 1) {
             reject(player, BloodstoneServerConstants.REPAIR_FULL_DURABILITY);
-            return;
-        }
-        boolean free = BloodstoneRank.resolve(player).isPaid();
-        if (!free && currencyService.countBlood(player.getInventory())
-                < DEFAULT_BLOOD_COST) {
-            messageService.sendRequiredCurrency(
-                    player,
-                    DEFAULT_BLOOD_COST,
-                    BloodstoneMessageService.Currency.BLOOD
-            );
             return;
         }
         ItemStack repaired = heldItem.clone();
@@ -155,7 +140,6 @@ public final class BloodstoneRepairService {
                         repaired,
                         heldItem.getDurability(),
                         repairedPayload,
-                        free,
                         operationId,
                         outcome
                 ), mainThreadExecutor)
@@ -229,7 +213,6 @@ public final class BloodstoneRepairService {
             ItemStack repaired,
             short originalDamage,
             byte[] repairedPayload,
-            boolean free,
             UUID operationId,
             RepairReserveOutcome outcome
     ) {
@@ -254,28 +237,6 @@ public final class BloodstoneRepairService {
             return;
         }
 
-        if (!free && !currencyService.removeBlood(
-                player.getInventory(),
-                DEFAULT_BLOOD_COST
-        )) {
-            playerOperationCapacity.finish(operationId);
-            deliveryService.deliver(
-                    player,
-                    operationId,
-                    original,
-                    false,
-                    () -> storage.completeRepairOperation(
-                            operationId,
-                            player.getUniqueId()
-                    )
-            );
-            messageService.sendRequiredCurrency(
-                    player,
-                    DEFAULT_BLOOD_COST,
-                    BloodstoneMessageService.Currency.BLOOD
-            );
-            return;
-        }
         player.getInventory().clear(heldSlot);
         storage.markRepairOperationReady(
                         operationId,

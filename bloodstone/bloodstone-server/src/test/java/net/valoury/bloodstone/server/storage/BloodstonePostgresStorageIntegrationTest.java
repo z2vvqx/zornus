@@ -404,7 +404,7 @@ final class BloodstonePostgresStorageIntegrationTest {
 
     @Test
     @Order(6)
-    void writesRenamedPaidStorageUsingItsStablePersistenceKey() {
+    void rankStorageRoundTripsContents() {
         byte[] checkpointContents = new byte[]{9, 10};
         StorageOpenOutcome.Opened opened = assertInstanceOf(
                 StorageOpenOutcome.Opened.class,

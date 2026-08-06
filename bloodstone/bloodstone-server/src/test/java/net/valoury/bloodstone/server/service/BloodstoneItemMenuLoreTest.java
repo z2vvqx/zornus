@@ -184,12 +184,12 @@ final class BloodstoneItemMenuLoreTest {
     }
 
     @Test
-    void axeFuserAccessIsExclusiveToArchons() {
+    void axeFuserAccessIsExclusiveToValorians() {
         assertTrue(BloodstoneAxeFuserService.hasAxeFuserAccess(
-                BloodstoneRank.ARCHON
+                BloodstoneRank.VALORIAN
         ));
         for (BloodstoneRank rank : BloodstoneRank.values()) {
-            if (rank != BloodstoneRank.ARCHON) {
+            if (rank != BloodstoneRank.VALORIAN) {
                 assertFalse(
                         BloodstoneAxeFuserService.hasAxeFuserAccess(rank),
                         rank + " unexpectedly has Axe Fuser access"

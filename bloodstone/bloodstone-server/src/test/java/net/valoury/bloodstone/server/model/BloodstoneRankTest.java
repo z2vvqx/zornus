@@ -5,9 +5,7 @@ import org.junit.jupiter.api.Test;
 import java.time.Duration;
 import java.util.Set;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 final class BloodstoneRankTest {
 
@@ -15,36 +13,46 @@ final class BloodstoneRankTest {
     void highestPermissionAlwaysWins() {
         Set<String> permissions = Set.of(
                 "valoury.rank.legate",
-                "valoury.rank.justicar",
-                "valoury.rank.regent",
-                "valoury.rank.archon"
+                "valoury.rank.cavalier",
+                "valoury.rank.archon",
+                "valoury.rank.valorian"
         );
 
-        assertEquals(BloodstoneRank.ARCHON,
+        assertEquals(BloodstoneRank.VALORIAN,
                 BloodstoneRank.resolvePermissions(permissions::contains));
-        assertEquals(BloodstoneRank.DEFAULT,
+        assertEquals(BloodstoneRank.LEGATE,
                 BloodstoneRank.resolvePermissions(ignored -> false));
     }
 
     @Test
-    void eachPermissionResolvesItsReplacementRank() {
-        assertPermission(BloodstoneRank.LEGATE, "valoury.rank.legate");
-        assertPermission(BloodstoneRank.JUSTICAR, "valoury.rank.justicar");
-        assertPermission(BloodstoneRank.REGENT, "valoury.rank.regent");
-        assertPermission(BloodstoneRank.ARCHON, "valoury.rank.archon");
+    void onlyConfiguredRanksExist() {
+        assertArrayEquals(
+                new BloodstoneRank[]{
+                        BloodstoneRank.VALORIAN,
+                        BloodstoneRank.ARCHON,
+                        BloodstoneRank.CAVALIER,
+                        BloodstoneRank.LEGATE
+                },
+                BloodstoneRank.values()
+        );
     }
 
     @Test
-    void rankEconomicsMatchThePersistentGame() {
-        assertRank(BloodstoneRank.DEFAULT, 3, 0, 36, null);
+    void eachPermissionResolvesItsRank() {
+        assertPermission(BloodstoneRank.LEGATE, "valoury.rank.legate");
+        assertPermission(BloodstoneRank.CAVALIER, "valoury.rank.cavalier");
+        assertPermission(BloodstoneRank.ARCHON, "valoury.rank.archon");
+        assertPermission(BloodstoneRank.VALORIAN, "valoury.rank.valorian");
+    }
+
+    @Test
+    void rankEconomicsMatchTheConfiguredHierarchy() {
         assertRank(BloodstoneRank.LEGATE, 4, 4, 30, Duration.ofMinutes(10));
-        assertRank(BloodstoneRank.JUSTICAR, 5, 6, 24,
+        assertRank(BloodstoneRank.CAVALIER, 5, 6, 24,
                 Duration.ofMinutes(7).plusSeconds(30));
-        assertRank(BloodstoneRank.REGENT, 6, 8, 18, Duration.ofMinutes(5));
-        assertRank(BloodstoneRank.ARCHON, 7, 10, 12,
+        assertRank(BloodstoneRank.ARCHON, 6, 8, 18, Duration.ofMinutes(5));
+        assertRank(BloodstoneRank.VALORIAN, 7, 10, 12,
                 Duration.ofMinutes(2).plusSeconds(30));
-        assertFalse(BloodstoneRank.DEFAULT.isPaid());
-        assertTrue(BloodstoneRank.LEGATE.isPaid());
     }
 
     private void assertRank(
@@ -57,8 +65,7 @@ final class BloodstoneRankTest {
         assertEquals(bloodPerQualifyingHit, rank.bloodPerQualifyingHit());
         assertEquals(freeRandomBoxes, rank.freeRandomBoxes());
         assertEquals(randomBoxBloodCost, rank.randomBoxBloodCost());
-        assertEquals(java.util.Optional.ofNullable(enchanterCooldown),
-                rank.enchanterCooldown());
+        assertEquals(enchanterCooldown, rank.enchanterCooldown());
     }
 
     private void assertPermission(BloodstoneRank expectedRank, String permission) {

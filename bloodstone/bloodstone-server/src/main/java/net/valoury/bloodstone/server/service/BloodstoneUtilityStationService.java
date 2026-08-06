@@ -3,7 +3,6 @@ package net.valoury.bloodstone.server.service;
 import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
 import net.valoury.bloodstone.server.BloodstoneServerConstants;
 import net.valoury.bloodstone.server.BloodstoneText;
-import net.valoury.bloodstone.server.model.BloodstoneRank;
 import org.bukkit.Sound;
 import org.bukkit.block.Sign;
 import org.bukkit.entity.Player;
@@ -16,20 +15,17 @@ import java.util.concurrent.ThreadLocalRandom;
 public final class BloodstoneUtilityStationService {
 
     private final BloodstoneCombatService combatService;
-    private final BloodstoneCurrencyService currencyService;
     private final BloodstoneMenuService menuService;
     private final BloodstonePresentationService presentationService;
     private final BloodstoneMessageService messageService;
 
     public BloodstoneUtilityStationService(
             BloodstoneCombatService combatService,
-            BloodstoneCurrencyService currencyService,
             BloodstoneMenuService menuService,
             BloodstonePresentationService presentationService,
             BloodstoneMessageService messageService
     ) {
         this.combatService = combatService;
-        this.currencyService = currencyService;
         this.menuService = menuService;
         this.presentationService = presentationService;
         this.messageService = messageService;
@@ -77,24 +73,9 @@ public final class BloodstoneUtilityStationService {
             reject(player, BloodstoneServerConstants.ERROR_IN_BATTLE);
             return;
         }
-        boolean ranked = BloodstoneRank.resolve(player).isPaid();
-        if (!ranked
-                && !currencyService.removeBlood(player.getInventory(), 1)) {
-            messageService.sendRequiredCurrency(
-                    player,
-                    1,
-                    BloodstoneMessageService.Currency.BLOOD
-            );
-            return;
-        }
-        int levels = ranked
-                ? ThreadLocalRandom.current().nextInt(1, 6)
-                : ThreadLocalRandom.current().nextInt(1, 3);
-        float progress = ranked
-                ? (float) ThreadLocalRandom.current()
-                .nextDouble(0.25, 0.75)
-                : (float) ThreadLocalRandom.current()
-                .nextDouble(0.25, 0.50);
+        int levels = ThreadLocalRandom.current().nextInt(1, 6);
+        float progress = (float) ThreadLocalRandom.current()
+                .nextDouble(0.25, 0.75);
         float combinedProgress = player.getExp() + progress;
         int bonusLevels = (int) Math.floor(combinedProgress);
         player.setLevel(player.getLevel() + levels + bonusLevels);

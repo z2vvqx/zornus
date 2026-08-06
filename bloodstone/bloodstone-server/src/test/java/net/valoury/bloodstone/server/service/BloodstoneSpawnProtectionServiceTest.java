@@ -12,7 +12,7 @@ final class BloodstoneSpawnProtectionServiceTest {
 
     @Test
     void recognizesSpawnEquivalentRegionsCaseInsensitively() {
-        List.of("spawn", "legate", "justicar", "regent", "archon")
+        List.of("spawn", "legate", "cavalier", "archon", "valorian")
                 .forEach(regionName -> {
                     assertTrue(BloodstoneSpawnProtectionService.isSpawnRegion(regionName));
                     assertTrue(BloodstoneSpawnProtectionService.isSpawnRegion(

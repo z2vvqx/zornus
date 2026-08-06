@@ -109,26 +109,29 @@ public final class BloodstoneStorageService {
                 BloodstoneServerConstants.LEGATE_STORAGE_SLOT,
                 storageButton(
                         StorageType.LEGATE,
-                        rank.ordinal() >= BloodstoneRank.LEGATE.ordinal()
+                        rank.isAtLeast(BloodstoneRank.LEGATE)
                 )
         );
         menu.setItem(
-                BloodstoneServerConstants.JUSTICAR_STORAGE_SLOT,
+                BloodstoneServerConstants.CAVALIER_STORAGE_SLOT,
                 storageButton(
-                        StorageType.JUSTICAR,
-                        rank.ordinal() >= BloodstoneRank.JUSTICAR.ordinal()
-                )
-        );
-        menu.setItem(
-                BloodstoneServerConstants.REGENT_STORAGE_SLOT,
-                storageButton(
-                        StorageType.REGENT,
-                        rank.ordinal() >= BloodstoneRank.REGENT.ordinal()
+                        StorageType.CAVALIER,
+                        rank.isAtLeast(BloodstoneRank.CAVALIER)
                 )
         );
         menu.setItem(
                 BloodstoneServerConstants.ARCHON_STORAGE_SLOT,
-                storageButton(StorageType.ARCHON, rank == BloodstoneRank.ARCHON)
+                storageButton(
+                        StorageType.ARCHON,
+                        rank.isAtLeast(BloodstoneRank.ARCHON)
+                )
+        );
+        menu.setItem(
+                BloodstoneServerConstants.VALORIAN_STORAGE_SLOT,
+                storageButton(
+                        StorageType.VALORIAN,
+                        rank.isAtLeast(BloodstoneRank.VALORIAN)
+                )
         );
         boolean extraUnlocked = isExtraUnlocked(player.getUniqueId());
         menu.setItem(
@@ -171,9 +174,9 @@ public final class BloodstoneStorageService {
             StorageType type = switch (event.getRawSlot()) {
                 case BloodstoneServerConstants.DEFAULT_STORAGE_SLOT -> StorageType.DEFAULT;
                 case BloodstoneServerConstants.LEGATE_STORAGE_SLOT -> StorageType.LEGATE;
-                case BloodstoneServerConstants.JUSTICAR_STORAGE_SLOT -> StorageType.JUSTICAR;
-                case BloodstoneServerConstants.REGENT_STORAGE_SLOT -> StorageType.REGENT;
+                case BloodstoneServerConstants.CAVALIER_STORAGE_SLOT -> StorageType.CAVALIER;
                 case BloodstoneServerConstants.ARCHON_STORAGE_SLOT -> StorageType.ARCHON;
+                case BloodstoneServerConstants.VALORIAN_STORAGE_SLOT -> StorageType.VALORIAN;
                 case BloodstoneServerConstants.EXTRA_STORAGE_SLOT -> StorageType.EXTRA;
                 default -> null;
             };

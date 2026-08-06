@@ -260,7 +260,6 @@ public final class BloodstoneServerModule {
                             storage,
                             itemService,
                             itemIdentity,
-                            currencyService,
                             operationRecoveryService,
                             deliveryService,
                             playerToolOperationCapacity,
@@ -282,7 +281,6 @@ public final class BloodstoneServerModule {
             BloodstoneUtilityStationService utilityStationService =
                     new BloodstoneUtilityStationService(
                             combatService,
-                            currencyService,
                             menuService,
                             presentationService,
                             messageService

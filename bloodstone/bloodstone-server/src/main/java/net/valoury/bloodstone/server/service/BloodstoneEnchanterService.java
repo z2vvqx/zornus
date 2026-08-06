@@ -115,10 +115,6 @@ public final class BloodstoneEnchanterService {
             return;
         }
         BloodstoneRank rank = BloodstoneRank.resolve(player);
-        if (!rank.isPaid()) {
-            reject(player, action.accessRequiredMessage());
-            return;
-        }
         if (combatService.isTagged(player.getUniqueId())) {
             reject(player, BloodstoneServerConstants.ERROR_IN_BATTLE);
             return;
@@ -276,7 +272,7 @@ public final class BloodstoneEnchanterService {
             );
             return;
         }
-        Duration cooldown = context.rank().enchanterCooldown().orElseThrow();
+        Duration cooldown = context.rank().enchanterCooldown();
         if (!playerToolOperationCapacity.hasAvailability(player.getUniqueId())) {
             player.closeInventory();
             reject(player, BloodstoneServerConstants.MACHINE_ALREADY_ACTIVATED);

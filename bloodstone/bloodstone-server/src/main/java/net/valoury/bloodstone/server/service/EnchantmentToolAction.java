@@ -10,7 +10,6 @@ import org.bukkit.inventory.ItemStack;
 enum EnchantmentToolAction {
     ENCHANT(
             BloodstoneServerConstants.ENCHANTER_MENU_TITLE,
-            BloodstoneServerConstants.ENCHANTER_ACCESS_REQUIRED,
             BloodstoneServerConstants.ENCHANTER_ITEM_REJECTED,
             BloodstoneServerConstants.ENCHANTER_HELD_ITEM_CHANGED,
             BloodstoneServerConstants.ENCHANTER_HELD_ITEM_RECOVERY,
@@ -20,7 +19,6 @@ enum EnchantmentToolAction {
     ),
     DISENCHANT(
             BloodstoneServerConstants.DISENCHANTER_MENU_TITLE,
-            BloodstoneServerConstants.DISENCHANTER_ACCESS_REQUIRED,
             BloodstoneServerConstants.DISENCHANTER_ITEM_REJECTED,
             BloodstoneServerConstants.DISENCHANTER_HELD_ITEM_CHANGED,
             BloodstoneServerConstants.DISENCHANTER_HELD_ITEM_RECOVERY,
@@ -30,7 +28,6 @@ enum EnchantmentToolAction {
     );
 
     private final Component menuTitle;
-    private final String accessRequiredMessage;
     private final String itemRejectedMessage;
     private final String heldItemChangedMessage;
     private final String heldItemRecoveryMessage;
@@ -40,7 +37,6 @@ enum EnchantmentToolAction {
 
     EnchantmentToolAction(
             String menuTitleTemplate,
-            String accessRequiredMessage,
             String itemRejectedMessage,
             String heldItemChangedMessage,
             String heldItemRecoveryMessage,
@@ -49,7 +45,6 @@ enum EnchantmentToolAction {
             BloodstoneMenuItem optionItem
     ) {
         this.menuTitle = BloodstoneText.deserialize(menuTitleTemplate);
-        this.accessRequiredMessage = accessRequiredMessage;
         this.itemRejectedMessage = itemRejectedMessage;
         this.heldItemChangedMessage = heldItemChangedMessage;
         this.heldItemRecoveryMessage = heldItemRecoveryMessage;
@@ -69,10 +64,6 @@ enum EnchantmentToolAction {
             }
         }
         return false;
-    }
-
-    String accessRequiredMessage() {
-        return accessRequiredMessage;
     }
 
     String itemRejectedMessage() {
