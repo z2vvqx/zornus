@@ -86,6 +86,22 @@ public final class BloodstoneStorageService {
         this.logger = logger;
     }
 
+    static boolean isOwnedInventory(
+            @NonNull Inventory inventory,
+            @NonNull InventoryHolder expectedHolder
+    ) {
+        return inventory.getHolder() == expectedHolder;
+    }
+
+    static boolean shouldRetryStorageClose(
+            boolean retryingFailedSaves,
+            int completedAttempts
+    ) {
+        return retryingFailedSaves
+                && completedAttempts
+                < STORAGE_CLOSE_MAXIMUM_ATTEMPTS;
+    }
+
     public void openStorageMenu(Player player) {
         if (!acceptingOperations) {
             reject(player, BloodstoneServerConstants.STORAGE_SHUTTING_DOWN);
@@ -223,13 +239,6 @@ public final class BloodstoneStorageService {
         }
     }
 
-    static boolean isOwnedInventory(
-            @NonNull Inventory inventory,
-            @NonNull InventoryHolder expectedHolder
-    ) {
-        return inventory.getHolder() == expectedHolder;
-    }
-
     public CompletableFuture<?> handleQuit(Player player) {
         pendingOpenTokens.remove(player.getUniqueId());
         ActiveStorage active = activeStorages.get(player.getUniqueId());
@@ -349,37 +358,37 @@ public final class BloodstoneStorageService {
             StorageOpenOutcome outcome
     ) {
         if (!pendingOpenTokens.remove(playerId, sessionToken)) {
-            if (outcome instanceof StorageOpenOutcome.Opened opened) {
-                storage.closeStorage(opened.session(), opened.session().contentsPayload(), Instant.now());
+            if (outcome instanceof StorageOpenOutcome.Opened(StorageSession session)) {
+                storage.closeStorage(session, session.contentsPayload(), Instant.now());
             }
             return;
         }
         Player player = Bukkit.getPlayer(playerId);
         if (player == null || !player.isOnline()) {
-            if (outcome instanceof StorageOpenOutcome.Opened opened) {
-                storage.closeStorage(opened.session(), opened.session().contentsPayload(), Instant.now());
+            if (outcome instanceof StorageOpenOutcome.Opened(StorageSession session)) {
+                storage.closeStorage(session, session.contentsPayload(), Instant.now());
             }
             return;
         }
         if (combatService.isTagged(playerId)) {
-            if (outcome instanceof StorageOpenOutcome.Opened opened) {
+            if (outcome instanceof StorageOpenOutcome.Opened(StorageSession session)) {
                 storage.closeStorage(
-                        opened.session(),
-                        opened.session().contentsPayload(),
+                        session,
+                        session.contentsPayload(),
                         Instant.now()
                 );
             }
             reject(player, BloodstoneServerConstants.ERROR_IN_BATTLE);
             return;
         }
-        if (outcome instanceof StorageOpenOutcome.InUse inUse) {
+        if (outcome instanceof StorageOpenOutcome.InUse(Instant leaseExpiresAt)) {
             messageService.sendError(
                     player,
                     BloodstoneServerConstants.STORAGE_IN_USE_ERROR_KEY,
                     BloodstoneServerConstants.STORAGE_IN_USE_FORMAT,
                     Placeholder.component(
                             "expiration",
-                            StringUtils.formatRelativeTime(inUse.leaseExpiresAt())
+                            StringUtils.formatRelativeTime(leaseExpiresAt)
                     )
             );
             return;
@@ -473,7 +482,6 @@ public final class BloodstoneStorageService {
                             "Failed to close Bloodstone storage for " + playerId,
                             exception
                     );
-                    return;
                 }
             });
         });
@@ -523,15 +531,6 @@ public final class BloodstoneStorageService {
                 });
     }
 
-    static boolean shouldRetryStorageClose(
-            boolean retryingFailedSaves,
-            int completedAttempts
-    ) {
-        return retryingFailedSaves
-                && completedAttempts
-                < STORAGE_CLOSE_MAXIMUM_ATTEMPTS;
-    }
-
     private CompletableFuture<StorageWriteOutcome> checkpointStorageWithRetry(
             StorageSession session,
             byte[] payload,
@@ -556,8 +555,8 @@ public final class BloodstoneStorageService {
             ActiveStorage active,
             StorageWriteOutcome outcome
     ) {
-        if (outcome instanceof StorageWriteOutcome.Saved saved) {
-            return CompletableFuture.completedFuture(saved.session());
+        if (outcome instanceof StorageWriteOutcome.Saved(StorageSession session)) {
+            return CompletableFuture.completedFuture(session);
         }
         mainThreadExecutor.execute(() -> {
             Player player = Bukkit.getPlayer(playerId);
