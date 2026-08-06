@@ -11,27 +11,145 @@ import java.util.Map;
 import java.util.Optional;
 
 public final class PunishmentPresets {
-    public static final PunishmentPreset SWEARING = new PunishmentPreset(
-            "swearing",
-            "Swearing",
+    public static final PunishmentPreset PROMOTING_EXTERNAL_SERVICES_HEAVY = new PunishmentPreset(
+            "promoting-external-services-heavy",
+            "Promoting External Services — Heavy",
+            List.of(
+                    new PunishmentPresetStep(PunishmentType.BAN, "7d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "14d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "30d")
+            )
+    );
+    public static final PunishmentPreset ILLEGITIMATE_ADVANTAGES = new PunishmentPreset(
+            "illegitimate-advantages",
+            "Illegitimate Advantages",
+            List.of(
+                    new PunishmentPresetStep(PunishmentType.BAN, "1d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "2d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "3d")
+            )
+    );
+    public static final PunishmentPreset INAPPROPRIATE_APPEARANCE_CAPE_SKIN = new PunishmentPreset(
+            "inappropriate-appearance-cape-skin",
+            "Inappropriate Appearance — Cape/Skin",
             List.of(
                     new PunishmentPresetStep(PunishmentType.WARN, "7d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "1d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "2d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "3d")
+            )
+    );
+    public static final PunishmentPreset INAPPROPRIATE_APPEARANCE_NAME = new PunishmentPreset(
+            "inappropriate-appearance-name",
+            "Inappropriate Appearance — Name",
+            List.of(
+                    new PunishmentPresetStep(PunishmentType.BAN, "1d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "2d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "3d")
+            )
+    );
+    public static final PunishmentPreset SERVER_EXPLOITATION_BUG_EXPLOITATION = new PunishmentPreset(
+            "server-exploitation-bug-exploitation",
+            "Server Exploitation — Bug Exploitation",
+            List.of(
+                    new PunishmentPresetStep(PunishmentType.WARN, "7d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "1d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "2d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "3d")
+            )
+    );
+    public static final PunishmentPreset SERVER_EXPLOITATION_FREE_KILL = new PunishmentPreset(
+            "server-exploitation-free-kill",
+            "Server Exploitation — Free Kill",
+            List.of(
+                    new PunishmentPresetStep(PunishmentType.BAN, "1d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "2d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "3d")
+            )
+    );
+    public static final PunishmentPreset SERVER_EXPLOITATION_BOOST_FARMING = new PunishmentPreset(
+            "server-exploitation-boost-farming",
+            "Server Exploitation — Boost Farming",
+            List.of(
+                    new PunishmentPresetStep(PunishmentType.BAN, "1d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "2d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "3d")
+            )
+    );
+    public static final PunishmentPreset COLLABORATION_WITH_CHEATERS = new PunishmentPreset(
+            "collaboration-with-cheaters",
+            "Collaboration with Cheaters",
+            List.of(
+                    new PunishmentPresetStep(PunishmentType.WARN, "7d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "1d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "2d"),
+                    new PunishmentPresetStep(PunishmentType.BAN, "3d")
+            )
+    );
+    public static final PunishmentPreset PROMOTING_EXTERNAL_SERVICES_LIGHT = new PunishmentPreset(
+            "promoting-external-services-light",
+            "Promoting External Services — Light",
+            List.of(
+                    new PunishmentPresetStep(PunishmentType.WARN, "6h"),
+                    new PunishmentPresetStep(PunishmentType.MUTE, "12h"),
+                    new PunishmentPresetStep(PunishmentType.MUTE, "1d"),
+                    new PunishmentPresetStep(PunishmentType.MUTE, "2d")
+            )
+    );
+    public static final PunishmentPreset PROFANE_LANGUAGE = new PunishmentPreset(
+            "profane-language",
+            "Profane Language",
+            List.of(
+                    new PunishmentPresetStep(PunishmentType.MUTE, "1d"),
+                    new PunishmentPresetStep(PunishmentType.MUTE, "2d"),
+                    new PunishmentPresetStep(PunishmentType.MUTE, "3d")
+            )
+    );
+    public static final PunishmentPreset SENSITIVE_TOPIC_DISCUSSIONS = new PunishmentPreset(
+            "sensitive-topic-discussions",
+            "Sensitive Topic Discussions",
+            List.of(
+                    new PunishmentPresetStep(PunishmentType.MUTE, "1d"),
+                    new PunishmentPresetStep(PunishmentType.MUTE, "2d"),
+                    new PunishmentPresetStep(PunishmentType.MUTE, "3d")
+            )
+    );
+    public static final PunishmentPreset DISRESPECTFUL_CONDUCT = new PunishmentPreset(
+            "disrespectful-conduct",
+            "Disrespectful Conduct",
+            List.of(
+                    new PunishmentPresetStep(PunishmentType.WARN, "6h"),
+                    new PunishmentPresetStep(PunishmentType.MUTE, "12h"),
+                    new PunishmentPresetStep(PunishmentType.MUTE, "1d"),
+                    new PunishmentPresetStep(PunishmentType.MUTE, "2d")
+            )
+    );
+    public static final PunishmentPreset EXCESSIVE_MESSAGING = new PunishmentPreset(
+            "excessive-messaging",
+            "Excessive Messaging",
+            List.of(
+                    new PunishmentPresetStep(PunishmentType.WARN, "6h"),
+                    new PunishmentPresetStep(PunishmentType.MUTE, "6h"),
                     new PunishmentPresetStep(PunishmentType.MUTE, "12h"),
                     new PunishmentPresetStep(PunishmentType.MUTE, "1d")
             )
     );
-    public static final PunishmentPreset CHEATING = new PunishmentPreset(
-            "cheating",
-            "Cheating",
-            List.of(
-                    new PunishmentPresetStep(PunishmentType.KICK, null),
-                    new PunishmentPresetStep(PunishmentType.BAN, "1h"),
-                    new PunishmentPresetStep(PunishmentType.BAN, "24h"),
-                    new PunishmentPresetStep(PunishmentType.BAN, "3d")
-            )
-    );
 
-    private static final List<PunishmentPreset> PRESETS = List.of(SWEARING, CHEATING);
+    private static final List<PunishmentPreset> PRESETS = List.of(
+            PROMOTING_EXTERNAL_SERVICES_HEAVY,
+            ILLEGITIMATE_ADVANTAGES,
+            INAPPROPRIATE_APPEARANCE_CAPE_SKIN,
+            INAPPROPRIATE_APPEARANCE_NAME,
+            SERVER_EXPLOITATION_BUG_EXPLOITATION,
+            SERVER_EXPLOITATION_FREE_KILL,
+            SERVER_EXPLOITATION_BOOST_FARMING,
+            COLLABORATION_WITH_CHEATERS,
+            PROMOTING_EXTERNAL_SERVICES_LIGHT,
+            PROFANE_LANGUAGE,
+            SENSITIVE_TOPIC_DISCUSSIONS,
+            DISRESPECTFUL_CONDUCT,
+            EXCESSIVE_MESSAGING
+    );
     private static final Map<String, PunishmentPreset> PRESETS_BY_NAME = createPresetIndex();
 
     private PunishmentPresets() {
