@@ -1,6 +1,8 @@
 package net.valoury.bloodstone.server.service;
 
 import net.kyori.adventure.text.Component;
+import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
+import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import net.valoury.bloodstone.server.BloodstoneServerConstants;
 import net.valoury.bloodstone.server.BloodstoneText;
 import net.valoury.bloodstone.server.model.BloodstoneRank;
@@ -12,8 +14,6 @@ import net.valoury.bloodstone.server.storage.ExtraStorageUnlockOutcome;
 import net.valoury.bloodstone.server.storage.StorageOpenOutcome;
 import net.valoury.bloodstone.server.storage.StorageWriteOutcome;
 import net.valoury.shared.utilities.StringUtils;
-import net.kyori.adventure.text.minimessage.tag.resolver.Placeholder;
-import net.kyori.adventure.text.minimessage.tag.resolver.TagResolver;
 import org.bukkit.Bukkit;
 import org.bukkit.Sound;
 import org.bukkit.entity.Player;
@@ -27,13 +27,7 @@ import org.jspecify.annotations.NonNull;
 import java.io.IOException;
 import java.time.Duration;
 import java.time.Instant;
-import java.util.ArrayList;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.UUID;
+import java.util.*;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
 import java.util.concurrent.TimeUnit;
@@ -257,12 +251,12 @@ public final class BloodstoneStorageService {
             ActiveStorage active = entry.getValue();
             byte[] payload = snapshot(active.inventory);
             active.tail = continueFromLastCommitted(active).thenCompose(session ->
-                    checkpointStorageWithRetry(
+                            checkpointStorageWithRetry(
                                     session,
                                     payload,
                                     1
                             )
-                            .thenCompose(outcome -> mapWriteOutcome(entry.getKey(), active, outcome)))
+                                    .thenCompose(outcome -> mapWriteOutcome(entry.getKey(), active, outcome)))
                     .thenApply(active::remember);
         }
     }
@@ -467,8 +461,8 @@ public final class BloodstoneStorageService {
         }
         closingStorages.put(playerId, active);
         active.tail = continueFromLastCommitted(active).thenCompose(session ->
-                closeStorageWithRetry(session, finalPayload.apply(session), 1)
-                        .thenCompose(outcome -> mapWriteOutcome(playerId, active, outcome)))
+                        closeStorageWithRetry(session, finalPayload.apply(session), 1)
+                                .thenCompose(outcome -> mapWriteOutcome(playerId, active, outcome)))
                 .thenApply(active::remember);
         active.tail.whenComplete((ignored, exception) -> {
             if (!acceptingOperations) {
@@ -723,11 +717,11 @@ public final class BloodstoneStorageService {
             return unlocked
                     ? BloodstoneServerConstants.EXTRA_STORAGE_UNLOCKED_ITEM.create()
                     : BloodstoneServerConstants.EXTRA_STORAGE_LOCKED_ITEM.create(
-                            Placeholder.unparsed(
-                                    "price",
-                                    Integer.toString(EXTRA_STORAGE_PRICE)
-                            )
-                    );
+                    Placeholder.unparsed(
+                            "price",
+                            Integer.toString(EXTRA_STORAGE_PRICE)
+                    )
+            );
         }
         TagResolver storageName = Placeholder.unparsed(
                 "storage",

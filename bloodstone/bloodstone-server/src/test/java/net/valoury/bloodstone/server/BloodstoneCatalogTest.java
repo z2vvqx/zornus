@@ -17,9 +17,7 @@ import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
 
-import static org.junit.jupiter.api.Assertions.assertFalse;
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertTrue;
+import static org.junit.jupiter.api.Assertions.*;
 
 final class BloodstoneCatalogTest {
 
@@ -55,7 +53,7 @@ final class BloodstoneCatalogTest {
                 RandomBoxRewards.values().stream().collect(Collectors.toMap(
                         RandomBoxRewards.RandomBoxReward::id,
                         RandomBoxRewards.RandomBoxReward::weight
-        )));
+                )));
         assertEquals("golden_apple", RandomBoxRewards.GOLDEN_APPLE.id());
         assertEquals(1, RandomBoxRewards.GOLDEN_APPLE.data());
         assertEquals(org.bukkit.Material.GOLDEN_APPLE,
@@ -205,8 +203,8 @@ final class BloodstoneCatalogTest {
                 ),
                 java.util.Arrays.stream(BloodstoneShopProduct.values())
                         .collect(Collectors.toMap(
-                        product -> product,
-                        BloodstoneShopProduct::bloodAlloyCost
+                                product -> product,
+                                BloodstoneShopProduct::bloodAlloyCost
                         )));
         assertFalse(java.util.Arrays.stream(BloodstoneShopProduct.values())
                 .anyMatch(product -> product.name().contains("BLESSED")

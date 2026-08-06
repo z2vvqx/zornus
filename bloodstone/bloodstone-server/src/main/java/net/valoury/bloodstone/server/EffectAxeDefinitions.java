@@ -7,12 +7,7 @@ import org.bukkit.potion.PotionEffectType;
 import org.jspecify.annotations.NonNull;
 
 import java.time.Duration;
-import java.util.LinkedHashMap;
-import java.util.List;
-import java.util.Locale;
-import java.util.Map;
-import java.util.Objects;
-import java.util.Optional;
+import java.util.*;
 
 public final class EffectAxeDefinitions {
 
