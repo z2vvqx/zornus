@@ -5,8 +5,10 @@ import com.velocitypowered.api.event.Subscribe;
 import com.velocitypowered.api.event.proxy.ProxyInitializeEvent;
 import com.velocitypowered.api.event.proxy.ProxyShutdownEvent;
 import com.velocitypowered.api.plugin.Plugin;
+import com.velocitypowered.api.plugin.Dependency;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.kyori.adventure.text.Component;
+import net.valoury.discord.api.DiscordApi;
 import org.jspecify.annotations.NonNull;
 import org.slf4j.Logger;
 
@@ -15,7 +17,8 @@ import org.slf4j.Logger;
         name = "Punishments Proxy",
         version = "1.0.0",
         description = "Network-wide punishment system for Velocity",
-        authors = {"valoury"}
+        authors = {"valoury"},
+        dependencies = @Dependency(id = DiscordApi.PLUGIN_ID)
 )
 public final class PunishmentProxyPlugin {
     private final ProxyServer proxyServer;
@@ -32,7 +35,7 @@ public final class PunishmentProxyPlugin {
     public void onProxyInitialize(@NonNull ProxyInitializeEvent event) {
         PunishmentProxyModule initializedModule = null;
         try {
-            initializedModule = new PunishmentProxyModule(this, proxyServer);
+            initializedModule = new PunishmentProxyModule(this, proxyServer, resolveDiscordApi());
             initializedModule.initialize(
                     proxyServer.getCommandManager(),
                     proxyServer.getEventManager(),
@@ -55,5 +58,16 @@ public final class PunishmentProxyPlugin {
         if (punishmentProxyModule != null) {
             punishmentProxyModule.shutdown();
         }
+    }
+
+    private DiscordApi resolveDiscordApi() {
+        Object discordPlugin = proxyServer.getPluginManager()
+                .getPlugin(DiscordApi.PLUGIN_ID)
+                .flatMap(pluginContainer -> pluginContainer.getInstance())
+                .orElseThrow(() -> new IllegalStateException("Discord plugin instance is unavailable"));
+        if (!(discordPlugin instanceof DiscordApi discordApi)) {
+            throw new IllegalStateException("Discord plugin does not expose the expected API");
+        }
+        return discordApi;
     }
 }

@@ -1,12 +1,14 @@
 package net.valoury.punishments.proxy.command;
 
 import com.mojang.brigadier.CommandDispatcher;
+import com.mojang.brigadier.exceptions.CommandSyntaxException;
 import com.mojang.brigadier.suggestion.Suggestion;
 import com.velocitypowered.api.command.CommandSource;
 import com.velocitypowered.api.permission.Tristate;
 import com.velocitypowered.api.proxy.Player;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.valoury.punishments.proxy.PunishmentPresets;
+import net.valoury.punishments.proxy.PunishmentProxyConstants;
 import org.junit.jupiter.api.Test;
 
 import java.lang.reflect.InvocationHandler;
@@ -18,6 +20,7 @@ import java.util.concurrent.atomic.AtomicInteger;
 import java.util.stream.Collectors;
 
 import static org.junit.jupiter.api.Assertions.assertEquals;
+import static org.junit.jupiter.api.Assertions.assertThrows;
 
 class PunishmentCommandSuggestionTest {
 
@@ -76,13 +79,50 @@ class PunishmentCommandSuggestionTest {
         );
     }
 
+    @Test
+    void presetSuggestionsOnlyListIndividuallyPermittedPresets() {
+        CommandDispatcher<CommandSource> dispatcher = dispatcher(new AtomicInteger());
+        String permittedPresetName = PunishmentPresets.PROFANE_LANGUAGE.name();
+        CommandSource source = sourceWithPermissions(Set.of(
+                PunishmentProxyConstants.COMMAND_PERMISSION,
+                PunishmentProxyConstants.IMPOSE_COMMAND_PERMISSION,
+                PunishmentProxyConstants.IMPOSE_PRESET_COMMAND_PERMISSION,
+                PunishmentProxyConstants.imposePresetPermission(permittedPresetName)
+        ));
+
+        assertEquals(
+                Set.of(permittedPresetName),
+                suggestionSet(dispatcher, "punishment impose preset Alpha ", source)
+        );
+    }
+
+    @Test
+    void presetExecutionRequiresTheIndividualPresetPermission() {
+        CommandDispatcher<CommandSource> dispatcher = dispatcher(new AtomicInteger());
+        CommandSource source = sourceWithPermissions(Set.of(
+                PunishmentProxyConstants.COMMAND_PERMISSION,
+                PunishmentProxyConstants.IMPOSE_COMMAND_PERMISSION,
+                PunishmentProxyConstants.IMPOSE_PRESET_COMMAND_PERMISSION
+        ));
+
+        assertThrows(
+                CommandSyntaxException.class,
+                () -> dispatcher.execute(
+                        "punishment impose preset Alpha "
+                                + PunishmentPresets.PROFANE_LANGUAGE.name(),
+                        source
+                )
+        );
+    }
+
     private static CommandDispatcher<CommandSource> dispatcher(
             AtomicInteger onlinePlayerListingCount
     ) {
         CommandDispatcher<CommandSource> dispatcher = new CommandDispatcher<>();
         dispatcher.getRoot().addChild(PunishmentCommand.create(
                 null,
-                proxyServer(onlinePlayerListingCount)
+                proxyServer(onlinePlayerListingCount),
+                null
         ).getNode());
         return dispatcher;
     }
@@ -94,17 +134,38 @@ class PunishmentCommandSuggestionTest {
         return new TreeSet<>(suggestions(dispatcher, input));
     }
 
+    private static Set<String> suggestionSet(
+            CommandDispatcher<CommandSource> dispatcher,
+            String input,
+            CommandSource source
+    ) {
+        return new TreeSet<>(suggestions(dispatcher, input, source));
+    }
+
     private static List<String> suggestions(
             CommandDispatcher<CommandSource> dispatcher,
             String input
     ) {
-        CommandSource source = permission -> Tristate.TRUE;
+        return suggestions(dispatcher, input, permission -> Tristate.TRUE);
+    }
+
+    private static List<String> suggestions(
+            CommandDispatcher<CommandSource> dispatcher,
+            String input,
+            CommandSource source
+    ) {
         return dispatcher.getCompletionSuggestions(dispatcher.parse(input, source))
                 .join()
                 .getList()
                 .stream()
                 .map(Suggestion::getText)
                 .toList();
+    }
+
+    private static CommandSource sourceWithPermissions(Set<String> permissions) {
+        return permission -> permissions.contains(permission)
+                ? Tristate.TRUE
+                : Tristate.FALSE;
     }
 
     private static ProxyServer proxyServer(AtomicInteger onlinePlayerListingCount) {

@@ -4,7 +4,22 @@ import java.time.Duration;
 import java.util.List;
 
 public final class PunishmentProxyConstants {
-    public static final String COMMAND_PERMISSION = "valoury.punishments.manage";
+    public static final String COMMAND_PERMISSION = "valoury.command.punishment";
+    public static final String IMPOSE_COMMAND_PERMISSION = COMMAND_PERMISSION + ".impose";
+    public static final String IMPOSE_BAN_COMMAND_PERMISSION = IMPOSE_COMMAND_PERMISSION + ".ban";
+    public static final String IMPOSE_MUTE_COMMAND_PERMISSION = IMPOSE_COMMAND_PERMISSION + ".mute";
+    public static final String IMPOSE_WARN_COMMAND_PERMISSION = IMPOSE_COMMAND_PERMISSION + ".warn";
+    public static final String IMPOSE_KICK_COMMAND_PERMISSION = IMPOSE_COMMAND_PERMISSION + ".kick";
+    public static final String IMPOSE_PRESET_COMMAND_PERMISSION = IMPOSE_COMMAND_PERMISSION + ".preset";
+    public static final String REVOKE_COMMAND_PERMISSION = COMMAND_PERMISSION + ".revoke";
+    public static final String REVOKE_BAN_COMMAND_PERMISSION = REVOKE_COMMAND_PERMISSION + ".ban";
+    public static final String REVOKE_MUTE_COMMAND_PERMISSION = REVOKE_COMMAND_PERMISSION + ".mute";
+    public static final String REVOKE_ID_COMMAND_PERMISSION = REVOKE_COMMAND_PERMISSION + ".id";
+    public static final String HISTORY_COMMAND_PERMISSION = COMMAND_PERMISSION + ".history";
+    public static final String CHECK_COMMAND_PERMISSION = COMMAND_PERMISSION + ".check";
+    public static final String CHECK_BAN_COMMAND_PERMISSION = CHECK_COMMAND_PERMISSION + ".ban";
+    public static final String CHECK_MUTE_COMMAND_PERMISSION = CHECK_COMMAND_PERMISSION + ".mute";
+    public static final String CHECK_ID_COMMAND_PERMISSION = CHECK_COMMAND_PERMISSION + ".id";
     public static final String POSTGRESQL_URL = "jdbc:postgresql://localhost:5432/punishments";
     public static final String POSTGRESQL_USER = "postgres";
     public static final String POSTGRESQL_PASSWORD = "postword";
@@ -12,6 +27,8 @@ public final class PunishmentProxyConstants {
     public static final int DATABASE_EXECUTOR_POOL_SIZE = 10;
     public static final long DATABASE_SHUTDOWN_TIMEOUT_SECONDS = 5;
     public static final Duration CLEANUP_INTERVAL = Duration.ofMinutes(5);
+    public static final Duration EVIDENCE_THREAD_WAIT_TIMEOUT = Duration.ofSeconds(15);
+    public static final Duration EVIDENCE_THREAD_POLL_INTERVAL = Duration.ofMillis(500);
     public static final String IDENTIFIER_CHARACTERS = "ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
     public static final String CONSOLE_NAME = "Console";
     public static final String UNKNOWN_PLAYER = "Unknown";
@@ -43,6 +60,9 @@ public final class PunishmentProxyConstants {
     public static final String ERROR_PLAYER_ALREADY_MUTED = "<red><yellow><target></yellow> is already muted.</red>";
     public static final String ERROR_PLAYER_ALREADY_WARNED_FOR_REASON = "<red><yellow><target></yellow> already has an active warning for <yellow><reason></yellow>.</red>";
     public static final String ERROR_PRESET_NOT_FOUND = "<red>Punishment preset <yellow><preset></yellow> does not exist.</red>";
+    public static final String ERROR_EVIDENCE_ACCOUNT_LINK_REQUIRED =
+            "<red>You must link your Discord account before issuing a preset punishment. "
+                    + "Use <click:suggest_command:'/discord link'><yellow>/discord link</yellow></click>.</red>";
     public static final String PLAYER_NOT_MUTED = "<green><yellow><target></yellow> is not muted.</green>";
 
     public static final String IMPOSE_SUCCESS_BAN = "<green>Successfully banned <yellow><target></yellow> (ID: <yellow>#<id></yellow>).</green>";
@@ -50,6 +70,12 @@ public final class PunishmentProxyConstants {
     public static final String IMPOSE_SUCCESS_WARN = "<green>Successfully warned <yellow><target></yellow> (ID: <yellow>#<id></yellow>).</green>";
     public static final String IMPOSE_SUCCESS_KICK = "<green>Successfully kicked <yellow><target></yellow> (ID: <yellow>#<id></yellow>).</green>";
     public static final String IMPOSE_SUCCESS_PRESET = "<green>Applied preset <yellow><preset></yellow> step <yellow><step></yellow> to <yellow><target></yellow>: <yellow><type></yellow> (ID: <yellow>#<id></yellow>).</green>";
+    public static final String EVIDENCE_THREAD_READY =
+            "<yellow>Evidence is required for <white>#<id></white>. <evidence_link></yellow>";
+    public static final String EVIDENCE_THREAD_QUEUED =
+            "<yellow>Evidence case <white>#<id></white> is queued. Discord will create its thread when available.</yellow>";
+    public static final String EVIDENCE_CASE_FAILED =
+            "<red>Punishment <yellow>#<id></yellow> succeeded, but its evidence case could not be queued. Contact an administrator.</red>";
     public static final String REVOKE_SUCCESS = "<green>Successfully revoked punishment <yellow>#<punishment_id></yellow> for <yellow><target></yellow>.</green>";
     public static final String REVOKE_SUCCESS_BAN = "<green>Successfully unbanned <yellow><target></yellow>.</green>";
     public static final String REVOKE_SUCCESS_MUTE = "<green>Successfully unmuted <yellow><target></yellow>.</green>";
@@ -106,6 +132,10 @@ public final class PunishmentProxyConstants {
             "<click:suggest_command:'/punishment check mute '><#2DA0ED>mute <player></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Check a player's mute status</white>",
             "<click:suggest_command:'/punishment check id '><#2DA0ED>id <id></#2DA0ED></click> <dark_gray>─</dark_gray> <white>Check a specific punishment</white>"
     );
+
+    public static String imposePresetPermission(String presetName) {
+        return IMPOSE_PRESET_COMMAND_PERMISSION + "." + presetName;
+    }
 
     private PunishmentProxyConstants() {
     }

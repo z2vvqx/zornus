@@ -46,6 +46,9 @@ public final class PunishmentImposeWarnCommand {
     public static LiteralArgumentBuilder<CommandSource> create(PunishmentService punishmentService, ProxyServer proxyServer) {
         return BrigadierCommand
                 .literalArgumentBuilder("warn")
+                .requires(source -> source.hasPermission(
+                        PunishmentProxyConstants.IMPOSE_WARN_COMMAND_PERMISSION
+                ))
                 .executes(PunishmentImposeWarnCommand::sendUsage)
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("player_name", StringArgumentType.word())

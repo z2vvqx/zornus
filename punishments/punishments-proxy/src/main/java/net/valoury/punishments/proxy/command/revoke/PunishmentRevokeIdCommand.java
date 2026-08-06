@@ -24,6 +24,9 @@ public final class PunishmentRevokeIdCommand {
     public static LiteralArgumentBuilder<CommandSource> create(PunishmentService punishmentService) {
         return BrigadierCommand
                 .literalArgumentBuilder("id")
+                .requires(source -> source.hasPermission(
+                        PunishmentProxyConstants.REVOKE_ID_COMMAND_PERMISSION
+                ))
                 .executes(PunishmentRevokeIdCommand::sendUsage)
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("identifier_code", StringArgumentType.word())

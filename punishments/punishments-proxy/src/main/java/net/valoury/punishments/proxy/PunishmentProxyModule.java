@@ -8,6 +8,8 @@ import net.valoury.punishments.proxy.registrar.PunishmentCommandRegistrar;
 import net.valoury.punishments.proxy.registrar.PunishmentListenerRegistrar;
 import net.valoury.punishments.proxy.registrar.PunishmentOperationRegistrar;
 import net.valoury.punishments.proxy.service.PunishmentService;
+import net.valoury.punishments.proxy.service.PresetEvidenceCoordinator;
+import net.valoury.discord.api.DiscordApi;
 import net.valoury.punishments.proxy.storage.PunishmentPostgresStorage;
 import net.valoury.punishments.proxy.storage.PunishmentStorage;
 import org.jspecify.annotations.NonNull;
@@ -22,13 +24,22 @@ public final class PunishmentProxyModule {
     private final @NonNull PunishmentListenerRegistrar punishmentListenerRegistrar;
     private final @NonNull PunishmentOperationRegistrar punishmentOperationRegistrar;
 
-    public PunishmentProxyModule(@NonNull Object plugin, @NonNull ProxyServer proxyServer) {
+    public PunishmentProxyModule(
+            @NonNull Object plugin,
+            @NonNull ProxyServer proxyServer,
+            @NonNull DiscordApi discordApi
+    ) {
         PunishmentStorage storage = new PunishmentPostgresStorage(
                 PunishmentProxyConstants.POSTGRESQL_URL,
                 PunishmentProxyConstants.POSTGRESQL_USER,
                 PunishmentProxyConstants.POSTGRESQL_PASSWORD);
         this.punishmentService = new PunishmentService(storage, proxyServer);
-        this.punishmentCommandRegistrar = new PunishmentCommandRegistrar(punishmentService, proxyServer);
+        PresetEvidenceCoordinator evidenceCoordinator = new PresetEvidenceCoordinator(discordApi);
+        this.punishmentCommandRegistrar = new PunishmentCommandRegistrar(
+                punishmentService,
+                proxyServer,
+                evidenceCoordinator
+        );
         this.punishmentListenerRegistrar = new PunishmentListenerRegistrar(plugin, punishmentService);
         this.punishmentOperationRegistrar = new PunishmentOperationRegistrar(plugin, punishmentService);
     }

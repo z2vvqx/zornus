@@ -9,16 +9,21 @@ import net.valoury.punishments.proxy.command.check.PunishmentCheckCommand;
 import net.valoury.punishments.proxy.command.impose.PunishmentImposeCommand;
 import net.valoury.punishments.proxy.command.revoke.PunishmentRevokeCommand;
 import net.valoury.punishments.proxy.service.PunishmentService;
+import net.valoury.punishments.proxy.service.PresetEvidenceCoordinator;
 import org.jspecify.annotations.NonNull;
 
 public final class PunishmentCommand {
 
-    public static @NonNull BrigadierCommand create(@NonNull PunishmentService punishmentService, @NonNull ProxyServer proxyServer) {
+    public static @NonNull BrigadierCommand create(
+            @NonNull PunishmentService punishmentService,
+            @NonNull ProxyServer proxyServer,
+            @NonNull PresetEvidenceCoordinator evidenceCoordinator
+    ) {
         LiteralCommandNode<CommandSource> node = BrigadierCommand.literalArgumentBuilder("punishment")
                 .requires(source -> source.hasPermission(PunishmentProxyConstants.COMMAND_PERMISSION))
                 .executes(PunishmentHelpCommand.defaultExecutor())
                 .then(PunishmentHelpCommand.create())
-                .then(PunishmentImposeCommand.create(punishmentService, proxyServer))
+                .then(PunishmentImposeCommand.create(punishmentService, proxyServer, evidenceCoordinator))
                 .then(PunishmentRevokeCommand.create(punishmentService, proxyServer))
                 .then(PunishmentCheckCommand.create(punishmentService, proxyServer))
                 .then(PunishmentHistoryCommand.create(punishmentService, proxyServer))

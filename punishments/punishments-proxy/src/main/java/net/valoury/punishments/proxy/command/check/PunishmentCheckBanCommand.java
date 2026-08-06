@@ -51,6 +51,9 @@ public final class PunishmentCheckBanCommand {
     public static LiteralArgumentBuilder<CommandSource> create(PunishmentService punishmentService, ProxyServer proxyServer) {
         return BrigadierCommand
                 .literalArgumentBuilder("ban")
+                .requires(source -> source.hasPermission(
+                        PunishmentProxyConstants.CHECK_BAN_COMMAND_PERMISSION
+                ))
                 .executes(context -> {
                     context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_CHECK_BAN));
                     return Command.SINGLE_SUCCESS;

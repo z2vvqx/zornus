@@ -45,6 +45,9 @@ public final class PunishmentRevokeBanCommand {
     public static LiteralArgumentBuilder<CommandSource> create(PunishmentService punishmentService, ProxyServer proxyServer) {
         return BrigadierCommand
                 .literalArgumentBuilder("ban")
+                .requires(source -> source.hasPermission(
+                        PunishmentProxyConstants.REVOKE_BAN_COMMAND_PERMISSION
+                ))
                 .executes(PunishmentRevokeBanCommand::sendUsage)
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("player_name", StringArgumentType.word())

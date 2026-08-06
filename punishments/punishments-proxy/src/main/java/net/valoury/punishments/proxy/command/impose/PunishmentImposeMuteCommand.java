@@ -46,6 +46,9 @@ public final class PunishmentImposeMuteCommand {
     public static LiteralArgumentBuilder<CommandSource> create(PunishmentService punishmentService, ProxyServer proxyServer) {
         return BrigadierCommand
                 .literalArgumentBuilder("mute")
+                .requires(source -> source.hasPermission(
+                        PunishmentProxyConstants.IMPOSE_MUTE_COMMAND_PERMISSION
+                ))
                 .executes(PunishmentImposeMuteCommand::sendUsage)
                 .then(BrigadierCommand
                         .requiredArgumentBuilder("player_name", StringArgumentType.word())

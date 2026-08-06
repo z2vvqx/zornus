@@ -67,6 +67,9 @@ public final class PunishmentHistoryCommand {
                 );
 
         return BrigadierCommand.literalArgumentBuilder("history")
+                .requires(source -> source.hasPermission(
+                        PunishmentProxyConstants.HISTORY_COMMAND_PERMISSION
+                ))
                 .executes(context -> {
                     context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_HISTORY));
                     return Command.SINGLE_SUCCESS;

@@ -51,6 +51,9 @@ public final class PunishmentCheckMuteCommand {
     public static LiteralArgumentBuilder<CommandSource> create(PunishmentService punishmentService, ProxyServer proxyServer) {
         return BrigadierCommand
                 .literalArgumentBuilder("mute")
+                .requires(source -> source.hasPermission(
+                        PunishmentProxyConstants.CHECK_MUTE_COMMAND_PERMISSION
+                ))
                 .executes(context -> {
                     context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_CHECK_MUTE));
                     return Command.SINGLE_SUCCESS;

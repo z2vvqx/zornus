@@ -46,6 +46,9 @@ public final class PunishmentImposeKickCommand {
     public static LiteralArgumentBuilder<CommandSource> create(PunishmentService punishmentService, ProxyServer proxyServer) {
         return BrigadierCommand
                 .literalArgumentBuilder("kick")
+                .requires(source -> source.hasPermission(
+                        PunishmentProxyConstants.IMPOSE_KICK_COMMAND_PERMISSION
+                ))
                 .executes(context -> {
                     context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_IMPOSE_KICK));
                     return Command.SINGLE_SUCCESS;

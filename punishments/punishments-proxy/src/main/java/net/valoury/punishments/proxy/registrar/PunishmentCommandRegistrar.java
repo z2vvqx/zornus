@@ -4,24 +4,28 @@ import com.velocitypowered.api.command.CommandManager;
 import com.velocitypowered.api.proxy.ProxyServer;
 import net.valoury.punishments.proxy.command.PunishmentCommand;
 import net.valoury.punishments.proxy.service.PunishmentService;
+import net.valoury.punishments.proxy.service.PresetEvidenceCoordinator;
 import org.jspecify.annotations.NonNull;
 
 public final class PunishmentCommandRegistrar {
     private final @NonNull PunishmentService punishmentService;
     private final @NonNull ProxyServer proxyServer;
+    private final @NonNull PresetEvidenceCoordinator evidenceCoordinator;
 
     public PunishmentCommandRegistrar(
             @NonNull PunishmentService punishmentService,
-            @NonNull ProxyServer proxyServer
+            @NonNull ProxyServer proxyServer,
+            @NonNull PresetEvidenceCoordinator evidenceCoordinator
     ) {
         this.punishmentService = punishmentService;
         this.proxyServer = proxyServer;
+        this.evidenceCoordinator = evidenceCoordinator;
     }
 
     public void registerCommands(@NonNull CommandManager commandManager) {
         commandManager.register(
                 commandManager.metaBuilder("punishment").build(),
-                PunishmentCommand.create(punishmentService, proxyServer)
+                PunishmentCommand.create(punishmentService, proxyServer, evidenceCoordinator)
         );
     }
 }

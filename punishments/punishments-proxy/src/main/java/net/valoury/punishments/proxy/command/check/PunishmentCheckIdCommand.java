@@ -32,6 +32,9 @@ public final class PunishmentCheckIdCommand {
     public static LiteralArgumentBuilder<CommandSource> create(PunishmentService punishmentService) {
         return BrigadierCommand
                 .literalArgumentBuilder("id")
+                .requires(source -> source.hasPermission(
+                        PunishmentProxyConstants.CHECK_ID_COMMAND_PERMISSION
+                ))
                 .executes(context -> {
                     context.getSource().sendMessage(StringUtils.deserialize(PunishmentProxyConstants.USAGE_CHECK_ID));
                     return Command.SINGLE_SUCCESS;
